@@ -1,4 +1,4 @@
-package ExceptionHandling
+package Error
 
 object Reporter {
   def print(err: Error): Unit = {

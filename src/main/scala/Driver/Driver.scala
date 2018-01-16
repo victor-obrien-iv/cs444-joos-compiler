@@ -4,9 +4,11 @@ object Driver {
   def main(args: Array[String]): Unit = {
     try {
       CommandLine parseArgs args
+
+
     } catch {
-      case err: ExceptionHandling.Error => ExceptionHandling.Reporter.print( err )
+      case err: Error.Error => Error.Reporter.print( err )
     }
-    
+
   }
 }

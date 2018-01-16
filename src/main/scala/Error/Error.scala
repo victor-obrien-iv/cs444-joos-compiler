@@ -1,7 +1,7 @@
-package ExceptionHandling
+package Error
 
 object Type extends Enumeration {
-  val CommandLine = Value
+  val CommandLine: Type.Value = Value
 }
 
 case class Location ( lineNum: Integer, col: Integer, file: String )
