@@ -1,6 +1,6 @@
 package Error
 
-object Type extends Enumeration {
+case object Type extends Enumeration {
   val CommandLine: Type.Value = Value
 }
 
