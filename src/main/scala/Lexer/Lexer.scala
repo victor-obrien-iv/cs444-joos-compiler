@@ -16,30 +16,31 @@ object Lexer {
   )
 
   var lexeme: String = ""
+  var charNum, row, col: Int = 0 // TODO: add increments for row and col
 
-  def tokenize ( file: BufferedSource ): List[Result] = {
-    var tokens: ListBuffer[Result] = ListBuffer()
+  def tokenize ( file: BufferedSource ): List[Token.Token] = {
+    var tokens: ListBuffer[Token.Token] = ListBuffer()
     val fileList = file.toList
 
-    var i: Int = 0
-    while( i < fileList.size ) {
+    // TODO: consume leading whitespace
+
+    while( charNum < fileList.size ) {
 
       // Meta data containers
-      implicit object Ord extends Ordering[(Int, Result)] {
-        def compare(x: (Int, Result), y: (Int, Result)) = y._1.compare(x._1)
+      implicit object Ord extends Ordering[(Int, Token.Token)] {
+        def compare(x: (Int, Token.Token), y: (Int, Token.Token)) = y._1.compare(x._1)
       }
-      var resultHeap: PriorityQueue[(Int, Result)] = PriorityQueue.empty[(Int, Result)]
+      var resultHeap: PriorityQueue[(Int, Token.Token)] = PriorityQueue.empty[(Int, Token.Token)]
       val futures: Map[ActorRef, Option[Future[Any]]] = Map( DFAs.apply( 0 ) -> None )
       var activeDFAs: Set[ActorRef] = DFAs toSet
-      val prev: Int = i
+      val prev: Int = charNum
 
-      //
       while ( activeDFAs.nonEmpty ) {
 
         implicit val timeout: Timeout = 5 second;
         for( dfa <- activeDFAs ) {
-          if ( i < fileList.size ) {
-            val c: Char = fileList.apply(i)
+          if ( charNum < fileList.size ) {
+            val c: Char = fileList.apply(charNum)
             lexeme += c
             futures(dfa) = Some(dfa ask c)
           }
@@ -49,30 +50,45 @@ object Lexer {
         }
 
         for( f <- futures ) {
-          val r: Option[Result] = Await.result( f._2.get, Duration.Inf ).asInstanceOf[Option[Result]]
-          if ( r.isDefined ) {
-            // the dfa hit an error state and could move no further
-            // store the result and remove from activeDFAs
-            val ir = ( r.get.lexeme.length, r.get )
-            resultHeap += ir
-            activeDFAs = activeDFAs - f._1
+          val token: Option[Option[Token.Token]]
+            = Await.result( f._2.get, Duration.Inf ).asInstanceOf[Option[Option[Token.Token]]]
+          token match {
+            case None =>
+              // the dfa can continue accepting input
+              // don't do anything
+
+            case Some(None) =>
+              // the dfa never hit an accepting state
+              // just remove it from activeDFAs
+              activeDFAs = activeDFAs - f._1
+
+            case Some(Some(t)) =>
+              // the dfa hit an error state and could move no further
+              // store the result and remove from activeDFAs
+              val ir = (t.lexeme.toString.length, t)
+              resultHeap += ir
+              activeDFAs = activeDFAs - f._1
           }
         }
 
-        i += 1
+        charNum += 1
       }
 
+      if ( resultHeap.size > 0 ) {
+        // top of the heap will be the longest match and thus the token we want
+        val r: (Int, Token.Token) = resultHeap.max
 
-      // top of the heap will be the longest match and thus the token we want
-      val r: (Int, Result) = resultHeap.max
-      // reset i back to the next char to be processed
-      i = prev + r._1
-      lexeme = ""
-      // add the token to the list
-      // TODO: handle if the token is an error
-      if ( r._2.token == "ERROR")
-        i += 1
-      tokens += r._2
+        // add the token to the list
+        tokens += r._2
+
+        // reset charNum back to the next char to be processed
+        charNum = prev + r._1
+        lexeme = ""
+      } else {
+        // no dfa returned a token, throw an error
+        // TODO: throw the error
+      }
+
     }
 
     actorSystem.terminate()

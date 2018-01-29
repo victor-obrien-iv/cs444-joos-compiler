@@ -15,11 +15,17 @@ sealed trait Token {
   * @param row The row in the source that the token appeared
   * @param col The column in the source that token appeared
   */
-case class Identifier(lexeme: String, row: Int, col: String) extends Token
+case class Identifier(lexeme: String, row: Int, col: Int) extends Token
+
+
+/**
+  * Comment represents a comment in the Java source code.
+  */
+case class Comment(lexeme: String, row: Int, col: Int) extends Token
 
 /**
   * Keyword represents a Java keyword. Identifiers should be checked so they don't conflict
-  * with these keywords. Java has been prefixed so not to class with Scala types
+  * with these keywords. Java has been prefixed so not to clash with Scala types
   */
 sealed trait Keyword extends Token 
 

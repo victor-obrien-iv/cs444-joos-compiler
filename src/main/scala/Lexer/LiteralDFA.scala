@@ -22,9 +22,9 @@ class LiteralDFA extends DFA[LiteralDFA.Value] {
   var currentState = startState
 
   val acceptingStates = Map(
-    comment.SINGLE      -> "COMMENT",
-    comment.NEWLINE     -> "COMMENT",
-    comment.FWD_SLASH3  -> "COMMENT"
+    comment.SINGLE      -> Token.Comment.apply _,
+    comment.NEWLINE     -> Token.Comment.apply _,
+    comment.FWD_SLASH3  -> Token.Comment.apply _
   )
 
   val transitions =
@@ -56,7 +56,7 @@ class LiteralDFA extends DFA[LiteralDFA.Value] {
 
   def receive: PartialFunction[Any, Unit] = {
     case c: Char => sender() ! run(c)
-    case EOF() => sender() ! lastAcceptState
+    case EOF() => sender() ! lastToken
 //    case Reset => {
 //      currentState = START
 //      lastAcceptState = Some( Result() )
