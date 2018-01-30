@@ -13,6 +13,7 @@ object DFA {
   val alphanumeric: String = letters + digits
   val hexDigits = "0123456789ABCDEFabcdef"
   val oneToNine =  "123456789"
+  val escapeChars = "btnfr\'\"\\"
   val allAscii: immutable.IndexedSeq[Char] = for (i <- 32 to 126 ) yield i.toChar
 }
 
