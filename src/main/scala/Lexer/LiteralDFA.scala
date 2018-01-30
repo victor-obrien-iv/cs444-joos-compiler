@@ -56,10 +56,6 @@ class LiteralDFA extends DFA[LiteralDFA.Value] {
 
   def receive: PartialFunction[Any, Unit] = {
     case c: Char => sender() ! run(c)
-    case EOF() => sender() ! lastToken
-//    case Reset => {
-//      currentState = START
-//      lastAcceptState = Some( Result() )
-//    }
+    case EOF() => sender() ! Some(lastToken)
   }
 }

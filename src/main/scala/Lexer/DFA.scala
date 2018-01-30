@@ -4,10 +4,7 @@ import akka.actor.Actor
 
 import scala.collection.immutable
 
-//case class Result( lexeme: String = "", token: String = "ERROR" /*TODO: replace with token class*/)
-
 case class EOF()
-//case class Reset()
 
 object DFA {
   val whitespace = "\t\n\r "
@@ -48,7 +45,7 @@ abstract class DFA[state] extends Actor {
           // this being max munch we need to know how many chars along we are
 
           val tokenCtor = acceptingStates.apply(currentState)
-          lastToken = Some(tokenCtor(Lexer.lexeme, 0, 0)) // TODO: change this to row, col
+          lastToken = Some(tokenCtor(Lexer.state.getLexeme, Lexer.state.getRow, Lexer.state.getCol))
         }
 
         // return none to indicate we can handle more input

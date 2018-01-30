@@ -4,8 +4,11 @@ version := "0.1"
 
 scalaVersion := "2.12.4"
 
+// show all warnings during compilation
+scalacOptions ++= Seq("-deprecation", "-feature")
+
 // allow for the killing of the run without killing sbt
-fork in run := true
+//fork in run := true
 
 // assert java 8
 initialize := {
