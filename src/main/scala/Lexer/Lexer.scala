@@ -58,7 +58,9 @@ object Lexer {
       if (char == eofChar) true
       else false
     }
-    private[Lexer] def trimWhitespace(file: List[Char]): Unit = {
+
+    // returns false if eof is hit, true otherwise
+    private[Lexer] def trimWhitespace(file: List[Char]): Boolean = {
       while ( charNum < file.size
               && DFA.whitespace.contains( file.apply(charNum) )) {
         if ( file.apply(charNum) == '\n' ) {
@@ -71,10 +73,12 @@ object Lexer {
       if ( charNum < file.size ) {
         char = file.apply(charNum)
         prev = charNum
-        lexeme = char toString
+        lexeme = char.toString
+        true
       } else {
         char = eofChar
         lexeme = ""
+        false
       }
     }
   }
@@ -82,15 +86,11 @@ object Lexer {
 
   def tokenize ( file: BufferedSource ): List[Token.Token] = {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
-    val fileList = file toList
+    val fileList = file.toList
 
     state.advance(fileList)
 
-    // TODO: consume leading whitespace
-
-    do {
-
-      state.trimWhitespace(fileList)
+    while( state.trimWhitespace(fileList) ) {
 
       // Meta data containers
       implicit object Ord extends Ordering[(Int, Token.Token)] {
@@ -98,25 +98,21 @@ object Lexer {
       }
       var resultHeap: PriorityQueue[(Int, Token.Token)] = PriorityQueue.empty[(Int, Token.Token)]
       val futures: Map[ActorRef, Option[Future[Any]]] = Map( DFAs.apply( 0 ) -> None )
-      var activeDFAs: Set[ActorRef] = DFAs toSet
+      var activeDFAs: Set[ActorRef] = DFAs.toSet
 
-//      state.checkpoint()
-
-      while ( activeDFAs.nonEmpty ) {
+      do {
         implicit val timeout: Timeout = 5 second
 
+        // ask each dfa
         for( dfa <- activeDFAs ) {
-          if ( !state.eof ) {
-//            val c: Char = fileList.apply(state.charNum)
-//            state.lexeme += c
+          if ( !state.eof )
             futures(dfa) = Some(dfa ask state.getChar)
-//            state.advance()
-          }
           else
             // we've hit eof, have each remaining dfa report its last accept state
             futures( dfa ) = Some(dfa ask EOF())
         }
 
+        // read each response
         for( f <- futures ) {
           val token: Option[Option[Token.Token]]
             = Await.result( f._2.get, Duration.Inf ).asInstanceOf[Option[Option[Token.Token]]]
@@ -133,16 +129,16 @@ object Lexer {
             case Some(Some(t)) =>
               // the dfa hit an error state and could move no further
               // store the result and remove from activeDFAs
-              val ir = (t.lexeme.toString.length, t)
-              resultHeap += ir
+              val r = (t.lexeme.toString.length, t)
+              resultHeap += r
               activeDFAs = activeDFAs - f._1
           }
         }
 
-//        state.charNum += 1
         state.advance(fileList)
-      }
+      } while( activeDFAs.nonEmpty )
 
+      // the DFAs have finished, take the longest result
       if ( resultHeap.nonEmpty ) {
         // top of the heap will be the longest match and thus the token we want
         val top: (Int, Token.Token) = resultHeap.max
@@ -151,8 +147,6 @@ object Lexer {
         tokens += top._2
 
         // reset charNum back to the next char to be processed
-//        state.charNum = prev + token._1
-//        state.lexeme = ""
         state.restoreTo(top._2)
         state.advance(fileList)
       } else {
@@ -160,12 +154,9 @@ object Lexer {
         // TODO: throw the error
         println("Error: " + state.getChar)
       }
-
-    } while ( !state.eof )
+    }
 
     actorSystem.terminate()
-
     tokens.toList
   }
-
 }
