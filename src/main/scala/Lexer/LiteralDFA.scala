@@ -10,7 +10,7 @@ object LiteralDFA extends Enumeration {
   }
 
   // states used for string literals
-  object strLit {
+  object str {
     val QUOTE, STR, ESC, QUOTE2, PRE_SPACE,
         PLUS, POST_SPACE = Value
   }
@@ -21,9 +21,21 @@ object LiteralDFA extends Enumeration {
   }
 
   // states for an octal escape, ex: \064
-  object octal {
+  object octalEsc {
     val DIGIT1, DIGIT2 = Value
   }
+
+//  object decInt {
+//
+//  }
+//
+//  object hexInt {
+//
+//  }
+//
+//  object octInt {
+//
+//  }
 }
 
 class LiteralDFA extends DFA[LiteralDFA.Value] {
@@ -36,7 +48,7 @@ class LiteralDFA extends DFA[LiteralDFA.Value] {
     comment.SINGLE      -> Token.Comment.apply _,
     comment.NEWLINE     -> Token.Comment.apply _,
     comment.FWD_SLASH3  -> Token.Comment.apply _,
-    strLit.QUOTE2       -> Token.StringLiteral.apply _
+    str.QUOTE2          -> Token.StringLiteral.apply _
   )
 
   val commentTransitions: Map[(Value, Char), Value] =
@@ -65,60 +77,69 @@ class LiteralDFA extends DFA[LiteralDFA.Value] {
   val strTransitions: Map[(Value, Char), Value] =
     // transitions for string literals
     Map (
-      (START, '\"')             -> strLit.QUOTE,      // "
+      (START, '\"')             -> str.QUOTE,         // "
     ) ++
                                                       // "f
     (DFA.allAscii filterNot ((c: Char) => c == '\"' || c == '\\') ).map(c =>
-      (strLit.QUOTE, c)         -> strLit.STR ).toMap ++
+      (str.QUOTE, c)            -> str.STR ).toMap ++
                                                       // "foo
     (DFA.allAscii filterNot ((c: Char) => c == '\"' || c == '\\') ).map(c =>
-      (strLit.STR, c)           -> strLit.STR ).toMap ++
+      (str.STR, c)              -> str.STR ).toMap ++
     Map (
-      (strLit.QUOTE, '\\')      -> strLit.ESC,        // "\
-      (strLit.STR, '\\')        -> strLit.ESC,        // "foo \
-      (strLit.STR, '\"')        -> strLit.QUOTE2,     // "foo"
-      (strLit.QUOTE, '\"')      -> strLit.QUOTE2      // ""
+      (str.QUOTE, '\\')         -> str.ESC,           // "\
+      (str.STR, '\\')           -> str.ESC,           // "foo \
+      (str.STR, '\"')           -> str.QUOTE2,        // "foo \064"
+      (str.QUOTE, '\"')         -> str.QUOTE2         // ""
     ) ++
     DFA.whitespace.map( c =>                          // "foo"_
-      (strLit.QUOTE2, c)        -> strLit.PRE_SPACE ).toMap ++
+      (str.QUOTE2, c)           -> str.PRE_SPACE ).toMap ++
     DFA.whitespace.map( c =>                          // "foo"____
-      (strLit.PRE_SPACE, c)     -> strLit.PRE_SPACE ).toMap ++
+      (str.PRE_SPACE, c)        -> str.PRE_SPACE ).toMap ++
     Map (
-      (strLit.PRE_SPACE, '+')   -> strLit.PLUS        // "foo"____+
+      (str.PRE_SPACE, '+')      -> str.PLUS           // "foo"____+
     ) ++
     DFA.whitespace.map( c =>                          // "foo"____+_
-      (strLit.PLUS, c)          -> strLit.POST_SPACE ).toMap ++
+      (str.PLUS, c)             -> str.POST_SPACE ).toMap ++
     DFA.whitespace.map( c =>                          // "foo"____+____
-      (strLit.POST_SPACE, c)    -> strLit.POST_SPACE ).toMap ++
+      (str.POST_SPACE, c)       -> str.POST_SPACE ).toMap ++
     Map (
-      (strLit.POST_SPACE, '\"') -> strLit.STR         // "foo"____+____"
+      (str.POST_SPACE, '\"')    -> str.STR            // "foo"____+____"
     )
 
-//  val charTransitions: Map[(Value, Char), Value] = {
-//    Map (
-//      (START, '\'')             ->
-//    )
-//  }
+  val charTransitions: Map[(Value, Char), Value] =
+    Map (
+      (START, '\'')             -> char.APOST,        // '
+      (char.APOST, '\\')        -> char.ESC           // '\
+    ) ++
+                                                      // 'f
+    (DFA.allAscii filterNot ((c: Char) => c == '\'' || c == '\\') ).map(c =>
+      (char.APOST, c)           -> char.CHAR ).toMap ++
+    Map (
+      (char.CHAR, '\'')         -> char.APOST2        // 'f' '\064'
+    )
+
 
   def escTransitions(from: Value, to: Value): Map[(Value, Char), Value] = {
     // transitions for escape characters
-    DFA.escapeChars.map( c =>                       // "\n
+    DFA.escapeChars.map( c =>                         // "\n
       (from, c)                 -> to ).toMap ++
     // transitions for octal escapes in strings
-    (DFA.digits filter '3'.>= ).map( c =>           // "\0
-      (from, c)                 -> octal.DIGIT1).toMap ++
-    (DFA.digits filter '4'.<= ).map( c =>           // "\8
-      (from, c)                 -> octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                            // "\06
-      (octal.DIGIT1, c)         -> octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                            // "\064
-      (octal.DIGIT2, c)         -> to ).toMap
+    (DFA.digits filter '3'.>= ).map( c =>             // "\0
+      (from, c)                 -> octalEsc.DIGIT1).toMap ++
+    (DFA.digits filter '4'.<= ).map( c =>             // "\8
+      (from, c)                 -> octalEsc.DIGIT2).toMap ++
+    DFA.digits.map( c =>                              // "\06
+      (octalEsc.DIGIT1, c)         -> octalEsc.DIGIT2).toMap ++
+    DFA.digits.map( c =>                              // "\064
+      (octalEsc.DIGIT2, c)         -> to ).toMap
   }
 
   val transitions: Map[(Value, Char), Value] =
     commentTransitions ++
     strTransitions ++
-    escTransitions(strLit.ESC, strLit.STR)
+    escTransitions(str.ESC, str.STR) ++
+    charTransitions ++
+    escTransitions(char.ESC, char.CHAR)
 
   def receive: PartialFunction[Any, Unit] = {
     case c: Char => sender() ! run(c)
