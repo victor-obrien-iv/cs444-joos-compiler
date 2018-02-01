@@ -84,8 +84,8 @@ sealed trait Literal extends Token
 
 case class IntegerLiteral(lexeme: Int, row: Int, col: Int) extends Literal
 case class BooleanLiteral(lexeme: Boolean, row: Int, col: Int) extends Literal
-case class CharacterLiteral(lexeme: Char, row: Int, col: Int) extends Literal
-case class StringLiteral(lexeme: String, row: Int, col: Int) extends Literal
+case class CharacterLiteral(lexeme: String, row: Int, col: Int, value: Char) extends Literal
+case class StringLiteral(lexeme: String, row: Int, col: Int, value: String) extends Literal
 case class NullLiteral(lexeme: Any = null, row: Int, col: Int) extends Literal
 
 /**

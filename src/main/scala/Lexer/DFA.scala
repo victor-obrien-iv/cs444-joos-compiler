@@ -1,5 +1,6 @@
 package Lexer
 
+import Token.Token
 import akka.actor.Actor
 
 import scala.collection.immutable
@@ -12,17 +13,19 @@ object DFA {
   val digits = "0123456789"
   val alphanumeric: String = letters + digits
   val hexDigits = "0123456789ABCDEFabcdef"
+  val octDigits = "01234567"
   val oneToNine =  "123456789"
   val escapeChars = "btnfr\'\"\\"
   val allAscii: immutable.IndexedSeq[Char] = for (i <- 32 to 126 ) yield i.toChar
 }
 
-abstract class DFA[state] extends Actor {
+abstract class DFA[state](status: Lexer.Status) extends Actor {
+  val lexerStatus: Lexer.Status = status
+
   var lastToken: Option[Token.Token] = None
   var currentState: state
   val startState: state
-
-  val acceptingStates: Map[state, (String, Int, Int) => Token.Token]
+  val acceptingStates: Map[state, () => Token.Token]
   val transitions: Map[(state, Char), state]
 
   def run( c: Char ): Option[Option[Token.Token]] = {
@@ -31,10 +34,8 @@ abstract class DFA[state] extends Actor {
     nextState match {
       case None =>
         // we have hit an error state, return the last accept state
-        currentState = startState
         val retVal = Some(lastToken)
-        lastToken = None
-
+        reset()
         retVal
 
       case Some(s) =>
@@ -43,15 +44,18 @@ abstract class DFA[state] extends Actor {
 
         // this state may be an accepted one
         if (acceptingStates.contains(currentState)) {
-          // this being max munch we need to know how many chars along we are
-
-          val tokenCtor = acceptingStates.apply(currentState)
-          lastToken = Some(tokenCtor(Lexer.state.getLexeme, Lexer.state.getRow, Lexer.state.getCol))
+          val tokenCtor: () => Token = acceptingStates.apply(currentState)
+          lastToken = Some(tokenCtor())
         }
 
         // return none to indicate we can handle more input
         None
     }
+  }
+
+  def reset(): Unit = {
+    lastToken = None
+    currentState = startState
   }
 }
 
