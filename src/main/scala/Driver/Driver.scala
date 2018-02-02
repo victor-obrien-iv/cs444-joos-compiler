@@ -13,7 +13,7 @@ object Driver {
       for( f <- CommandLine.files ) {
         val file: BufferedSource = Source.fromFile( f )
 
-        val tokens = Lexer.Lexer.tokenize( file )
+        val tokens = Lexer.Lexer.tokenize( f, file )
 
         for( t <- tokens ) println( t ) // just print out the tokens for now
         file.close

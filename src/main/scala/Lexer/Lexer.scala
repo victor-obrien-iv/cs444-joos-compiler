@@ -6,7 +6,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.util.Timeout
 
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, Map, PriorityQueue}
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -14,14 +14,13 @@ import scala.language.postfixOps
 object Lexer {
   val actorSystem = ActorSystem( "actorSystem" )
 
-  case class Status(fileList: List[Char]) {
-    private val file: List[Char] = fileList
+  class Status(val fileName: String, val fileList: List[Char]) {
     private var lexeme: String = ""
     private var row: Int = 1
     private var col: Int = 1
     private var charNum: Int = 0
     private var prev: Int = 0
-    private def char: Char = { file.apply(charNum) }
+    private def char: Char = { fileList.apply(charNum) }
 
     def getLexeme: String = { lexeme }
     def getRow: Int = { row }
@@ -47,12 +46,12 @@ object Lexer {
       lexeme = ""
     }
     private[Lexer] def eof: Boolean = {
-      if ( charNum < file.size ) false
+      if ( charNum < fileList.size ) false
       else true
     }
     // returns false if eof is hit, true otherwise
     private[Lexer] def trimWhitespace(): Boolean = {
-      while ( !eof && DFA.whitespace.contains( file.apply(charNum) )) {
+      while ( !eof && DFA.whitespace.contains( fileList.apply(charNum) )) {
         advance()
       }
       if ( !eof ) {
@@ -66,9 +65,9 @@ object Lexer {
     }
   }
 
-  def tokenize ( file: BufferedSource ): List[Token.Token] = {
+  def tokenize ( fileName: String, file: BufferedSource ): List[Token.Token] = {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
-    val status = Status(file.toList)
+    val status = new Status( fileName, file.toList )
     val DFAs: Array[ActorRef] = Array(
       actorSystem.actorOf( Props(new LiteralDFA(status)), "LiteralDFA" )
     )

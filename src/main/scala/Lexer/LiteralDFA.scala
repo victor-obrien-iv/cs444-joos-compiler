@@ -2,6 +2,7 @@ package Lexer
 
 import Token.Token
 
+
 object LiteralDFA extends Enumeration {
   val START: Value = Value
 
@@ -26,20 +27,12 @@ object LiteralDFA extends Enumeration {
     }
   }
 
-//  scala> val g = BigInt("060", 8)
-//  g: scala.math.BigInt = 48
-
-//  object decInt {
-//
-//  }
-//
-//  object hexInt {
-//
-//  }
-//
-//  object octInt {
-//
-//  }
+  object int {
+    val ZERO, NEG, INT = Value
+    // intMax in JOOS is 2^31 -1, but intMin is -2^31. Given '-' is
+    // tokenized as minus operator, the lexer considers the max to be 2^31
+    val max: BigInt = 2147483648L // 2^31
+  }
 }
 
 class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
@@ -70,6 +63,24 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
         val unescaped: String = StringContext.treatEscapes(text)
         assert(unescaped.length == 1, "char must be of size 1")
         Token.CharacterLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, unescaped.charAt(0))
+      }),
+    int.INT             ->
+      (() => {
+        def throwTooBig(): Unit = {
+          throw Error.Error(lexerStatus.getLexeme,
+            "integer literal exceeds integer maximum of " + (int.max - 1).toString,
+            Error.Type.LiteralTokenizer, Some( Error.Location(lexerStatus.getRow, lexerStatus.getCol, lexerStatus.fileName)))
+        }
+
+        if ( lexerStatus.getLexeme.length > 10 ) throwTooBig()
+
+        val number: BigInt = BigInt(lexerStatus.getLexeme, 10)
+        if ( number == int.max )
+          Token.IntegerMaxLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, -2147483648)
+        else {
+          if ( number > int.max ) throwTooBig()
+          Token.IntegerLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, number.toInt)
+        }
       })
   )
 
@@ -97,7 +108,6 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
     )
 
   val strTransitions: Map[(Value, Char), Value] =
-    // transitions for string literals
     Map (
       (START, '\"')             -> str.QUOTE,         // "
     ) ++
@@ -118,14 +128,16 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
     DFA.whitespace.map( c =>                          // "foo"____
       (str.PRE_SPACE, c)        -> str.PRE_SPACE ).toMap ++
     Map (
-      (str.PRE_SPACE, '+')      -> str.PLUS           // "foo"____+
+      (str.PRE_SPACE, '+')      -> str.PLUS,          // "foo"____+
+      (str.QUOTE2, '+')         -> str.PLUS           // "foo"+
     ) ++
     DFA.whitespace.map( c =>                          // "foo"____+_
       (str.PLUS, c)             -> str.POST_SPACE ).toMap ++
     DFA.whitespace.map( c =>                          // "foo"____+____
       (str.POST_SPACE, c)       -> str.POST_SPACE ).toMap ++
     Map (
-      (str.POST_SPACE, '\"')    -> str.QUOTE          // "foo"____+____"
+      (str.POST_SPACE, '\"')    -> str.QUOTE,         // "foo"____+____"
+      (str.PLUS, '\"')          -> str.QUOTE          // "foo"+"
     ) ++
     // transition for escape characters
     DFA.escapeChars.map( c =>                         // "\n
@@ -147,8 +159,6 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
     // transition for escape characters
     DFA.escapeChars.map( c =>                         // '\n
       (char.ESC, c)             -> char.CHAR ).toMap  ++
-//    DFA.octDigits.map( c =>                           // '\0
-//      (char.ESC, c)              -> char.CHAR ).toMap
     // transitions for octal escapes in strings
     (DFA.digits filter '3'.>= ).map( c =>             // '\0
       (char.ESC, c)             -> char.octal.DIGIT1).toMap ++
@@ -163,11 +173,21 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
       (char.octal.DIGIT2, '\'') -> char.APOST2        // '\064'
     )
 
+  val intTransitions: Map[(Value, Char), Value] =
+    Map (
+      (START, '0')              -> int.ZERO,          // 0
+    ) ++
+    DFA.oneToNine.map( c =>                           // 3
+      (START, c)                -> int.INT ).toMap ++
+    DFA.digits.map( c =>                              // 36
+      (int.INT, c)              -> int.INT ).toMap
+
 
   val transitions: Map[(Value, Char), Value] =
     commentTransitions ++
     strTransitions ++
-    charTransitions
+    charTransitions ++
+    intTransitions
 
   def receive: PartialFunction[Any, Unit] = {
     case c: Char =>
