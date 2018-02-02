@@ -83,7 +83,6 @@ case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keywor
 sealed trait Literal extends Token
 
 case class IntegerLiteral(lexeme: String, row: Int, col: Int, value: Int) extends Literal
-  case class IntegerMaxLiteral(lexeme: String, row: Int, col: Int, value: Int) extends Literal
 case class BooleanLiteral(lexeme: Boolean, row: Int, col: Int) extends Literal
 case class CharacterLiteral(lexeme: String, row: Int, col: Int, value: Char) extends Literal
 case class StringLiteral(lexeme: String, row: Int, col: Int, value: String) extends Literal

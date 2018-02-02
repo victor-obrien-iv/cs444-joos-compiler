@@ -28,7 +28,7 @@ object LiteralDFA extends Enumeration {
   }
 
   object int {
-    val ZERO, NEG, INT = Value
+    val ZERO, INT = Value
     // intMax in JOOS is 2^31 -1, but intMin is -2^31. Given '-' is
     // tokenized as minus operator, the lexer considers the max to be 2^31
     val max: BigInt = 2147483648L // 2^31
@@ -76,7 +76,8 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
 
         val number: BigInt = BigInt(lexerStatus.getLexeme, 10)
         if ( number == int.max )
-          Token.IntegerMaxLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, -2147483648)
+          // TODO: how should this case be handled? 2^31 can only appear with a unary minus operator in front of it
+          Token.IntegerLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, -2147483648)
         else {
           if ( number > int.max ) throwTooBig()
           Token.IntegerLiteral.apply (lexerStatus.getLexeme, lexerStatus.getRow, lexerStatus.getCol, number.toInt)
