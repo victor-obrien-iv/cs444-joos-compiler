@@ -102,7 +102,7 @@ case class LBrace(lexeme:String = "{", row: Int, col: Int) extends Separator
 case class RBrace(lexeme:String = "}", row: Int, col: Int) extends Separator
 case class LBrack(lexeme:String = "[", row: Int, col: Int) extends Separator
 case class RBrack(lexeme:String = "]", row: Int, col: Int) extends Separator
-case class SemiColon(lexeme:String = ":",  row: Int, col: Int) extends Separator
+case class SemiColon(lexeme:String = ";",  row: Int, col: Int) extends Separator
 case class Comma(lexeme:String = ",", row: Int, col: Int) extends Separator
 case class Dot(lexeme:String = ".", row: Int, col: Int) extends Separator
 
@@ -119,10 +119,10 @@ case class GE(lexeme:String = ">=", row: Int, col: Int) extends Operator
 case class LE(lexeme:String = "<=", row: Int, col: Int) extends Operator
 case class NE(lexeme:String = "!=", row: Int, col: Int) extends Operator
 case class Bang(lexeme:String = "!", row: Int, col: Int) extends Operator
-case class AmbAmb(lexeme:String = "&&", row: Int, col: Int) extends Operator
-case class LineLine(lexeme:String = "||", row: Int, col: Int) extends Operator
-case class Amb(lexeme:String = "&", row: Int, col: Int) extends Operator
-case class Line(lexeme:String = "|", row: Int, col: Int) extends Operator
+case class AmpAmp(lexeme:String = "&&", row: Int, col: Int) extends Operator
+case class BarBar(lexeme:String = "||", row: Int, col: Int) extends Operator
+case class Amp(lexeme:String = "&", row: Int, col: Int) extends Operator
+case class Bar(lexeme:String = "|", row: Int, col: Int) extends Operator
 case class Plus(lexeme:String = "+", row: Int, col: Int) extends Operator
 case class Minus(lexeme:String ="-", row: Int, col: Int) extends Operator
 case class Star(lexeme:String = "*", row: Int, col: Int) extends Operator

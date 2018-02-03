@@ -39,8 +39,8 @@ object Lexer {
       }
     }
     private[Lexer] def restoreTo(token: Token.Token): Unit = {
-      row = token.row //- 1
-      col = token.col
+      row = token.row
+      col = token.col + 1
       charNum = prev + token.lexeme.toString.length
       prev = charNum
       lexeme = ""
@@ -70,14 +70,15 @@ object Lexer {
     val status = new Status( fileName, file.toList )
     val DFAs: Array[ActorRef] = Array(
       actorSystem.actorOf( Props(new LiteralDFA(status)), "LiteralDFA" ),
-      actorSystem.actorOf( Props(new IdentifierDFA(status)), "IdentifierDFA" )
+      actorSystem.actorOf( Props(new IdentifierDFA(status)), "IdentifierDFA" ),
+      actorSystem.actorOf( Props(new PunctuationDFA(status)), "PunctuationDFA" )
     )
 
     while( status.trimWhitespace() ) {
 
       // Meta data containers
       implicit object Ord extends Ordering[(Int, Token.Token)] {
-        def compare(x: (Int, Token.Token), y: (Int, Token.Token)): Int = y._1.compare(x._1)
+        def compare(x: (Int, Token.Token), y: (Int, Token.Token)): Int = x._1.compare(y._1)
       }
       var resultHeap: mutable.PriorityQueue[(Int, Token.Token)] = mutable.PriorityQueue.empty[(Int, Token.Token)]
       val futures: mutable.Map[ActorRef, Option[Future[Any]]] = mutable.Map( DFAs.apply( 0 ) -> None )
@@ -136,7 +137,7 @@ object Lexer {
       } else {
         // no dfa returned a token, throw an error
         // TODO: throw the error
-        if ( !status.eof ) println("Error: " + status.getChar)
+        if ( !status.eof ) println("Error: " + status.getChar + " line: " + status.getRow + " col: " + status.getCol)
       }
     }
 
