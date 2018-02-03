@@ -135,7 +135,7 @@ object Lexer {
       } else {
         // no dfa returned a token, throw an error
         // TODO: throw the error
-        println("Error: " + status.getChar)
+        if ( !status.eof ) println("Error: " + status.getChar)
       }
     }
 
