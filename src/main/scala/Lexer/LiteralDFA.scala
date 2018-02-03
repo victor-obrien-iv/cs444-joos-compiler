@@ -64,6 +64,7 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
         assert(unescaped.length == 1, "char must be of size 1")
         Token.CharacterLiteral.apply (status.getLexeme, status.getRow, status.getCol, unescaped.charAt(0))
       }),
+    int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
       (() => {
         def throwTooBig(): Unit = {
