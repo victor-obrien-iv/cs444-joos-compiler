@@ -81,20 +81,20 @@ object Lexer {
         def compare(x: (Int, Token.Token), y: (Int, Token.Token)): Int = x._1.compare(y._1)
       }
       var resultHeap: mutable.PriorityQueue[(Int, Token.Token)] = mutable.PriorityQueue.empty[(Int, Token.Token)]
-      val futures: mutable.Map[ActorRef, Option[Future[Any]]] = mutable.Map( DFAs.apply( 0 ) -> None )
       var activeDFAs: Set[ActorRef] = DFAs.toSet
 
+
       do {
+
         implicit val timeout: Timeout = 5 second
 
         // ask each dfa
-        for( dfa <- activeDFAs ) {
+        val futures: Map[ActorRef, Option[Future[Any]]] =
           if ( !status.eof )
-            futures(dfa) = Some(dfa ask status.getChar)
+            ( for( dfa <- activeDFAs ) yield dfa -> Some(dfa ask status.getChar) ).toMap
           else
             // we've hit eof, have each remaining dfa report its last accept state
-            futures( dfa ) = Some(dfa ask EOF())
-        }
+            ( for( dfa <- activeDFAs ) yield dfa -> Some(dfa ask EOF()) ).toMap
 
         // read each response
         for( f <- futures ) {
@@ -119,10 +119,14 @@ object Lexer {
           }
         }
 
-        if ( !status.eof ) status.advance()
-        else assert(activeDFAs.isEmpty, "Each DFA must finish after receiving eof")
-
-      } while( activeDFAs.nonEmpty )
+      } while(
+        if ( activeDFAs.nonEmpty ) {
+          if ( !status.eof ) status.advance()
+          true
+        }
+        else
+          false
+      )
 
       // the DFAs have finished, take the longest result
       if ( resultHeap.nonEmpty ) {
@@ -137,7 +141,8 @@ object Lexer {
       } else {
         // no dfa returned a token, throw an error
         // TODO: throw the error
-        if ( !status.eof ) println("Error: " + status.getChar + " line: " + status.getRow + " col: " + status.getCol)
+        println("ERROR line: " + status.getRow + " col: " + status.getCol)
+        status.advance()
       }
     }
 
