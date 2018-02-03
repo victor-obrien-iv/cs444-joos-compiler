@@ -35,7 +35,7 @@ object LiteralDFA extends Enumeration {
   }
 }
 
-class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
+class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
   import LiteralDFA._
 
   val startState: Value = START
@@ -70,7 +70,7 @@ class LiteralDFA(status: Lexer.Status) extends DFA[LiteralDFA.Value](status) {
         def throwTooBig(): Unit = {
           throw Error.Error(status.getLexeme,
             "integer literal exceeds integer maximum of " + (int.max - 1).toString,
-            Error.Type.LiteralTokenizer, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
+            Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
         }
 
         if ( status.getLexeme.length > 10 ) throwTooBig()

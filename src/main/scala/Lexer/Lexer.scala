@@ -1,8 +1,8 @@
 package Lexer
 
-import scala.io.BufferedSource
+import scala.io.{BufferedSource, Source}
 import akka.pattern.ask
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.util.Timeout
 
 import scala.collection.mutable
@@ -11,63 +11,71 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
-object Lexer {
-  val actorSystem = ActorSystem( "actorSystem" )
+class Status(val fileName: String) {
+  val file: BufferedSource = Source.fromFile( fileName )
+  val fileList: List[Char] = file.toList
+  private var lexeme: String = ""
+  private var row: Int = 1
+  private var col: Int = 1
+  private var charNum: Int = 0
+  private var prev: Int = 0
+  private def char: Char = { fileList.apply(charNum) }
 
-  class Status(val fileName: String, val fileList: List[Char]) {
-    private var lexeme: String = ""
-    private var row: Int = 1
-    private var col: Int = 1
-    private var charNum: Int = 0
-    private var prev: Int = 0
-    private def char: Char = { fileList.apply(charNum) }
+  def getLexeme: String = { lexeme }
+  def getRow: Int = { row }
+  def getCol: Int = { col }
+  def getChar: Char = { char }
 
-    def getLexeme: String = { lexeme }
-    def getRow: Int = { row }
-    def getCol: Int = { col }
-    def getChar: Char = { char }
-
-    private[Lexer] def advance(): Unit = {
-      charNum += 1
-      col += 1
-      if ( !eof ) {
-        if ( char == '\n' ) {
-          row += 1
-          col = 0
-        }
-        lexeme += char
+  private[Lexer] def advance(): Unit = {
+    charNum += 1
+    col += 1
+    if ( !eof ) {
+      if ( char == '\n' ) {
+        row += 1
+        col = 0
       }
-    }
-    private[Lexer] def restoreTo(token: Token.Token): Unit = {
-      row = token.row
-      col = token.col + 1
-      charNum = prev + token.lexeme.toString.length
-      prev = charNum
-      lexeme = ""
-    }
-    private[Lexer] def eof: Boolean = {
-      if ( charNum < fileList.size ) false
-      else true
-    }
-    // returns false if eof is hit, true otherwise
-    private[Lexer] def trimWhitespace(): Boolean = {
-      while ( !eof && DFA.whitespace.contains( fileList.apply(charNum) )) {
-        advance()
-      }
-      if ( !eof ) {
-        prev = charNum
-        lexeme = char.toString
-        true
-      } else {
-        lexeme = ""
-        false
-      }
+      lexeme += char
     }
   }
 
-  def tokenize ( fileName: String, file: BufferedSource ): List[Token.Token] = {
+  private[Lexer] def restoreTo(token: Token.Token): Unit = {
+    row = token.row
+    col = token.col + 1
+    charNum = prev + token.lexeme.toString.length
+    prev = charNum
+    lexeme = ""
+  }
+
+  private[Lexer] def eof: Boolean = {
+    if ( charNum < fileList.size ) false
+    else true
+  }
+
+  // returns false if eof is hit, true otherwise
+  private[Lexer] def trimWhitespace(): Boolean = {
+    while ( !eof && DFA.whitespace.contains( fileList.apply(charNum) )) {
+      advance()
+    }
+    if ( !eof ) {
+      prev = charNum
+      lexeme = char.toString
+      true
+    } else {
+      lexeme = ""
+      false
+    }
+  }
+
+  private[Lexer] def close(): Unit = {
+    file.close
+  }
+}
+
+class Lexer(actorSystem: ActorSystem) extends Actor {
+
+  def tokenize ( fileName: String ): List[Token.Token] = {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
-    val status = new Status( fileName, file.toList )
+    val status = new Status( fileName )
     val DFAs: Array[ActorRef] = Array(
       actorSystem.actorOf( Props(new LiteralDFA(status)), "LiteralDFA" ),
       actorSystem.actorOf( Props(new IdentifierDFA(status)), "IdentifierDFA" ),
@@ -85,7 +93,6 @@ object Lexer {
 
 
       do {
-
         implicit val timeout: Timeout = 5 second
 
         // ask each dfa
@@ -140,13 +147,17 @@ object Lexer {
         status.restoreTo(top._2)
       } else {
         // no dfa returned a token, throw an error
-        // TODO: throw the error
-        println("ERROR line: " + status.getRow + " col: " + status.getCol)
-        status.advance()
+        println("thing happened")
+        throw Error.Error(status.getLexeme, "Unable to tokenize", Error.Type.Lexer,
+          Some( Error.Location(status.getRow, status.getCol, status.fileName)))
       }
     }
 
-    actorSystem.terminate()
+    status.close()
     tokens.toList
+  }
+
+  override def receive: Receive = {
+    case f: String => sender() ! tokenize(f)
   }
 }

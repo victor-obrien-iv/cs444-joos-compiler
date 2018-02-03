@@ -17,7 +17,7 @@ object PunctuationDFA extends Enumeration {
   }
 }
 
-class PunctuationDFA(status: Lexer.Status) extends DFA[PunctuationDFA.Value](status) {
+class PunctuationDFA(status: Status) extends DFA[PunctuationDFA.Value](status) {
   import PunctuationDFA._
 
   val startState: Value = START

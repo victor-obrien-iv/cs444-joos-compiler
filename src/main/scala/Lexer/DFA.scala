@@ -20,7 +20,7 @@ object DFA {
   val allAscii: immutable.IndexedSeq[Char] = for (i <- 32 to 126 ) yield i.toChar
 }
 
-abstract class DFA[state](status: Lexer.Status) extends Actor {
+abstract class DFA[state](status: Status) extends Actor {
 
   var lastToken: Option[Token.Token] = None
   var currentState: state

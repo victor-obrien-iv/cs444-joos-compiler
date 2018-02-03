@@ -22,7 +22,7 @@ object IdentifierDFA extends Enumeration  {
   val START, ALPHA, ALPHANUM = Value
 }
 
-class IdentifierDFA(status: Lexer.Status) extends DFA[IdentifierDFA.Value](status){
+class IdentifierDFA(status: Status) extends DFA[IdentifierDFA.Value](status){
   import IdentifierDFA._
 
   val startState: Value = START
