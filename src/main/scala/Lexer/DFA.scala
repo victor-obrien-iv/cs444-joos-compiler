@@ -12,6 +12,7 @@ object DFA {
   val letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
   val digits = "0123456789"
   val alphanumeric: String = letters + digits
+  val javaLetters: String = letters + "_$"
   val hexDigits = "0123456789ABCDEFabcdef"
   val octDigits = "01234567"
   val oneToNine =  "123456789"
@@ -20,7 +21,6 @@ object DFA {
 }
 
 abstract class DFA[state](status: Lexer.Status) extends Actor {
-  val lexerStatus: Lexer.Status = status
 
   var lastToken: Option[Token.Token] = None
   var currentState: state
