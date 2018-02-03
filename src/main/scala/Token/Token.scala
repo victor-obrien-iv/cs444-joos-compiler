@@ -4,7 +4,7 @@ package Token
   * Token represents a token
   */
 sealed trait Token {
-  def lexeme: Any
+  def lexeme: String
   def row: Int
   def col: Int
 }
@@ -52,6 +52,7 @@ case class JavaGoto(lexeme:String = "goto", row: Int, col: Int) extends Keyword
 case class JavaIf(lexeme:String = "if", row: Int, col: Int) extends Keyword
 case class JavaImplements(lexeme:String = "implements", row: Int, col: Int) extends Keyword
 case class JavaImport(lexeme:String = "import", row: Int, col: Int) extends Keyword
+case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Keyword
 case class JavaInt(lexeme:String = "int", row: Int, col: Int) extends Keyword
 case class JavaInterface(lexeme:String = "interface", row: Int, col: Int) extends Keyword
 case class JavaLong(lexeme:String = "long", row: Int, col: Int) extends Keyword
@@ -83,10 +84,12 @@ case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keywor
 sealed trait Literal extends Token
 
 case class IntegerLiteral(lexeme: String, row: Int, col: Int, value: Int) extends Literal
-case class BooleanLiteral(lexeme: Boolean, row: Int, col: Int) extends Literal
+case class BooleanLiteral(row: Int, col: Int, value: Boolean) extends Literal {
+  val lexeme: String = if ( value ) "true" else "false"
+}
 case class CharacterLiteral(lexeme: String, row: Int, col: Int, value: Char) extends Literal
 case class StringLiteral(lexeme: String, row: Int, col: Int, value: String) extends Literal
-case class NullLiteral(lexeme: Any = null, row: Int, col: Int) extends Literal
+case class NullLiteral(lexeme: String = "null", row: Int, col: Int, value: Any = null) extends Literal
 
 /**
   * Java Separators
