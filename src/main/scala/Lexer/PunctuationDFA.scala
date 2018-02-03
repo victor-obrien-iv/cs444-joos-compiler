@@ -76,11 +76,12 @@ class PunctuationDFA(status: Lexer.Status) extends DFA[PunctuationDFA.Value](sta
     (operator.BANG, '=')      -> operator.NE,       // !=
     (START, '!')              -> operator.BANG,
     (operator.AMP, '&')       -> operator.AMPAMP,   // &&
-    (operator.BAR, '&')       -> operator.BARBAR,   // ||
+    (operator.BAR, '|')       -> operator.BARBAR,   // ||
     (START, '&')              -> operator.AMP,
     (START, '|')              -> operator.BAR,
     (START, '+')              -> operator.PLUS,
     (START, '-')              -> operator.MINUS,
+    (START, '*')              -> operator.STAR,
     (START, '/')              -> operator.SLASH,
     (START, '%')              -> operator.PERCENT,
   )
