@@ -1,12 +1,21 @@
 package Error
 
 import scala.io.{BufferedSource, Source}
+import scala.collection.mutable.ListBuffer
 
-object Reporter {
-  def print(err: Error): Unit = {
+import akka.actor.Actor
+
+case class Report()
+
+class Reporter extends Actor {
+  private var errors: ListBuffer[Error] = ListBuffer()
+
+  private def print(err: Error): Unit = {
     val str = err.kind match {
-      case Type.CommandLine => "An error occurred with command line argument: " + err.cause
-      case _ => "An error occurred: " + err.cause
+      case Type.CommandLine   => "An error occurred with command line argument: " + err.cause
+      case Type.Lexer         => "Failure to tokenize: " + err.cause
+      case Type.LiteralDFA    => "Literal could not be tokenized, " + err.cause
+      case _                  => "An error occurred: " + err.cause
     }
     println( str )
     err.loc match {
@@ -15,8 +24,17 @@ object Reporter {
         val lines: Array[String] = file.getLines().toArray
         println(lines(l.lineNum - 1))
         println("~" * (l.col - 1) + "^")
+        println("\t" + l.file + " at " + l.lineNum + ":" + l.col)
       case None =>
     }
-    println( err.msg )
+    println( "\t" + err.msg )
+  }
+
+  override def receive: Receive = {
+    case e: Error =>
+      errors += e
+    case Report =>
+      for ( e <- errors ) print(e) // TODO: have this print in file order
+      sender() ! errors.nonEmpty
   }
 }

@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
-class Status(val fileName: String) {
+class Status(val fileName: String, val reporter: ActorRef) {
   val file: BufferedSource = Source.fromFile( fileName )
   val fileList: List[Char] = file.toList
   private var lexeme: String = ""
@@ -66,16 +66,20 @@ class Status(val fileName: String) {
     }
   }
 
+  private[Lexer] def nextLine(): Unit = {
+    while ( !eof && char != '\n' ) advance()
+  }
+
   private[Lexer] def close(): Unit = {
     file.close
   }
 }
 
-class Lexer(actorSystem: ActorSystem) extends Actor {
+class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
 
   def tokenize ( fileName: String ): List[Token.Token] = {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
-    val status = new Status( fileName )
+    val status = new Status( fileName, reporter )
     val DFAs: Array[ActorRef] = Array(
       actorSystem.actorOf( Props(new LiteralDFA(status)), "LiteralDFA" ),
       actorSystem.actorOf( Props(new IdentifierDFA(status)), "IdentifierDFA" ),
@@ -146,10 +150,10 @@ class Lexer(actorSystem: ActorSystem) extends Actor {
         // reset charNum back to the next char to be processed
         status.restoreTo(top._2)
       } else {
-        // no dfa returned a token, throw an error
-        println("thing happened")
-        throw Error.Error(status.getLexeme, "Unable to tokenize", Error.Type.Lexer,
+        // no dfa returned a token, give the reporter an error
+        reporter ! Error.Error(status.getLexeme, "Unable to tokenize", Error.Type.Lexer,
           Some( Error.Location(status.getRow, status.getCol, status.fileName)))
+        status.nextLine()
       }
     }
 

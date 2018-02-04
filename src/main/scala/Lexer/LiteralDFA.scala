@@ -2,6 +2,8 @@ package Lexer
 
 import Token.Token
 
+import scala.StringContext.InvalidEscapeException
+
 
 object LiteralDFA extends Enumeration {
   val START: Value = Value
@@ -54,9 +56,18 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     comment.FWD_SLASH3  -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
     str.QUOTE2          ->
       (() => {
-        //TODO: handle any exception caused by treatEscapes and throw appropriate error
-        val unescaped: String = StringContext.treatEscapes(text)
-        Token.StringLiteral.apply (status.getLexeme, status.getRow, status.getCol, unescaped)
+        try {
+          val unescaped: String = StringContext.treatEscapes(text)
+          Token.StringLiteral.apply(status.getLexeme, status.getRow, status.getCol, unescaped)
+        }
+        catch {
+          case _: InvalidEscapeException =>
+            // the treadEscapes method failed due to a bad escape char
+            status.reporter ! Error.Error(status.getLexeme,
+              "bad escape character", Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
+            // this still needs to return a token, just return a str token with the untreated text
+            Token.StringLiteral.apply(status.getLexeme, status.getRow, status.getCol, text)
+        }
       }),
     char.APOST2         ->
       (() => {
@@ -67,20 +78,21 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
       (() => {
-        def throwTooBig(): Unit = {
-          throw Error.Error(status.getLexeme,
+        def tooBig(): Unit = {
+          status.reporter ! Error.Error(status.getLexeme,
             "integer literal exceeds integer maximum of " + (int.max - 1).toString,
             Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
         }
 
-        if ( status.getLexeme.length > 10 ) throwTooBig()
+        if ( status.getLexeme.length > 10 ) tooBig()
 
         val number: BigInt = BigInt(status.getLexeme, 10)
         if ( number == int.max )
           // TODO: how should this case be handled? 2^31 can only appear with a unary minus operator in front of it
           Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, -2147483648)
+
         else {
-          if ( number > int.max ) throwTooBig()
+          if ( number > int.max ) tooBig()
           Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, number.toInt)
         }
       })
