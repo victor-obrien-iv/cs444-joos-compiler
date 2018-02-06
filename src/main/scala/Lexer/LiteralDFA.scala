@@ -32,12 +32,6 @@ object LiteralDFA extends Enumeration {
 
   object int {
     val ZERO, INT = Value
-    // intMax in JOOS is 2^31 -1, but intMin is -2^31
-    // without the '-' 2^31 is invalid. Thus it has its own states
-    object min {
-      val NEG, SPACE, D2, D21, D214, D21474, D2147, D214748,
-      D2147483, D21474836, D214748364, D2147483648 = Value
-    }
   }
 }
 
@@ -82,19 +76,9 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
       (() => {
-        def tooBig(): Unit = {
-          status.reporter ! Error.Error(status.getLexeme,
-            "integer literal exceeds integer maximum of " + (Int.MaxValue).toString,
-            Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
-        }
-
-        if ( status.getLexeme.length > 10 ) tooBig()
-
         val number: BigInt = BigInt(status.getLexeme, 10)
-          if ( number > Int.MaxValue ) tooBig()
-          Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, number.toInt)
-      }),
-    int.min.D2147483648 -> (() => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, Int.MinValue) )
+        Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, number)
+      })
   )
 
   val commentTransitions: Map[(Value, Char), Value] =
@@ -193,30 +177,7 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     DFA.oneToNine.map( c =>                           // 3
       (START, c)                -> int.INT ).toMap ++
     DFA.digits.map( c =>                              // 36
-      (int.INT, c)              -> int.INT ).toMap ++
-    // transitions for intMin special case
-    Map (
-      (START, '-')              -> int.min.NEG        // -
-    ) ++
-    DFA.whitespace.map( c =>                          // -_
-      (int.min.NEG, c)          -> int.min.SPACE ).toMap ++
-    DFA.whitespace.map( c =>                          // -___
-      (int.min.SPACE, c)        -> int.min.SPACE ).toMap ++
-    Map (
-      (int.min.SPACE, '2')      -> int.min.D2,
-      (int.min.NEG, '2')        -> int.min.D2,
-      (int.min.D2, '1')         -> int.min.D21,
-      (int.min.D21, '4')        -> int.min.D214,
-      (int.min.D214, '7')       -> int.min.D2147,
-      (int.min.D2147, '4')      -> int.min.D21474,
-      (int.min.D21474, '8')     -> int.min.D214748,
-      (int.min.D214748, '3')    -> int.min.D2147483,
-      (int.min.D2147483, '6')   -> int.min.D21474836,
-      (int.min.D21474836, '4')  -> int.min.D214748364,
-      (int.min.D214748364, '8') -> int.min.D2147483648
-    )
-
-
+      (int.INT, c)              -> int.INT ).toMap
 
   val transitions: Map[(Value, Char), Value] =
     commentTransitions ++

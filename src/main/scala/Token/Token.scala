@@ -83,7 +83,7 @@ case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keywor
   */
 sealed trait Literal extends Token
 
-case class IntegerLiteral(lexeme: String, row: Int, col: Int, value: Int) extends Literal
+case class IntegerLiteral(lexeme: String, row: Int, col: Int, value: BigInt) extends Literal
 case class BooleanLiteral(row: Int, col: Int, value: Boolean) extends Literal {
   val lexeme: String = if ( value ) "true" else "false"
 }
