@@ -2,6 +2,8 @@ package Lalr
 
 import java.io.{FileOutputStream, ObjectOutputStream, OutputStream}
 
+import Parser.{ProdRule, Reduce, Shift}
+
 import scala.io.Source
 
 object LalrReader extends App {
@@ -41,8 +43,8 @@ object LalrReader extends App {
     val tupleArray = actions map { action: String =>
       action.split(" ").toList match {
         case List(state: String, symbol: String, shiftReduce: String, newState: String) => shiftReduce match {
-          case "shift" => ((state.toInt, symbol), Shift(newState.toInt))
-          case "reduce" => ((state.toInt, symbol), Reduce(newState.toInt))
+          case "shift" => ((state.toInt, symbol), Shift(symbol, newState.toInt))
+          case "reduce" => ((state.toInt, symbol), Reduce(symbol, newState.toInt))
         }
       }
     }
