@@ -1,4 +1,5 @@
 .idea/*
-project/*
+project/project
+project/target
 target/*
 cs444-joos-compiler.iml
