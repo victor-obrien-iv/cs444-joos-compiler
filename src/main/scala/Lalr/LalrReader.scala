@@ -2,7 +2,7 @@ package Lalr
 
 import java.io.{FileOutputStream, ObjectOutputStream, OutputStream}
 
-import Parser.{ProdRule, Reduce, Shift}
+import Parser.{ParseError, ProdRule, Reduce, Shift}
 
 import scala.io.Source
 
@@ -30,11 +30,12 @@ object LalrReader extends App {
 
   val out = new ObjectOutputStream(new FileOutputStream("src/main/resources/lalr"))
 
-  out.writeObject()
+  out.writeObject(lalr)
   out.close()
 
   def parseProdRules(rules: Array[String]): Array[ProdRule] = rules map { rule: String =>
     rule.split(" ").toList match {
+      case Nil => throw ParseError("Empty line in lr file")
       case head :: rest => ProdRule(head, rest.reverse) //Reverse the rest to match while popping during parsing
     }
   }
