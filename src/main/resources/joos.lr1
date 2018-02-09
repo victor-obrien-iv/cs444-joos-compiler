@@ -1,0 +1,1540 @@
+62
+BOF
+EOF
+package
+;
+.
+import
+class
+interface
+extends
+implements
+Identifier
+IntegerLiteral
+CharacterLiteral
+StringLiteral
+BooleanLiteral
+NullLiteral
+=
+instanceof
+||
+&&
+|
+&
+^
+==
+!=
+<
+>
+<=
+>=
++
+-
+*
+/
+%
+!
+byte
+short
+char
+int
+long
+boolean
+(
+)
+{
+}
+[
+]
+,
+public
+protected
+static
+abstract
+final
+native
+new
+if
+else
+for
+while
+return
+this
+void
+93
+CompilationUnit
+PackageDeclaration
+ImportDeclarations
+ImportDeclaration
+TypeDeclaration
+ClassOrInterfaceDeclaration
+ClassDeclaration
+InterfaceDeclaration
+SuperClass
+SuperInterfaces
+InterfaceTypeList
+ModifiersOpt
+Modifier
+ClassModifiers
+ClassModifier
+ClassBody
+InterfaceBody
+InterfaceBodyDeclarations
+ClassBodyDeclarations
+ClassBodyDeclaration
+ConstructorDeclaration
+ClassMemberDeclaration
+MethodDeclaration
+MethodModifiers
+FieldDeclaration
+VariableDeclaratorRest
+InterfaceBodyDeclaration
+VariableDeclaratorId
+VariableDeclaratorsRest
+VariableDeclarator
+Block
+BlockStatements
+BlockStatement
+LocalVariableDeclarationStatement
+Statement
+StatementWithoutTrailingSubstatement
+IfThenStatement
+IfThenElseStatement
+WhileStatement
+ForStatement
+EmptyStatement
+ExpressionStatement
+ReturnStatement
+StatementNoShortIf
+IfThenElseStatementNoShortIf
+ForStatementNoShortIf
+WhileStatementNoShortIf
+StatementExpression
+ForInit
+ForUpdate
+VariableInitializer
+FormalParameters
+FormalParameterList
+FormalParameter
+MethodHeader
+MethodDeclarator
+MethodBody
+Result
+QualifiedIdentifier
+Literal
+Expression
+AssignmentExpression
+Assignment
+LeftHandSide
+ConditionalAndExpression
+ConditionalOrExpression
+InclusiveOrExpression
+ExclusiveOrExpression
+AndExpression
+EqualityExpression
+RelationalExpression
+RelationalOperator
+AdditiveExpression
+MultiplicativeExpression
+MultiplicativeOperator
+UnaryExpression
+UnaryExpressionNotMinus
+CastExpression
+Primary
+PrimaryNoNewArray
+ArrayCreationExpression
+ClassInstanceCreationExpression
+MethodInvocation
+FieldAccess
+ArrayAccess
+Type
+Dims
+PrimitiveType
+NumericType
+ReferenceType
+ArrayType
+Arguments
+ArgumentList
+CompilationUnit
+174
+CompilationUnit BOF PackageDeclaration ImportDeclarations TypeDeclaration EOF
+PackageDeclaration
+PackageDeclaration package QualifiedIdentifier ;
+ImportDeclarations ImportDeclarations ImportDeclaration
+ImportDeclarations
+ImportDeclaration import QualifiedIdentifier ;
+ImportDeclaration import QualifiedIdentifier . * ;
+TypeDeclaration ClassOrInterfaceDeclaration
+TypeDeclaration ;
+ClassOrInterfaceDeclaration ClassModifiers ClassDeclaration
+ClassOrInterfaceDeclaration ClassModifiers InterfaceDeclaration
+ClassModifiers
+ClassModifiers ClassModifiers ClassModifier
+ClassModifier public
+ClassModifier abstract
+ClassModifier final
+ClassDeclaration class Identifier SuperClass SuperInterfaces ClassBody
+SuperClass
+SuperClass extends QualifiedIdentifier
+SuperInterfaces
+SuperInterfaces implements InterfaceTypeList
+InterfaceDeclaration interface Identifier InterfaceBody
+InterfaceDeclaration interface extends InterfaceTypeList InterfaceBody
+InterfaceTypeList InterfaceTypeList , QualifiedIdentifier
+InterfaceTypeList QualifiedIdentifier
+ClassBody { ClassBodyDeclarations }
+ClassBodyDeclarations ClassBodyDeclarations ClassBodyDeclaration
+ClassBodyDeclarations
+ClassBodyDeclaration ModifiersOpt ClassMemberDeclaration
+ClassMemberDeclaration ConstructorDeclaration
+ClassMemberDeclaration MethodDeclaration
+ClassMemberDeclaration FieldDeclaration
+MethodDeclaration MethodHeader MethodBody
+MethodDeclaration MethodModifiers MethodHeader MethodBody
+MethodDeclaration static native int Identifier ( Type Identifier ) MethodBody
+MethodHeader Type MethodDeclarator
+MethodHeader void MethodDeclarator
+MethodDeclarator Identifier FormalParameters
+FieldDeclaration Type VariableDeclarator ;
+InterfaceBody { InterfaceBodyDeclarations }
+InterfaceBodyDeclarations InterfaceBodyDeclarations InterfaceBodyDeclaration
+InterfaceBodyDeclarations
+InterfaceBodyDeclaration ;
+InterfaceBodyDeclaration MethodDeclaration
+InterfaceBodyDeclaration FieldDeclaration
+ConstructorDeclaration Identifier FormalParameters MethodBody
+FormalParameters ( )
+FormalParameters ( FormalParameterList )
+FormalParameterList FormalParameterList , FormalParameter
+FormalParameterList FormalParameter
+FormalParameter Type VariableDeclaratorId
+MethodBody Block
+MethodBody ;
+VariableDeclarator Identifier VariableDeclaratorRest
+VariableDeclaratorRest = VariableInitializer
+VariableDeclaratorRest
+VariableInitializer Expression
+Block { BlockStatements }
+BlockStatements BlockStatements BlockStatement
+BlockStatements
+BlockStatement LocalVariableDeclarationStatement
+BlockStatement Statement
+Statement StatementWithoutTrailingSubstatement
+Statement IfThenStatement
+Statement IfThenElseStatement
+Statement WhileStatement
+Statement ForStatement
+StatementWithoutTrailingSubstatement Block
+StatementWithoutTrailingSubstatement EmptyStatement
+StatementWithoutTrailingSubstatement ReturnStatement
+StatementNoShortIf StatementWithoutTrailingSubstatement
+StatementNoShortIf IfThenElseStatementNoShortIf
+StatementNoShortIf WhileStatementNoShortIf
+StatementNoShortIf ForStatementNoShortIf
+IfThenStatement if Statement
+IfThenElseStatement if ( Expression ) StatementNoShortIf else Statement
+IfThenElseStatementNoShortIf if ( Expression ) StatementNoShortIf else StatementNoShortIf
+EmptyStatement ;
+ExpressionStatement StatementExpression ;
+StatementExpression Assignment
+StatementExpression MethodInvocation
+WhileStatement while ( Expression ) Statement
+WhileStatementNoShortIf while ( Expression ) StatementNoShortIf
+ForStatement for ( ForInit ; Expression ; ForUpdate ) Statement
+ForStatementNoShortIf for ( ForInit ; Expression ; ForUpdate ) StatementNoShortIf
+ForInit LocalVariableDeclarationStatement
+LocalVariableDeclarationStatement Type Identifier = Expression
+ForUpdate StatementExpression
+ReturnStatement return ;
+ReturnStatement return Expression ;
+VariableDeclaratorId Identifier
+ModifiersOpt ModifiersOpt Modifier
+ModifiersOpt
+Modifier public
+Modifier protected
+Modifier static
+Modifier abstract
+Modifier final
+QualifiedIdentifier QualifiedIdentifier . Identifier
+QualifiedIdentifier Identifier
+Literal IntegerLiteral
+Literal CharacterLiteral
+Literal StringLiteral
+Literal BooleanLiteral
+Literal NullLiteral
+Type ReferenceType
+Type PrimitiveType
+ReferenceType QualifiedIdentifier
+ReferenceType ArrayType
+ArrayType PrimitiveType Dims
+Dims [ ]
+PrimitiveType NumericType
+PrimitiveType boolean
+NumericType byte
+NumericType short
+NumericType char
+NumericType int
+Primary PrimaryNoNewArray
+Primary ArrayCreationExpression
+PrimaryNoNewArray Literal
+PrimaryNoNewArray this
+PrimaryNoNewArray ( Expression )
+PrimaryNoNewArray ClassInstanceCreationExpression
+PrimaryNoNewArray FieldAccess
+PrimaryNoNewArray ArrayAccess
+PrimaryNoNewArray MethodInvocation
+ClassInstanceCreationExpression new QualifiedIdentifier ( ArgumentList )
+FieldAccess Primary . Identifier
+ArrayAccess PrimaryNoNewArray [ Expression ]
+MethodInvocation QualifiedIdentifier ( ArgumentList )
+ArrayCreationExpression new Type [ ]
+ArrayCreationExpression new Type [ Expression ]
+AssignmentExpression LeftHandSide = Expression
+LeftHandSide Identifier
+LeftHandSide FieldAccess
+LeftHandSide ArrayAccess
+ConditionalOrExpression ConditionalAndExpression
+ConditionalOrExpression ConditionalOrExpression || ConditionalAndExpression
+ConditionalAndExpression InclusiveOrExpression
+ConditionalAndExpression ConditionalAndExpression && InclusiveOrExpression
+InclusiveOrExpression ExclusiveOrExpression
+InclusiveOrExpression InclusiveOrExpression | ExclusiveOrExpression
+ExclusiveOrExpression AndExpression
+ExclusiveOrExpression ExclusiveOrExpression ^ AndExpression
+AndExpression EqualityExpression
+AndExpression AndExpression & EqualityExpression
+EqualityExpression RelationalExpression
+EqualityExpression EqualityExpression == RelationalExpression
+EqualityExpression EqualityExpression != RelationalExpression
+RelationalExpression AdditiveExpression
+RelationalExpression RelationalExpression RelationalOperator AdditiveExpression
+RelationalExpression RelationalExpression instanceof ReferenceType
+RelationalOperator <
+RelationalOperator >
+RelationalOperator <=
+RelationalOperator >=
+AdditiveExpression MultiplicativeExpression
+AdditiveExpression AdditiveExpression + MultiplicativeExpression
+AdditiveExpression AdditiveExpression - MultiplicativeExpression
+MultiplicativeExpression UnaryExpression
+MultiplicativeExpression MultiplicativeExpression MultiplicativeOperator UnaryExpression
+MultiplicativeOperator *
+MultiplicativeOperator /
+MultiplicativeOperator %
+UnaryExpression - UnaryExpression
+UnaryExpression UnaryExpressionNotMinus
+UnaryExpressionNotMinus ! UnaryExpression
+UnaryExpressionNotMinus CastExpression
+UnaryExpressionNotMinus Primary
+CastExpression ( PrimitiveType ) UnaryExpression
+CastExpression ( ReferenceType ) UnaryExpressionNotMinus
+Arguments ( ArgumentList )
+ArgumentList ArgumentList , Expression
+ArgumentList Expression
+205
+1205
+93 ; shift 1
+94 byte reduce 27
+94 abstract reduce 27
+127 boolean reduce 44
+49 ; reduce 68
+71 ; reduce 4
+108 StatementExpression shift 2
+36 short reduce 59
+139 FormalParameters shift 3
+82 Expression shift 4
+131 static reduce 40
+26 byte reduce 43
+174 Expression shift 5
+173 Type shift 6
+103 . shift 7
+178 int reduce 89
+195 interface reduce 3
+110 Identifier reduce 95
+175 IfThenStatement shift 8
+181 StatementWithoutTrailingSubstatement shift 9
+78 Identifier reduce 93
+103 ( shift 10
+127 } reduce 44
+49 boolean reduce 68
+147 ReturnStatement shift 11
+169 abstract reduce 2
+68 char reduce 58
+173 char shift 12
+44 [ shift 13
+164 int reduce 32
+23 ( shift 14
+130 ; shift 15
+112 ForStatementNoShortIf shift 16
+49 } reduce 68
+49 { reduce 68
+87 Identifier shift 17
+197 while reduce 88
+11 char reduce 69
+144 Identifier shift 17
+37 short reduce 65
+191 ArrayType shift 18
+165 MethodBody shift 19
+147 WhileStatementNoShortIf shift 20
+66 byte reduce 67
+152 protected reduce 97
+41 Identifier reduce 66
+95 Identifier reduce 45
+89 , reduce 49
+64 Identifier reduce 83
+26 } reduce 43
+13 ] shift 21
+89 ) reduce 49
+67 ClassDeclaration shift 22
+48 while shift 23
+167 MethodModifiers shift 24
+131 char reduce 40
+66 } reduce 67
+66 { reduce 67
+147 if shift 25
+138 public reduce 11
+27 short reduce 31
+183 char reduce 91
+15 else reduce 77
+167 MethodDeclaration shift 26
+129 short reduce 33
+96 StatementWithoutTrailingSubstatement shift 9
+24 Identifier shift 17
+155 short reduce 30
+144 char shift 12
+144 Type shift 6
+178 boolean reduce 89
+83 while reduce 64
+94 boolean reduce 27
+40 class reduce 12
+68 Identifier reduce 58
+42 short reduce 60
+15 for reduce 77
+154 short reduce 29
+37 if reduce 65
+28 FieldDeclaration shift 27
+66 ; reduce 67
+128 ModifiersOpt shift 28
+199 final reduce 15
+24 void shift 29
+189 short reduce 26
+38 char reduce 94
+62 public reduce 96
+11 Identifier reduce 69
+88 short reduce 41
+117 int shift 30
+147 for shift 31
+199 class reduce 15
+164 protected reduce 32
+66 int reduce 67
+48 IfThenStatement shift 8
+175 char shift 12
+15 if reduce 77
+175 Type shift 6
+102 short reduce 57
+158 import reduce 6
+197 return reduce 88
+66 boolean reduce 67
+112 if shift 25
+193 interface reduce 14
+52 [ reduce 114
+191 ReferenceType shift 32
+112 ReturnStatement shift 11
+173 Identifier shift 17
+163 ( shift 33
+94 } reduce 27
+37 return reduce 65
+40 final reduce 12
+78 char reduce 93
+15 short reduce 77
+85 StatementWithoutTrailingSubstatement shift 9
+48 return shift 34
+117 ) shift 35
+127 byte reduce 44
+197 else reduce 88
+110 void reduce 95
+30 [ reduce 116
+41 char reduce 66
+151 { shift 36
+175 Identifier shift 17
+175 while shift 23
+17 ( reduce 99
+86 implements reduce 17
+48 WhileStatement shift 37
+17 . reduce 99
+109 , reduce 50
+109 ) reduce 50
+71 interface reduce 4
+197 char reduce 88
+17 , reduce 99
+28 protected shift 38
+198 { reduce 61
+91 , reduce 48
+91 ) reduce 48
+198 } reduce 61
+1 StatementExpression shift 2
+78 static reduce 93
+33 boolean shift 39
+67 ClassModifier shift 40
+110 char reduce 95
+197 if reduce 88
+48 ForStatement shift 41
+17 ; reduce 99
+117 boolean shift 39
+175 LocalVariableDeclarationStatement shift 42
+69 byte reduce 74
+187 byte reduce 81
+19 protected reduce 34
+28 MethodHeader shift 43
+28 PrimitiveType shift 44
+183 final reduce 91
+19 short reduce 34
+19 int reduce 34
+162 int reduce 28
+24 byte shift 45
+121 byte reduce 75
+72 , reduce 23
+10 ArgumentList shift 46
+195 ; reduce 3
+28 NumericType shift 47
+162 protected reduce 28
+72 . shift 7
+5 while reduce 86
+60 ; reduce 85
+36 for reduce 59
+28 boolean shift 39
+19 boolean reduce 34
+152 byte reduce 97
+115 . shift 7
+48 if shift 48
+64 byte reduce 83
+117 ArrayType shift 18
+138 final reduce 11
+198 boolean reduce 61
+5 for reduce 86
+129 public reduce 33
+167 char shift 12
+181 EmptyStatement shift 49
+83 char reduce 64
+28 int shift 30
+198 ; reduce 61
+95 static reduce 45
+3 { reduce 37
+136 short reduce 42
+49 byte reduce 68
+167 Type shift 50
+110 final reduce 95
+141 EOF reduce 25
+201 EOF shift 51
+158 abstract reduce 6
+36 return reduce 59
+28 short shift 52
+50 Identifier shift 53
+198 Identifier reduce 61
+167 QualifiedIdentifier shift 54
+187 } reduce 81
+33 byte shift 45
+187 { reduce 81
+34 Expression shift 55
+2 ) reduce 87
+155 int reduce 30
+37 while reduce 65
+19 ; reduce 34
+169 ; reduce 2
+138 class reduce 11
+28 ReferenceType shift 32
+112 return shift 34
+38 static reduce 94
+83 Identifier reduce 64
+94 void reduce 27
+28 ArrayType shift 18
+117 PrimitiveType shift 44
+44 Dims shift 56
+14 Expression shift 57
+26 boolean reduce 43
+162 } reduce 28
+12 [ reduce 115
+112 while shift 58
+197 for reduce 88
+142 short reduce 38
+151 EmptyStatement shift 49
+40 public reduce 12
+101 InterfaceBody shift 59
+62 static reduce 96
+26 ; reduce 43
+198 char reduce 61
+102 public reduce 57
+192 { reduce 47
+59 EOF reduce 22
+75 char reduce 52
+5 return reduce 86
+199 public reduce 15
+127 int reduce 44
+117 short shift 52
+8 byte reduce 63
+144 LocalVariableDeclarationStatement shift 60
+198 int reduce 61
+48 for shift 61
+76 char reduce 62
+56 Identifier reduce 109
+1 Identifier shift 17
+77 public reduce 51
+28 abstract shift 62
+183 Identifier reduce 91
+96 StatementNoShortIf shift 63
+152 void reduce 97
+151 ; shift 15
+151 Statement shift 64
+204 QualifiedIdentifier shift 65
+76 Identifier reduce 62
+162 boolean reduce 28
+151 Block shift 66
+26 int reduce 43
+128 static reduce 92
+138 ClassModifiers shift 67
+136 char reduce 42
+64 } reduce 83
+5 if reduce 86
+71 abstract reduce 4
+64 { reduce 83
+117 NumericType shift 47
+192 ; reduce 47
+159 EOF reduce 21
+95 void reduce 45
+102 int reduce 57
+167 Identifier shift 17
+175 BlockStatement shift 68
+36 if reduce 59
+72 { reduce 23
+48 Statement shift 69
+75 final reduce 52
+58 ( shift 70
+75 Identifier reduce 52
+20 else reduce 72
+11 while reduce 69
+127 ; reduce 44
+200 PackageDeclaration shift 71
+11 return reduce 69
+79 EOF reduce 7
+16 else reduce 73
+38 byte reduce 94
+85 EmptyStatement shift 49
+125 { shift 36
+110 boolean reduce 95
+24 int shift 30
+42 } reduce 60
+95 public reduce 45
+85 return shift 34
+42 { reduce 60
+77 char reduce 51
+11 for reduce 69
+160 IfThenStatement shift 8
+162 abstract reduce 28
+129 static reduce 33
+45 [ reduce 113
+64 ; reduce 83
+116 QualifiedIdentifier shift 72
+51 BOF reduce 0
+95 abstract reduce 45
+42 while reduce 60
+8 ; reduce 63
+181 while shift 58
+126 ; shift 73
+85 if shift 25
+68 return reduce 58
+181 StatementNoShortIf shift 74
+66 Identifier reduce 67
+167 PrimitiveType shift 44
+158 class reduce 6
+197 short reduce 88
+95 } reduce 45
+142 final reduce 38
+21 Identifier reduce 110
+125 ; shift 75
+155 public reduce 30
+15 char reduce 77
+175 ReturnStatement shift 11
+68 for reduce 58
+128 short reduce 92
+64 int reduce 83
+48 StatementWithoutTrailingSubstatement shift 76
+144 byte shift 45
+49 Identifier reduce 68
+85 WhileStatementNoShortIf shift 20
+130 StatementWithoutTrailingSubstatement shift 76
+158 final reduce 6
+28 byte shift 45
+110 protected reduce 95
+142 static reduce 38
+27 public reduce 31
+24 boolean shift 39
+145 ; reduce 53
+178 short reduce 89
+125 Block shift 77
+28 public shift 78
+155 boolean reduce 30
+102 protected reduce 57
+128 void reduce 92
+138 interface reduce 11
+95 byte reduce 45
+138 ClassOrInterfaceDeclaration shift 79
+19 public reduce 34
+8 { reduce 63
+64 boolean reduce 83
+1 Assignment shift 80
+119 ClassBody shift 81
+8 } reduce 63
+25 ( shift 82
+19 byte reduce 34
+11 else reduce 69
+27 boolean reduce 31
+48 IfThenElseStatement shift 83
+144 NumericType shift 47
+76 for reduce 62
+155 protected reduce 30
+33 int shift 30
+19 } reduce 34
+99 Expression shift 84
+142 int reduce 38
+77 static reduce 51
+187 while reduce 81
+175 QualifiedIdentifier shift 54
+38 void reduce 94
+169 import reduce 2
+102 for reduce 57
+36 while reduce 59
+184 ) shift 85
+69 if reduce 74
+37 char reduce 65
+175 byte shift 45
+196 Identifier shift 86
+40 abstract reduce 12
+117 ReferenceType shift 32
+110 abstract reduce 95
+193 abstract reduce 14
+140 Identifier shift 17
+121 Identifier reduce 75
+110 public reduce 95
+110 int reduce 95
+144 boolean shift 39
+24 NumericType shift 47
+142 protected reduce 38
+200 package shift 87
+78 byte reduce 93
+161 { shift 88
+152 short reduce 97
+117 FormalParameter shift 89
+144 int shift 30
+88 static reduce 41
+64 return reduce 83
+133 ; reduce 54
+144 QualifiedIdentifier shift 54
+122 class reduce 5
+160 IfThenElseStatement shift 83
+178 else reduce 89
+112 WhileStatementNoShortIf shift 20
+195 abstract reduce 3
+42 byte reduce 60
+155 final reduce 30
+11 if reduce 69
+86 SuperClass shift 90
+191 FormalParameter shift 91
+164 short reduce 32
+39 Identifier reduce 112
+173 PrimitiveType shift 44
+68 if reduce 58
+22 EOF reduce 9
+54 . shift 7
+7 Identifier shift 92
+73 Expression shift 93
+8 int reduce 63
+127 Identifier reduce 44
+27 } reduce 31
+155 abstract reduce 30
+129 char reduce 33
+131 Identifier reduce 40
+167 ReferenceType shift 32
+85 for shift 31
+26 Identifier reduce 43
+17 { reduce 99
+119 { shift 94
+41 for reduce 66
+122 final reduce 5
+85 ReturnStatement shift 11
+173 byte shift 45
+146 MethodBody shift 95
+69 short reduce 74
+8 boolean reduce 63
+137 ) shift 96
+140 QualifiedIdentifier shift 97
+33 Identifier shift 17
+203 , reduce 173
+41 if reduce 66
+203 ) reduce 173
+151 while shift 23
+171 interface reduce 13
+150 ; shift 98
+46 , shift 99
+160 while shift 23
+178 for reduce 89
+46 ) shift 100
+108 Assignment shift 80
+178 return reduce 89
+156 InterfaceTypeList shift 101
+11 short reduce 69
+85 ForStatementNoShortIf shift 16
+175 { shift 36
+142 } reduce 38
+142 boolean reduce 38
+37 for reduce 65
+120 ) reduce 90
+173 LocalVariableDeclarationStatement shift 60
+38 short reduce 94
+175 } shift 102
+83 byte reduce 64
+120 , reduce 90
+95 int reduce 45
+175 boolean shift 39
+160 ; shift 15
+160 Block shift 66
+108 QualifiedIdentifier shift 103
+202 native shift 104
+198 while reduce 61
+69 for reduce 74
+88 } reduce 41
+173 short shift 52
+88 boolean reduce 41
+102 if reduce 57
+100 ) reduce 129
+102 else reduce 57
+142 public reduce 38
+198 byte reduce 61
+33 NumericType shift 47
+147 StatementNoShortIf shift 105
+195 class reduce 3
+50 VariableDeclarator shift 106
+95 protected reduce 45
+191 Type shift 107
+48 ReturnStatement shift 11
+78 void reduce 93
+142 ; reduce 38
+130 if shift 48
+96 EmptyStatement shift 49
+191 char shift 12
+19 static reduce 34
+77 short reduce 51
+36 char reduce 59
+94 short reduce 27
+179 ; shift 108
+17 implements reduce 99
+110 static reduce 95
+160 { shift 36
+107 VariableDeclaratorId shift 109
+178 if reduce 89
+69 char reduce 74
+95 final reduce 45
+121 { reduce 75
+187 char reduce 81
+121 } reduce 75
+112 { shift 36
+76 if reduce 62
+12 Identifier reduce 115
+121 boolean reduce 75
+32 Identifier reduce 105
+5 short reduce 86
+88 int reduce 41
+130 for shift 61
+110 byte reduce 95
+27 protected reduce 31
+62 final reduce 96
+105 else reduce 76
+28 static shift 110
+27 int reduce 31
+138 import shift 111
+175 int shift 30
+83 { reduce 64
+27 abstract reduce 31
+102 return reduce 57
+83 } reduce 64
+191 short shift 52
+112 Block shift 66
+42 int reduce 60
+128 char reduce 92
+97 , reduce 24
+97 . shift 7
+4 ) shift 112
+147 while shift 58
+190 { reduce 20
+5 char reduce 86
+117 FormalParameterList shift 113
+200 interface reduce 1
+191 PrimitiveType shift 44
+9 else reduce 70
+108 Identifier shift 17
+28 void shift 29
+175 IfThenElseStatement shift 83
+62 Identifier reduce 96
+152 char reduce 97
+121 ; reduce 75
+27 final reduce 31
+95 boolean reduce 45
+112 ; shift 15
+62 abstract reduce 96
+41 return reduce 66
+193 public reduce 14
+175 ForStatement shift 41
+76 return reduce 62
+112 IfThenElseStatementNoShortIf shift 114
+175 Block shift 66
+189 char reduce 26
+49 int reduce 68
+97 { reduce 24
+87 QualifiedIdentifier shift 115
+42 ; reduce 60
+175 ; shift 15
+190 , shift 116
+139 ( shift 117
+67 interface shift 118
+8 Identifier reduce 63
+94 char reduce 27
+42 boolean reduce 60
+122 public reduce 5
+121 int reduce 75
+39 [ reduce 112
+62 protected reduce 96
+54 Identifier reduce 107
+130 EmptyStatement shift 49
+19 void reduce 34
+90 SuperInterfaces shift 119
+107 Identifier shift 120
+122 ; reduce 5
+88 ; reduce 41
+187 short reduce 81
+130 Statement shift 121
+15 while reduce 77
+40 interface reduce 12
+138 abstract reduce 11
+177 ; shift 122
+152 static reduce 97
+142 void reduce 38
+189 Identifier reduce 26
+197 ; reduce 88
+88 void reduce 41
+155 Identifier reduce 30
+177 . shift 123
+24 ReferenceType shift 32
+83 int reduce 64
+65 implements reduce 18
+136 byte reduce 42
+135 ; reduce 36
+180 Expression shift 124
+164 final reduce 32
+147 EmptyStatement shift 49
+24 MethodHeader shift 125
+197 boolean reduce 88
+24 PrimitiveType shift 44
+43 ; shift 75
+27 Identifier reduce 31
+144 ArrayType shift 18
+154 Identifier reduce 29
+102 Identifier reduce 57
+41 short reduce 66
+144 ForInit shift 126
+167 int shift 30
+129 void reduce 33
+167 FieldDeclaration shift 127
+19 char reduce 34
+48 ; shift 15
+114 else reduce 71
+117 Type shift 107
+94 public reduce 27
+94 ClassBodyDeclarations shift 128
+125 MethodBody shift 129
+151 IfThenStatement shift 8
+1 QualifiedIdentifier shift 103
+96 ForStatementNoShortIf shift 16
+77 void reduce 51
+160 ForStatement shift 41
+66 return reduce 67
+117 char shift 12
+197 int reduce 88
+48 Block shift 66
+194 else shift 130
+167 InterfaceBodyDeclaration shift 131
+135 { reduce 36
+43 Block shift 77
+162 char reduce 28
+124 ; reduce 56
+62 boolean reduce 96
+83 ; reduce 64
+48 ( shift 132
+180 VariableInitializer shift 133
+160 WhileStatement shift 37
+130 while shift 23
+204 Identifier shift 17
+62 int reduce 96
+128 int reduce 92
+169 public reduce 2
+47 Identifier reduce 111
+146 { shift 36
+24 short shift 52
+64 short reduce 83
+152 final reduce 97
+45 Identifier reduce 113
+66 else reduce 67
+173 ArrayType shift 18
+198 if reduce 61
+33 ReferenceType shift 32
+96 if shift 25
+108 MethodInvocation shift 134
+110 native shift 104
+142 abstract reduce 38
+195 final reduce 3
+29 MethodDeclarator shift 135
+78 short reduce 93
+147 { shift 36
+71 public reduce 4
+164 char reduce 32
+142 byte reduce 38
+154 char reduce 29
+167 boolean shift 39
+167 ; shift 136
+136 boolean reduce 42
+42 char reduce 60
+128 boolean reduce 92
+33 QualifiedIdentifier shift 54
+92 ( reduce 98
+92 . reduce 98
+33 PrimitiveType shift 44
+147 Block shift 66
+92 , reduce 98
+198 short reduce 61
+178 while reduce 89
+136 ; reduce 42
+197 byte reduce 88
+92 ; reduce 98
+146 Block shift 77
+193 class reduce 14
+37 Identifier reduce 65
+144 ReferenceType shift 32
+108 ForUpdate shift 137
+146 ; shift 75
+122 abstract reduce 5
+129 byte reduce 33
+15 byte reduce 77
+5 int reduce 86
+71 ImportDeclarations shift 138
+77 abstract reduce 51
+5 ; reduce 86
+170 Identifier shift 139
+81 EOF reduce 16
+122 import reduce 5
+199 interface reduce 15
+155 char reduce 30
+90 implements shift 140
+77 byte reduce 51
+5 boolean reduce 86
+162 final reduce 28
+112 StatementWithoutTrailingSubstatement shift 9
+130 IfThenStatement shift 8
+128 } shift 141
+43 { shift 36
+83 boolean reduce 64
+198 for reduce 61
+96 for shift 31
+24 ArrayType shift 18
+42 Identifier reduce 60
+175 NumericType shift 47
+35 ; reduce 46
+162 static reduce 28
+136 } reduce 42
+129 abstract reduce 33
+106 ; shift 142
+178 char reduce 89
+164 static reduce 32
+92 { reduce 98
+130 return shift 34
+1 MethodInvocation shift 134
+66 while reduce 67
+162 Identifier reduce 28
+193 final reduce 14
+88 byte reduce 41
+49 for reduce 68
+130 WhileStatement shift 37
+127 static reduce 44
+96 ReturnStatement shift 11
+64 if reduce 83
+5 } reduce 86
+5 { reduce 86
+189 void reduce 26
+186 EOF reduce 8
+154 final reduce 29
+128 byte reduce 92
+169 class reduce 2
+24 QualifiedIdentifier shift 54
+50 MethodDeclarator shift 143
+131 } reduce 40
+88 Identifier reduce 41
+173 int shift 30
+77 ; reduce 51
+49 if reduce 68
+127 char reduce 44
+102 char reduce 57
+15 ; reduce 77
+35 { reduce 46
+187 for reduce 81
+86 { reduce 17
+173 ReferenceType shift 32
+61 ( shift 144
+38 int reduce 94
+15 Identifier reduce 77
+68 int reduce 58
+53 VariableDeclaratorRest shift 145
+75 protected reduce 52
+155 static reduce 30
+148 FormalParameters shift 146
+157 else shift 147
+27 void reduce 31
+75 int reduce 52
+183 protected reduce 91
+96 return shift 34
+27 static reduce 31
+62 void reduce 96
+167 ArrayType shift 18
+189 static reduce 26
+151 IfThenElseStatement shift 83
+154 void reduce 29
+130 ReturnStatement shift 11
+144 PrimitiveType shift 44
+158 interface reduce 6
+147 ; shift 15
+49 else reduce 68
+52 Identifier reduce 114
+76 int reduce 62
+85 ; shift 15
+151 for shift 61
+77 boolean reduce 51
+178 Identifier reduce 89
+15 } reduce 77
+74 else reduce 82
+102 final reduce 57
+15 { reduce 77
+136 int reduce 42
+17 Identifier reduce 99
+19 Identifier reduce 34
+28 Identifier shift 148
+19 final reduce 34
+169 final reduce 2
+195 import reduce 3
+77 int reduce 51
+129 boolean reduce 33
+67 InterfaceDeclaration shift 149
+69 return reduce 74
+187 return reduce 81
+142 Identifier reduce 38
+8 return reduce 63
+151 StatementWithoutTrailingSubstatement shift 76
+78 int reduce 93
+121 return reduce 75
+191 byte shift 45
+68 { reduce 58
+173 ForInit shift 150
+8 for reduce 63
+181 for shift 31
+66 if reduce 67
+102 abstract reduce 57
+117 QualifiedIdentifier shift 54
+27 byte reduce 31
+195 public reduce 3
+168 ) shift 151
+53 FormalParameters shift 3
+131 int reduce 40
+147 IfThenElseStatementNoShortIf shift 114
+181 return shift 34
+116 Identifier shift 17
+76 short reduce 62
+71 class reduce 4
+28 final shift 152
+49 return reduce 68
+167 NumericType shift 47
+134 ) reduce 80
+172 Identifier shift 153
+158 public reduce 6
+144 short shift 52
+110 short reduce 95
+68 boolean reduce 58
+136 Identifier reduce 42
+64 for reduce 83
+129 ; reduce 33
+28 ConstructorDeclaration shift 154
+68 } reduce 58
+62 byte reduce 96
+68 ; reduce 58
+183 short reduce 91
+69 while reduce 74
+173 boolean shift 39
+151 ForStatement shift 41
+28 MethodDeclaration shift 155
+197 } reduce 88
+131 boolean reduce 40
+85 IfThenElseStatementNoShortIf shift 114
+197 { reduce 88
+94 static reduce 27
+75 short reduce 52
+200 import reduce 1
+160 ReturnStatement shift 11
+187 if reduce 81
+36 byte reduce 59
+8 if reduce 63
+131 ; reduce 40
+49 while reduce 68
+118 extends shift 156
+181 ForStatementNoShortIf shift 16
+167 short shift 52
+66 for reduce 67
+77 } reduce 51
+5 byte reduce 86
+112 StatementNoShortIf shift 157
+181 if shift 25
+28 char shift 12
+15 boolean reduce 77
+121 while reduce 75
+48 { shift 36
+28 Type shift 50
+28 QualifiedIdentifier shift 54
+176 ; shift 158
+117 Identifier shift 17
+96 while shift 58
+71 final reduce 4
+162 public reduce 28
+155 } reduce 30
+129 } reduce 33
+48 EmptyStatement shift 49
+15 int reduce 77
+161 InterfaceBody shift 159
+44 Identifier reduce 106
+102 boolean reduce 57
+11 byte reduce 69
+71 import reduce 4
+18 Identifier reduce 108
+38 abstract reduce 94
+187 int reduce 81
+156 Identifier shift 17
+101 { shift 88
+29 Identifier shift 139
+65 . shift 7
+96 IfThenElseStatementNoShortIf shift 114
+183 public reduce 91
+36 int reduce 59
+83 short reduce 64
+154 } reduce 29
+175 WhileStatement shift 37
+191 boolean shift 39
+102 ; reduce 57
+200 class reduce 1
+76 { reduce 62
+76 } reduce 62
+183 byte reduce 91
+129 final reduce 33
+154 public reduce 29
+57 ) shift 160
+131 void reduce 40
+78 public reduce 93
+189 boolean reduce 26
+191 NumericType shift 47
+19 abstract reduce 34
+167 MethodHeader shift 43
+41 int reduce 66
+41 boolean reduce 66
+181 { shift 36
+189 } reduce 26
+75 abstract reduce 52
+197 Identifier reduce 88
+118 Identifier shift 161
+165 Block shift 77
+158 ; reduce 6
+47 [ reduce 111
+75 } reduce 52
+88 char reduce 41
+84 ) reduce 172
+84 , reduce 172
+28 ClassMemberDeclaration shift 162
+42 for reduce 60
+200 ; reduce 1
+78 boolean reduce 93
+63 else reduce 84
+199 abstract reduce 15
+189 public reduce 26
+38 public reduce 94
+143 ; reduce 35
+92 implements reduce 98
+42 return reduce 60
+182 Identifier shift 163
+64 while reduce 83
+173 QualifiedIdentifier shift 54
+76 while reduce 62
+43 MethodBody shift 164
+154 boolean reduce 29
+200 final reduce 1
+62 short reduce 96
+183 abstract reduce 91
+102 } reduce 57
+102 { reduce 57
+26 char reduce 43
+101 , shift 116
+164 void reduce 32
+92 Identifier reduce 98
+130 IfThenElseStatement shift 83
+85 Block shift 66
+129 int reduce 33
+11 } reduce 69
+11 { reduce 69
+37 int reduce 65
+189 byte reduce 26
+41 ; reduce 66
+151 ReturnStatement shift 11
+175 return shift 34
+75 ; reduce 52
+175 PrimitiveType shift 44
+169 interface reduce 2
+167 void shift 29
+153 ) shift 165
+36 { reduce 59
+36 } reduce 59
+70 Expression shift 166
+75 boolean reduce 52
+129 protected reduce 33
+102 byte reduce 57
+151 return shift 34
+131 short reduce 40
+85 { shift 36
+111 Identifier shift 17
+66 char reduce 67
+77 final reduce 51
+41 } reduce 66
+3 ; reduce 37
+88 InterfaceBodyDeclarations shift 167
+191 int shift 30
+175 short shift 52
+1 ForUpdate shift 168
+115 ; shift 169
+76 boolean reduce 62
+151 if shift 48
+165 ; shift 75
+187 ; reduce 81
+38 boolean reduce 94
+33 char shift 12
+200 public reduce 1
+171 public reduce 13
+183 void reduce 91
+41 { reduce 66
+77 Identifier reduce 51
+127 short reduce 44
+155 byte reduce 30
+69 Identifier reduce 74
+24 Type shift 170
+67 public shift 171
+33 Type shift 172
+175 if shift 48
+31 ( shift 173
+142 char reduce 38
+154 byte reduce 29
+36 ; reduce 59
+36 boolean reduce 59
+164 Identifier reduce 32
+154 abstract reduce 29
+49 short reduce 68
+188 = shift 174
+173 NumericType shift 47
+26 short reduce 43
+65 { reduce 18
+183 int reduce 91
+131 byte reduce 40
+26 static reduce 43
+121 if reduce 75
+68 byte reduce 58
+76 ; reduce 62
+154 protected reduce 29
+164 byte reduce 32
+162 byte reduce 28
+8 while reduce 63
+183 boolean reduce 91
+170 MethodDeclarator shift 143
+151 WhileStatement shift 37
+181 Block shift 66
+78 protected reduce 93
+42 if reduce 60
+78 abstract reduce 93
+75 public reduce 52
+165 { shift 36
+181 ; shift 15
+24 char shift 12
+148 Identifier reduce 99
+64 char reduce 83
+77 protected reduce 51
+122 interface reduce 5
+121 short reduce 75
+187 boolean reduce 81
+112 EmptyStatement shift 49
+68 short reduce 58
+167 byte shift 45
+162 short reduce 28
+90 { reduce 19
+121 for reduce 75
+83 return reduce 64
+36 BlockStatements shift 175
+62 char reduce 96
+123 * shift 176
+96 Block shift 66
+129 Identifier reduce 33
+111 QualifiedIdentifier shift 177
+152 public reduce 97
+178 byte reduce 89
+55 ; shift 178
+154 static reduce 29
+33 ArrayType shift 18
+78 final reduce 93
+164 abstract reduce 32
+96 WhileStatementNoShortIf shift 20
+128 public reduce 92
+38 protected reduce 94
+155 void reduce 30
+98 Expression shift 179
+49 char reduce 68
+37 byte reduce 65
+149 EOF reduce 10
+183 static reduce 91
+112 for shift 31
+181 ReturnStatement shift 11
+53 = shift 180
+147 StatementWithoutTrailingSubstatement shift 9
+175 ArrayType shift 18
+83 if reduce 64
+166 ) shift 181
+53 ; reduce 55
+95 short reduce 45
+175 StatementWithoutTrailingSubstatement shift 76
+53 ( shift 117
+185 EOF reduce 39
+104 int shift 182
+164 } reduce 32
+189 final reduce 26
+28 Modifier shift 183
+123 Identifier shift 92
+152 abstract reduce 97
+132 Expression shift 184
+147 ForStatementNoShortIf shift 16
+152 Identifier reduce 97
+102 static reduce 57
+167 } shift 185
+138 ; shift 186
+175 for shift 61
+75 void reduce 52
+181 IfThenElseStatementNoShortIf shift 114
+200 abstract reduce 1
+96 { shift 36
+154 int reduce 29
+30 Identifier reduce 116
+127 void reduce 44
+38 final reduce 94
+69 { reduce 74
+94 int reduce 27
+69 } reduce 74
+160 return shift 34
+121 char reduce 75
+160 Statement shift 187
+41 byte reduce 66
+191 QualifiedIdentifier shift 54
+6 Identifier shift 188
+8 char reduce 63
+128 ClassBodyDeclaration shift 189
+15 return reduce 77
+164 ; reduce 32
+85 while shift 58
+140 InterfaceTypeList shift 190
+68 while reduce 58
+148 . reduce 99
+37 ; reduce 65
+113 , shift 191
+143 { reduce 35
+160 EmptyStatement shift 49
+113 ) shift 192
+67 abstract shift 193
+37 boolean reduce 65
+38 Identifier reduce 94
+11 boolean reduce 69
+156 QualifiedIdentifier shift 97
+85 StatementNoShortIf shift 194
+136 void reduce 42
+178 ; reduce 89
+171 final reduce 13
+187 Identifier reduce 81
+138 ImportDeclaration shift 195
+162 void reduce 28
+80 ) reduce 79
+67 class shift 196
+96 ; shift 15
+34 ; shift 197
+26 void reduce 43
+164 boolean reduce 32
+160 for shift 61
+11 ; reduce 69
+189 protected reduce 26
+94 Identifier reduce 27
+69 ; reduce 74
+41 while reduce 66
+189 abstract reduce 26
+175 EmptyStatement shift 49
+171 class reduce 13
+128 Identifier reduce 92
+189 int reduce 26
+95 char reduce 45
+152 boolean reduce 97
+175 ReferenceType shift 32
+33 short shift 52
+37 } reduce 65
+175 Statement shift 198
+76 byte reduce 62
+69 int reduce 74
+130 Block shift 66
+160 StatementWithoutTrailingSubstatement shift 76
+198 return reduce 61
+67 final shift 199
+152 int reduce 97
+37 { reduce 65
+66 short reduce 67
+160 if shift 48
+178 } reduce 89
+136 static reduce 42
+0 BOF shift 200
+147 return shift 34
+178 { reduce 89
+138 TypeDeclaration shift 201
+167 static shift 202
+94 final reduce 27
+75 static reduce 52
+128 final reduce 92
+130 ForStatement shift 41
+10 Expression shift 203
+83 for reduce 64
+36 Identifier reduce 59
+102 while reduce 57
+28 MethodModifiers shift 24
+102 void reduce 57
+128 abstract reduce 92
+5 Identifier reduce 86
+148 ( shift 117
+11 int reduce 69
+171 abstract reduce 13
+164 public reduce 32
+128 protected reduce 92
+75 byte reduce 52
+117 byte shift 45
+181 WhileStatementNoShortIf shift 20
+8 short reduce 63
+86 extends shift 204
+27 char reduce 31
+69 boolean reduce 74
+130 { shift 36
+191 Identifier shift 17
+94 protected reduce 27

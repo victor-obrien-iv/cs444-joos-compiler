@@ -7,7 +7,20 @@ sealed trait Token {
   def lexeme: String
   def row: Int
   def col: Int
+
+  def kind: String = this match {
+    case _: Identifier => "Identifier"
+    case _: BooleanLiteral => "BooleanLiteral"
+    case _: IntegerLiteral => "IntegerLiteral"
+    case _: CharacterLiteral => "CharacterLiteral"
+    case _: NullLiteral => "NullLiteral"
+    case _: StringLiteral => "StringLiteral"
+    case _: Token => this.lexeme
+  }
 }
+
+case class Bof(lexeme: String = "BOF", row: Int = 0, col: Int = 0) extends Token
+case class Eof(lexeme: String = "EOF", row: Int = 0, col: Int = 0) extends Token
 
 /**
   * Identifier is unlimited-length sequence of Java letters and digits
