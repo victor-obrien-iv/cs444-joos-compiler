@@ -5,43 +5,40 @@ import Token._
 
 class Parser(lalr: Lalr) {
 
-  //  def parse(tokens: List[Token]): ParseTreeNode = parseRec(tokens, Nil, Empty())
+  def parse(tokens: List[Token]): TreeNode = parseRec((Bof()::tokens) :+ Eof(), Nil)
 
-  def parseRec(tokens: List[Token], stack: List[(Int, String)]): Boolean = tokens match {
-    case Nil => if (stack.head._2 == lalr.startSymbol) true else throw ParseError("Unexpected end of input")
+  def parseRec(tokens: List[Token], stack: List[(Int, TreeNode)]): TreeNode = tokens match {
+    case Nil => reduce(lalr.productionRules(0), stack, Nil).head._2
     case head :: tail =>
       val state = if (stack.isEmpty) 0 else stack.head._1
 
-      val action = lalr.actions(state, kind(head))
+      val action = lalr.actions(state, head.kind)
       action match {
-        case Shift(symbol, nextState) => parseRec(tail, (nextState, symbol) :: stack)
-        case Reduce(_, prodRule) => parseRec(tokens, reduce(lalr.productionRules(prodRule), stack))
+        case Shift(symbol, nextState) => parseRec(tail, (nextState, TreeNode(symbol, Nil)) :: stack)
+        case Reduce(_, prodRule) =>
+          val newStack = reduce(lalr.productionRules(prodRule), stack, Nil)
+          parseRec(tokens, newStack)
       }
 
   }
 
-  def reduce(prodRule: ProdRule, stack: List[(Int, String)]): List[(Int, String)] = {
+  def reduce(prodRule: ProdRule, stack: List[(Int, TreeNode)], children: List[TreeNode]): List[(Int, TreeNode)] = {
     prodRule match {
       case ProdRule(nonTerminal, Nil) =>
-        val action = lalr.actions((stack.head._1, nonTerminal))
-        action match {
-          case Shift(symbol, nextState) => (nextState, symbol) :: stack
-          case Reduce(_, rule) => reduce(lalr.productionRules(rule), stack)
+        val state = if (stack.isEmpty) 0 else stack.head._1
+
+        if (nonTerminal == lalr.startSymbol) {
+          (0, TreeNode(nonTerminal, children))::Nil
+        } else {
+          val action = lalr.actions((state, nonTerminal))
+          action match {
+            case Shift(symbol, nextState) => (nextState, TreeNode(symbol, children)) :: stack
+            case Reduce(_, rule) => reduce(lalr.productionRules(rule), stack, Nil)
+          }
         }
-
-      case ProdRule(nonTerminal, _ :: tail) => reduce(ProdRule(nonTerminal, tail), stack.tail)
+      case ProdRule(nonTerminal, _ :: tail) =>
+        val node = stack.head._2
+        reduce(ProdRule(nonTerminal, tail), stack.tail, node::children)
     }
-  }
-
-  def kind(token: Token): String = token match {
-    case _: Identifier => "Identifier"
-    case _: Keyword => token.lexeme
-    case _: BooleanLiteral => "BooleanLiteral"
-    case _: IntegerLiteral => "IntegerLiteral"
-    case _: CharacterLiteral => "CharacterLiteral"
-    case _: NullLiteral => "NullLiteral"
-    case _: StringLiteral => "StringLiteral"
-    case _: Separator => token.lexeme
-    case _: Operator => token.lexeme
   }
 }
