@@ -64,7 +64,8 @@ object Driver {
     // give the parser work
     val CSTroot: Seq[Future[Any]] = for( t <- tokens ) yield {
       // get the tokens and filter out comment tokens
-      val tokens = Await.result(t._2, Duration.Inf).asInstanceOf[List[Token.Token]] filterNot Token.Comment.==
+      val tokens = Await.result(t._2, Duration.Inf).asInstanceOf[List[Token.Token]].
+        filterNot(_.isInstanceOf[Token.Comment])
       parser ask tokens
     }
     for(node <- CSTroot) {
