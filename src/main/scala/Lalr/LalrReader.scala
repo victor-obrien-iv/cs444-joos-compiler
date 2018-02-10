@@ -28,7 +28,7 @@ object LalrReader extends App {
 
   val lalr = Lalr(terminals, nonTerminals, parseProdRules(prodRules), startSymbol, states, parseActions(actions))
 
-  val out = new ObjectOutputStream(new FileOutputStream("src/main/resources/lalr"))
+  val out = new ObjectOutputStream(new FileOutputStream("src/main/resources/lalr-obj"))
 
   out.writeObject(lalr)
   out.close()
