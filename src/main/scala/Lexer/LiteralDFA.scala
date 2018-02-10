@@ -10,7 +10,7 @@ object LiteralDFA extends Enumeration {
 
   // states used for comments
   object comment {
-    val FWD_SLASH, FWD_SLASH2, SINGLE, NEWLINE,
+    val FWD_SLASH, FWD_SLASH2, SINGLE,
         STAR, FWD_SLASH3, MULTI = Value
   }
 
@@ -52,7 +52,6 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
 
   val acceptingStates: Map[Value, ()  => Token] = Map(
     comment.SINGLE      -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
-    comment.NEWLINE     -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
     comment.FWD_SLASH3  -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
     str.QUOTE2          ->
       (() => {
@@ -106,7 +105,6 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     (DFA.allAscii filterNot '\n'.== ).map( c =>       // // fooBAR! 123
       (comment.SINGLE, c)       -> comment.SINGLE ).toMap ++
     Map (
-      (comment.SINGLE, '\n')    -> comment.NEWLINE,   // // fooBAR! 123 \n
       (comment.FWD_SLASH, '*')  -> comment.MULTI,     // /*
     ) ++
     (DFA.allAscii filterNot '*'.== ).map( c =>        // /* fooBAR! 123

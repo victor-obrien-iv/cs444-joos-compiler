@@ -27,15 +27,13 @@ class Status(val fileName: String, val reporter: ActorRef) {
   def getChar: Char = { char }
 
   private[Lexer] def advance(): Unit = {
+    if ( char == '\n' ) {
+      row += 1
+      col = 0
+    }
     charNum += 1
     col += 1
-    if ( !eof ) {
-      if ( char == '\n' ) {
-        row += 1
-        col = 0
-      }
-      lexeme += char
-    }
+    if ( !eof ) lexeme += char
   }
 
   private[Lexer] def restoreTo(token: Token.Token): Unit = {
