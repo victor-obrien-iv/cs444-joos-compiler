@@ -11,7 +11,7 @@ object LiteralDFA extends Enumeration {
   // states used for comments
   object comment {
     val FWD_SLASH, FWD_SLASH2, SINGLE, NEWLINE,
-        STAR, STAR2, FWD_SLASH3, MULTI = Value
+        STAR, FWD_SLASH3, MULTI = Value
   }
 
   // states used for string literals
@@ -112,13 +112,13 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     (DFA.allAscii filterNot '*'.== ).map( c =>        // /* fooBAR! 123
       (comment.MULTI, c)        -> comment.MULTI ).toMap ++
     Map (
-      (comment.MULTI, '*')      -> comment.STAR2,     // /* foo *
-      (comment.STAR2, '*')      -> comment.STAR2,     // /* foo **
+      (comment.MULTI, '*')      -> comment.STAR,      // /* foo *
+      (comment.STAR, '*')       -> comment.STAR,      // /* foo **
     ) ++
     (DFA.allAscii filterNot '/'.== ).map( c =>        // /* foo *** bar
-      (comment.STAR2, c)        -> comment.MULTI ).toMap ++
+      (comment.STAR, c)         -> comment.MULTI ).toMap ++
     Map (
-      (comment.STAR2, '/')      -> comment.FWD_SLASH3 // /* foo */
+      (comment.STAR, '/')       -> comment.FWD_SLASH3 // /* foo */
     )
 
   val strTransitions: Map[(Value, Char), Value] =
