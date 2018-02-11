@@ -31,8 +31,8 @@ class Status(val fileName: String, val reporter: ActorRef) {
       row += 1
       col = 0
     }
+    else col += 1
     charNum += 1
-    col += 1
     if ( !eof ) lexeme += char
   }
 
