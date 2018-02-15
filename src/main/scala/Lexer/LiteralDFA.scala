@@ -16,8 +16,7 @@ object LiteralDFA extends Enumeration {
 
   // states used for string literals
   object str {
-    val QUOTE, STR, ESC, QUOTE2, PRE_SPACE,
-        PLUS, POST_SPACE = Value
+    val QUOTE, STR, ESC, QUOTE2 = Value
   }
 
   // states for a char literal
@@ -126,22 +125,6 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
       (str.STR, '\\')           -> str.ESC,           // "foo \
       (str.STR, '\"')           -> str.QUOTE2,        // "foo \064"
       (str.QUOTE, '\"')         -> str.QUOTE2         // ""
-    ) ++
-    DFA.whitespace.map( c =>                          // "foo"_
-      (str.QUOTE2, c)           -> str.PRE_SPACE ).toMap ++
-    DFA.whitespace.map( c =>                          // "foo"____
-      (str.PRE_SPACE, c)        -> str.PRE_SPACE ).toMap ++
-    Map (
-      (str.PRE_SPACE, '+')      -> str.PLUS,          // "foo"____+
-      (str.QUOTE2, '+')         -> str.PLUS           // "foo"+
-    ) ++
-    DFA.whitespace.map( c =>                          // "foo"____+_
-      (str.PLUS, c)             -> str.POST_SPACE ).toMap ++
-    DFA.whitespace.map( c =>                          // "foo"____+____
-      (str.POST_SPACE, c)       -> str.POST_SPACE ).toMap ++
-    Map (
-      (str.POST_SPACE, '\"')    -> str.QUOTE,         // "foo"____+____"
-      (str.PLUS, '\"')          -> str.QUOTE          // "foo"+"
     ) ++
     // transition for escape characters
     DFA.escapeChars.map( c =>                         // "\n
