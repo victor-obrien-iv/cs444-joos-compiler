@@ -1,5 +1,8 @@
 package Driver
 
+import java.io.{FileInputStream, ObjectInputStream}
+
+import Lalr.Lalr
 import akka.pattern.ask
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.util.Timeout
@@ -37,13 +40,38 @@ object Driver {
 
     // create lexer actor
     val lexer = actorSystem.actorOf( Props(new Lexer.Lexer(actorSystem, reporter)), "Lexer" )
+    // give the lexer work
     val tokens: Seq[(String, Future[Any])] = for(f <- commandLine.files ) yield (f, lexer ask f)
+
+    // instantiate parser actor while lexer works
+    val lalrSteam = new ObjectInputStream(new FileInputStream("src/main/resources/lalr-obj"))
+    val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
+    val parser = actorSystem.actorOf( Props(new Parser.Parser(lalr,
+      tokens.head._1 /*TODO: fix this for multiple files*/, reporter)), "Parser" )
 
     for( ft <- tokens ) {
       // just print out the tokens for now
       println(ft._1 + ":")
       val tokenList = Await.result(ft._2, Duration.Inf).asInstanceOf[List[Token.Token]]
       println(tokenList)
+    }
+
+    // wait for the lexer to finish working
+    for (ft <- tokens) Await.ready(ft._2, Duration.Inf)
+    if ( errorsFound ) ErrorExit()
+    actorSystem.stop(lexer)
+
+    // give the parser work
+    val CSTroot: Seq[Future[Any]] = for( t <- tokens ) yield {
+      // get the tokens and filter out comment tokens
+      val tokens = Await.result(t._2, Duration.Inf).asInstanceOf[List[Token.Token]].
+        filterNot(_.isInstanceOf[Token.Comment])
+      parser ask tokens
+    }
+    for(node <- CSTroot) {
+      Await.ready(node, Duration.Inf)
+      // just print out the nodes for now
+      println(node)
     }
     if ( errorsFound ) ErrorExit()
 

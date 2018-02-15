@@ -2,8 +2,9 @@ package Parser
 
 import Lalr.Lalr
 import Token._
+import akka.actor.{Actor, ActorRef}
 
-class Parser(lalr: Lalr) {
+class Parser(lalr: Lalr, fileName: String, reporter: ActorRef) extends Actor {
 
   def parse(tokens: List[Token]): TreeNode = parseRec((Bof()::tokens) :+ Eof(), Nil)
 
@@ -12,14 +13,20 @@ class Parser(lalr: Lalr) {
     case head :: tail =>
       val state = if (stack.isEmpty) 0 else stack.head._1
 
-      val action = lalr.actions(state, head.kind)
-      action match {
-        case Shift(symbol, nextState) => parseRec(tail, (nextState, TreeNode(symbol, Nil)) :: stack)
-        case Reduce(_, prodRule) =>
-          val newStack = reduce(lalr.productionRules(prodRule), stack, Nil)
-          parseRec(tokens, newStack)
+      try {
+        val action = lalr.actions(state, head.kind)
+        action match {
+          case Shift(symbol, nextState) => parseRec(tail, (nextState, TreeNode(symbol, Nil)) :: stack)
+          case Reduce(_, prodRule) =>
+            val newStack = reduce(lalr.productionRules(prodRule), stack, Nil)
+            parseRec(tokens, newStack)
+        }
       }
-
+      catch {
+        case _: NoSuchElementException => reporter ! Error.Error(head.lexeme,
+          "illegal transition", Error.Type.Parser, Some( Error.Location(head.row, head.col, fileName)))
+          stack.head._2
+      }
   }
 
   def reduce(prodRule: ProdRule, stack: List[(Int, TreeNode)], children: List[TreeNode]): List[(Int, TreeNode)] = {
@@ -40,5 +47,9 @@ class Parser(lalr: Lalr) {
         val node = stack.head._2
         reduce(ProdRule(nonTerminal, tail), stack.tail, node::children)
     }
+  }
+
+  override def receive: Receive = {
+    case t: List[Token] => sender() ! parse(t)
   }
 }
