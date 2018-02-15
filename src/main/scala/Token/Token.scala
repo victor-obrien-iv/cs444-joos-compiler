@@ -40,35 +40,29 @@ case class Comment(lexeme: String, row: Int, col: Int) extends Token
   * Keyword represents a Java keyword. Identifiers should be checked so they don't conflict
   * with these keywords. Java has been prefixed so not to clash with Scala types
   */
-sealed trait Keyword extends Token 
+sealed trait Keyword extends Token
+
 
 case class JavaAbstract(lexeme:String = "abstract", row: Int, col: Int) extends Keyword
-case class JavaBoolean(lexeme:String = "boolean", row: Int, col: Int) extends Keyword
 case class JavaBreak(lexeme:String = "break", row: Int, col: Int) extends Keyword
-case class JavaByte(lexeme:String = "byte", row: Int, col: Int) extends Keyword
 case class JavaCase(lexeme:String ="case", row: Int, col: Int) extends Keyword
 case class JavaCatch(lexeme:String = "catch", row: Int, col: Int) extends Keyword
-case class JavaChar(lexeme:String = "char", row: Int, col: Int) extends Keyword
 case class JavaClass(lexeme:String = "class", row: Int, col: Int) extends Keyword
 case class JavaConst(lexeme:String = "const", row: Int, col: Int) extends Keyword
 case class JavaContinue(lexeme:String = "continue", row: Int, col: Int) extends Keyword
 case class JavaDefault(lexeme:String = "default", row: Int, col: Int) extends Keyword
 case class JavaDo(lexeme:String = "do", row: Int, col: Int) extends Keyword
-case class JavaDouble(lexeme:String = "double", row: Int, col: Int) extends Keyword
 case class JavaElse(lexeme:String = "else", row: Int, col: Int) extends Keyword
 case class JavaExtends(lexeme:String = "extends", row: Int, col: Int) extends Keyword
 case class JavaFinal(lexeme:String = "final", row: Int, col: Int) extends Keyword
 case class JavaFinally(lexeme:String = "finally", row: Int, col: Int) extends Keyword
-case class JavaFloat(lexeme:String = "float", row: Int, col: Int) extends Keyword
 case class JavaFor(lexeme:String = "for", row: Int, col: Int) extends Keyword
 case class JavaGoto(lexeme:String = "goto", row: Int, col: Int) extends Keyword
 case class JavaIf(lexeme:String = "if", row: Int, col: Int) extends Keyword
 case class JavaImplements(lexeme:String = "implements", row: Int, col: Int) extends Keyword
 case class JavaImport(lexeme:String = "import", row: Int, col: Int) extends Keyword
 case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Keyword
-case class JavaInt(lexeme:String = "int", row: Int, col: Int) extends Keyword
 case class JavaInterface(lexeme:String = "interface", row: Int, col: Int) extends Keyword
-case class JavaLong(lexeme:String = "long", row: Int, col: Int) extends Keyword
 case class JavaNative(lexeme:String = "native", row: Int, col: Int) extends Keyword
 case class JavaNew(lexeme:String = "new", row: Int, col: Int) extends Keyword
 case class JavaPackage(lexeme:String = "package", row: Int, col: Int) extends Keyword
@@ -76,7 +70,6 @@ case class JavaPrivate(lexeme:String = "private", row: Int, col: Int) extends Ke
 case class JavaProtected(lexeme:String = "protected", row: Int, col: Int) extends Keyword
 case class JavaPublic(lexeme:String = "public", row: Int, col: Int) extends Keyword
 case class JavaReturn(lexeme:String = "return", row: Int, col: Int) extends Keyword
-case class JavaShort(lexeme:String = "short", row: Int, col: Int) extends Keyword
 case class JavaStatic(lexeme:String = "static", row: Int, col: Int) extends Keyword
 case class JavaStrictfp(lexeme:String = "strictfp", row: Int, col: Int) extends Keyword
 case class JavaSuper(lexeme:String = "super", row: Int, col: Int) extends Keyword
@@ -87,9 +80,24 @@ case class JavaThrow(lexeme:String = "throw", row: Int, col: Int) extends Keywor
 case class JavaThrows(lexeme:String = "throws", row: Int, col: Int) extends Keyword
 case class JavaTransient(lexeme:String = "transient", row: Int, col: Int) extends Keyword
 case class JavaTry(lexeme:String = "try", row: Int, col: Int) extends Keyword
-case class JavaVoid(lexeme:String = "void", row: Int, col: Int) extends Keyword
 case class JavaVolatile(lexeme:String = "volatile", row: Int, col: Int) extends Keyword
 case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keyword
+
+/**
+  * A Java Keyword that represents a primitive type
+  */
+sealed trait Primitive extends Keyword
+
+case class JavaByte(lexeme:String = "byte", row: Int, col: Int) extends Primitive
+case class JavaChar(lexeme:String = "char", row: Int, col: Int) extends Primitive
+case class JavaShort(lexeme:String = "short", row: Int, col: Int) extends Primitive
+case class JavaInt(lexeme:String = "int", row: Int, col: Int) extends Primitive
+case class JavaLong(lexeme:String = "long", row: Int, col: Int) extends Primitive
+case class JavaFloat(lexeme:String = "float", row: Int, col: Int) extends Primitive
+case class JavaDouble(lexeme:String = "double", row: Int, col: Int) extends Primitive
+case class JavaBoolean(lexeme:String = "boolean", row: Int, col: Int) extends Primitive
+case class JavaVoid(lexeme:String = "void", row: Int, col: Int) extends Primitive
+
 
 /**
   * Literal represents a Java literal. Identifiers should be checked against null and booleans
