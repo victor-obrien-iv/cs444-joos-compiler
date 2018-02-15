@@ -15,7 +15,8 @@ echo "fails/progress/total"
 for testfile in $testdir*; do	
 	echo -ne $numfails "/" $progress "/" $numfiles'\t'$testfile'\t'
 	./joosc $testfile > /dev/null
-	if ([ "Je" == ${testfile:${#testdir}:2} ] && [ "$?" -ne "42" ]) || ([ "Je" != ${testfile:${#testdir}:2} ] && [ "$?" -ne "0" ]); then
+	retcode=${PIPESTATUS[0]}
+	if ([ "Je" == ${testfile:${#testdir}:2} ] && [ "$retcode" -ne "42" ]) || ([ "Je" != ${testfile:${#testdir}:2} ] && [ "$retcode" -ne "0" ]); then
 		numfails=$((numfails + 1))
 		echo $testfile >> $outfile
 		echo "failed" 	
