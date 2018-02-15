@@ -147,14 +147,14 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     // transition for escape characters
     DFA.escapeChars.map( c =>                         // '\n
       (char.ESC, c)             -> char.CHAR ).toMap  ++
-    // transitions for octal escapes in strings
-    (DFA.digits filter '3'.>= ).map( c =>             // '\0
+    // transitions for octal escapes in characters
+    (DFA.octDigits filter '3'.>= ).map( c =>          // '\0
       (char.ESC, c)             -> char.octal.DIGIT1).toMap ++
-    (DFA.digits filter '4'.<= ).map( c =>             // '\8
+    (DFA.octDigits filter '4'.<= ).map( c =>          // '\8
       (char.ESC, c)             -> char.octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                              // '\06
+    DFA.octDigits.map( c =>                           // '\06
       (char.octal.DIGIT1, c)    -> char.octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                              // '\064
+    DFA.octDigits.map( c =>                           // '\064
       (char.octal.DIGIT2, c)    -> char.CHAR ).toMap ++
     Map (
       (char.octal.DIGIT1, '\'') -> char.APOST2,       // '\06'
