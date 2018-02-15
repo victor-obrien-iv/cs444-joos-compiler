@@ -70,9 +70,19 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
       }),
     char.APOST2         ->
       (() => {
-        val unescaped: String = StringContext.treatEscapes(text)
-        assert(unescaped.length == 1, "char must be of size 1")
-        Token.CharacterLiteral.apply (status.getLexeme, status.getRow, status.getCol, unescaped.charAt(0))
+        try {
+          val unescaped: String = StringContext.treatEscapes(text)
+          assert(unescaped.length == 1, "char must be of size 1")
+          Token.CharacterLiteral.apply(status.getLexeme, status.getRow, status.getCol, unescaped.charAt(0))
+        }
+        catch {
+          case _: InvalidEscapeException =>
+            // the treadEscapes method failed due to a bad escape char
+            status.reporter ! Error.Error(status.getLexeme,
+              "bad escape character", Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
+            // this still needs to return a token, just return a char token with the untreated text
+            Token.CharacterLiteral.apply(status.getLexeme, status.getRow, status.getCol, text.charAt(0))
+        }
       }),
     int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
