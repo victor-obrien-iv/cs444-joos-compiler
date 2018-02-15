@@ -104,7 +104,8 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
       (comment.MULTI, '*')      -> comment.STAR,      // /* foo *
       (comment.STAR, '*')       -> comment.STAR,      // /* foo **
     ) ++
-    (DFA.allAscii filterNot '/'.== ).map( c =>        // /* foo *** bar
+                                                      // /* foo *** bar
+    (DFA.allAscii filterNot ((c: Char) => c == '/' || c == '*') ).map( c =>
       (comment.STAR, c)         -> comment.MULTI ).toMap ++
     Map (
       (comment.STAR, '/')       -> comment.FWD_SLASH3 // /* foo */
