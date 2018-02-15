@@ -31,9 +31,6 @@ object LiteralDFA extends Enumeration {
 
   object int {
     val ZERO, INT = Value
-    // intMax in JOOS is 2^31 -1, but intMin is -2^31. Given '-' is
-    // tokenized as minus operator, the lexer considers the max to be 2^31
-    val max: BigInt = 2147483648L // 2^31
   }
 }
 
@@ -87,23 +84,8 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
       (() => {
-        def tooBig(): Unit = {
-          status.reporter ! Error.Error(status.getLexeme,
-            "integer literal exceeds integer maximum of " + (int.max - 1).toString,
-            Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
-        }
-
-        if ( status.getLexeme.length > 10 ) tooBig()
-
         val number: BigInt = BigInt(status.getLexeme, 10)
-        if ( number == int.max )
-          // TODO: how should this case be handled? 2^31 can only appear with a unary minus operator in front of it
-          Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, -2147483648)
-
-        else {
-          if ( number > int.max ) tooBig()
-          Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, number.toInt)
-        }
+        Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, number)
       })
   )
 
