@@ -15,15 +15,20 @@ case class BlockStmt(stmts: List[Stmt]) extends Stmt
 /**
   * DeclStmt represents the declaration of a variable
   * ex: int i;
-  *     int i = 5;
   * @param decl the declaration
   */
 case class DeclStmt(decl: VarDecl) extends Stmt
 
 /**
+  * ReturnStmt represents a return statement
+  * @param expr the expression to return or None for a void return
+  */
+case class ReturnStmt(expr: Option[Expr]) extends Stmt
+
+/**
   * CtrlFlowStmt qualifies statements that involve branching
   */
-trait CtrlFlowStmt extends Stmt
+sealed trait CtrlFlowStmt extends Stmt
 
 /**
   * IfStmt represents an if-else stmt
@@ -36,7 +41,7 @@ case class IfStmt(condition: Expr, thenStmt: Stmt, elseStmt: Option[Stmt]) exten
 /**
   * LoopStmt qualifies control flow statements that loop
   */
-trait LoopStmt extends CtrlFlowStmt
+sealed trait LoopStmt extends CtrlFlowStmt
 
 /**
   * ForStmt represents a for-loop
@@ -56,3 +61,4 @@ case class ForStmt(init: Option[DeclStmt], condition: Option[Expr],
   * @param bodyStmt The statement to be each time condition evaluates to true
   */
 case class WhileStmt(condition: Expr, bodyStmt: Stmt) extends LoopStmt
+

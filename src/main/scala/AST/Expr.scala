@@ -4,7 +4,7 @@ package AST
   * An Expr is an expression statement that returns
   * some value or is void
   */
-trait Expr extends Stmt
+sealed trait Expr extends Stmt
 
 /**
   * BinaryExpr represents a binary operator acting on a left and right side
@@ -63,8 +63,8 @@ case class AccessExpr(lhs: Expr, field: Token.Identifier) extends Expr
   * ArrayAccessExpr represents the accessing of an element in an array via an index
   * ex: myObjArray[0]
   *     (new int[5])[0]
-  * @param lhs An expression that produces an array to be accessed
-  * @param index An expression that evaluates to a number that will access into
+  * @param lhs an expression that produces an array to be accessed
+  * @param index an expression that evaluates to a number that will access into
   *              the array produced by the lhs
   */
 case class ArrayAccessExpr(lhs: Expr, index: Expr) extends Expr
@@ -83,18 +83,25 @@ case class ValExpr(value: Token.Literal) extends Expr
   *   The name resolution visitor will determine what decl this actually
   *   points to.
   * ex: myVar
-  * @param reference The identifier of the decl being used
+  * @param reference The identifier of the variable being used
   */
 case class DeclRefExpr(reference: Token.Identifier) extends Expr
 
 /**
+  * InstanceOfExpr represents a use of the 'instanceof' operator.
+  * @param lhs an expression that evaluates to an object
+  * @param typ the type the operator is checking against
+  */
+case class InstanceOfExpr(lhs: Expr, typ: Type) extends Expr
+
+/**
   * NewExpr qualifies expressions that allocate memory on the heap
   */
-trait NewExpr extends Expr
+sealed trait NewExpr extends Expr
 
 /**
   * ObjectNewExpr represents new being called on a class constructor
-  * @param ctor The identifier that specifies the constructor to use
+  * @param ctor the identifier that specifies the constructor to use
   * @param params The list of parameters for the constructor
   */
 case class ObjNewExpr(ctor: FullyQualifiedID, params: List[Expr]) extends NewExpr

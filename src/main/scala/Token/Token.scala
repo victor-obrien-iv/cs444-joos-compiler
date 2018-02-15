@@ -42,8 +42,6 @@ case class Comment(lexeme: String, row: Int, col: Int) extends Token
   */
 sealed trait Keyword extends Token
 
-
-case class JavaAbstract(lexeme:String = "abstract", row: Int, col: Int) extends Keyword
 case class JavaBreak(lexeme:String = "break", row: Int, col: Int) extends Keyword
 case class JavaCase(lexeme:String ="case", row: Int, col: Int) extends Keyword
 case class JavaCatch(lexeme:String = "catch", row: Int, col: Int) extends Keyword
@@ -54,7 +52,6 @@ case class JavaDefault(lexeme:String = "default", row: Int, col: Int) extends Ke
 case class JavaDo(lexeme:String = "do", row: Int, col: Int) extends Keyword
 case class JavaElse(lexeme:String = "else", row: Int, col: Int) extends Keyword
 case class JavaExtends(lexeme:String = "extends", row: Int, col: Int) extends Keyword
-case class JavaFinal(lexeme:String = "final", row: Int, col: Int) extends Keyword
 case class JavaFinally(lexeme:String = "finally", row: Int, col: Int) extends Keyword
 case class JavaFor(lexeme:String = "for", row: Int, col: Int) extends Keyword
 case class JavaGoto(lexeme:String = "goto", row: Int, col: Int) extends Keyword
@@ -63,25 +60,33 @@ case class JavaImplements(lexeme:String = "implements", row: Int, col: Int) exte
 case class JavaImport(lexeme:String = "import", row: Int, col: Int) extends Keyword
 case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Keyword
 case class JavaInterface(lexeme:String = "interface", row: Int, col: Int) extends Keyword
-case class JavaNative(lexeme:String = "native", row: Int, col: Int) extends Keyword
 case class JavaNew(lexeme:String = "new", row: Int, col: Int) extends Keyword
 case class JavaPackage(lexeme:String = "package", row: Int, col: Int) extends Keyword
-case class JavaPrivate(lexeme:String = "private", row: Int, col: Int) extends Keyword
-case class JavaProtected(lexeme:String = "protected", row: Int, col: Int) extends Keyword
-case class JavaPublic(lexeme:String = "public", row: Int, col: Int) extends Keyword
 case class JavaReturn(lexeme:String = "return", row: Int, col: Int) extends Keyword
-case class JavaStatic(lexeme:String = "static", row: Int, col: Int) extends Keyword
 case class JavaStrictfp(lexeme:String = "strictfp", row: Int, col: Int) extends Keyword
 case class JavaSuper(lexeme:String = "super", row: Int, col: Int) extends Keyword
 case class JavaSwitch(lexeme:String = "switch", row: Int, col: Int) extends Keyword
 case class JavaSyncronized(lexeme:String = "syncronized", row: Int, col: Int) extends Keyword
 case class JavaThis(lexeme:String = "this", row: Int, col: Int) extends Keyword
 case class JavaThrow(lexeme:String = "throw", row: Int, col: Int) extends Keyword
-case class JavaThrows(lexeme:String = "throws", row: Int, col: Int) extends Keyword
-case class JavaTransient(lexeme:String = "transient", row: Int, col: Int) extends Keyword
 case class JavaTry(lexeme:String = "try", row: Int, col: Int) extends Keyword
 case class JavaVolatile(lexeme:String = "volatile", row: Int, col: Int) extends Keyword
 case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keyword
+
+/**
+  * A Java Keyword that is a modifier associated to a declaration
+  */
+sealed trait Modifier extends Keyword
+
+case class JavaAbstract(lexeme:String = "abstract", row: Int, col: Int) extends Keyword
+case class JavaFinal(lexeme:String = "final", row: Int, col: Int) extends Modifier
+case class JavaStatic(lexeme:String = "static", row: Int, col: Int) extends Modifier
+case class JavaPrivate(lexeme:String = "private", row: Int, col: Int) extends Modifier
+case class JavaProtected(lexeme:String = "protected", row: Int, col: Int) extends Modifier
+case class JavaPublic(lexeme:String = "public", row: Int, col: Int) extends Modifier
+case class JavaNative(lexeme:String = "native", row: Int, col: Int) extends Modifier
+case class JavaTransient(lexeme:String = "transient", row: Int, col: Int) extends Modifier
+case class JavaThrows(lexeme:String = "throws", row: Int, col: Int) extends Modifier
 
 /**
   * A Java Keyword that represents a primitive type

@@ -2,6 +2,7 @@ package AST
 
 /**
   * Type represents a data type
+  * With the exception of primitives, each Type is the application of a Decl
   */
 sealed trait Type extends AstNode
 
