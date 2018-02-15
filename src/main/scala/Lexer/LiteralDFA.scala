@@ -10,8 +10,8 @@ object LiteralDFA extends Enumeration {
 
   // states used for comments
   object comment {
-    val FWD_SLASH, FWD_SLASH2, SINGLE, NEWLINE,
-        STAR, STAR2, FWD_SLASH3, MULTI = Value
+    val FWD_SLASH, FWD_SLASH2, SINGLE,
+        STAR, FWD_SLASH3, MULTI = Value
   }
 
   // states used for string literals
@@ -48,7 +48,6 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
 
   val acceptingStates: Map[Value, ()  => Token] = Map(
     comment.SINGLE      -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
-    comment.NEWLINE     -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
     comment.FWD_SLASH3  -> ( () => Token.Comment.apply (status.getLexeme, status.getRow, status.getCol) ),
     str.QUOTE2          ->
       (() => {
@@ -67,9 +66,19 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
       }),
     char.APOST2         ->
       (() => {
-        val unescaped: String = StringContext.treatEscapes(text)
-        assert(unescaped.length == 1, "char must be of size 1")
-        Token.CharacterLiteral.apply (status.getLexeme, status.getRow, status.getCol, unescaped.charAt(0))
+        try {
+          val unescaped: String = StringContext.treatEscapes(text)
+          assert(unescaped.length == 1, "char must be of size 1")
+          Token.CharacterLiteral.apply(status.getLexeme, status.getRow, status.getCol, unescaped.charAt(0))
+        }
+        catch {
+          case _: InvalidEscapeException =>
+            // the treadEscapes method failed due to a bad escape char
+            status.reporter ! Error.Error(status.getLexeme,
+              "bad escape character", Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
+            // this still needs to return a token, just return a char token with the untreated text
+            Token.CharacterLiteral.apply(status.getLexeme, status.getRow, status.getCol, text.charAt(0))
+        }
       }),
     int.ZERO            -> ( () => Token.IntegerLiteral.apply (status.getLexeme, status.getRow, status.getCol, 0)),
     int.INT             ->
@@ -87,19 +96,19 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     (DFA.allAscii filterNot '\n'.== ).map( c =>       // // fooBAR! 123
       (comment.SINGLE, c)       -> comment.SINGLE ).toMap ++
     Map (
-      (comment.SINGLE, '\n')    -> comment.NEWLINE,   // // fooBAR! 123 \n
       (comment.FWD_SLASH, '*')  -> comment.MULTI,     // /*
     ) ++
     (DFA.allAscii filterNot '*'.== ).map( c =>        // /* fooBAR! 123
       (comment.MULTI, c)        -> comment.MULTI ).toMap ++
     Map (
-      (comment.MULTI, '*')      -> comment.STAR2,     // /* foo *
-      (comment.STAR2, '*')      -> comment.STAR2,     // /* foo **
+      (comment.MULTI, '*')      -> comment.STAR,      // /* foo *
+      (comment.STAR, '*')       -> comment.STAR,      // /* foo **
     ) ++
-    (DFA.allAscii filterNot '/'.== ).map( c =>        // /* foo *** bar
-      (comment.STAR2, c)        -> comment.MULTI ).toMap ++
+                                                      // /* foo *** bar
+    (DFA.allAscii filterNot ((c: Char) => c == '/' || c == '*') ).map( c =>
+      (comment.STAR, c)         -> comment.MULTI ).toMap ++
     Map (
-      (comment.STAR2, '/')      -> comment.FWD_SLASH3 // /* foo */
+      (comment.STAR, '/')       -> comment.FWD_SLASH3 // /* foo */
     )
 
   val strTransitions: Map[(Value, Char), Value] =
@@ -138,14 +147,14 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     // transition for escape characters
     DFA.escapeChars.map( c =>                         // '\n
       (char.ESC, c)             -> char.CHAR ).toMap  ++
-    // transitions for octal escapes in strings
-    (DFA.digits filter '3'.>= ).map( c =>             // '\0
+    // transitions for octal escapes in characters
+    (DFA.octDigits filter '3'.>= ).map( c =>          // '\0
       (char.ESC, c)             -> char.octal.DIGIT1).toMap ++
-    (DFA.digits filter '4'.<= ).map( c =>             // '\8
+    (DFA.octDigits filter '4'.<= ).map( c =>          // '\8
       (char.ESC, c)             -> char.octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                              // '\06
+    DFA.octDigits.map( c =>                           // '\06
       (char.octal.DIGIT1, c)    -> char.octal.DIGIT2).toMap ++
-    DFA.digits.map( c =>                              // '\064
+    DFA.octDigits.map( c =>                           // '\064
       (char.octal.DIGIT2, c)    -> char.CHAR ).toMap ++
     Map (
       (char.octal.DIGIT1, '\'') -> char.APOST2,       // '\06'

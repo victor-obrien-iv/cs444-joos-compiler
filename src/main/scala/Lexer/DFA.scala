@@ -17,7 +17,7 @@ object DFA {
   val octDigits = "01234567"
   val oneToNine =  "123456789"
   val escapeChars = "btnfr\'\"\\"
-  val allAscii: immutable.IndexedSeq[Char] = for (i <- 32 to 126 ) yield i.toChar
+  val allAscii: immutable.IndexedSeq[Char] = ( for (i <- 33 to 126 ) yield i.toChar ) + whitespace
 }
 
 abstract class DFA[state](status: Status) extends Actor {
