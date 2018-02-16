@@ -20,6 +20,12 @@ case class BlockStmt(stmts: List[Stmt]) extends Stmt
 case class DeclStmt(decl: VarDecl) extends Stmt
 
 /**
+  * ExprStmt represents the use of an expression as a statement
+  * @param expr the expression
+  */
+case class ExprStmt(expr: Expr) extends Stmt
+
+/**
   * ReturnStmt represents a return statement
   * @param expr the expression to return or None for a void return
   */

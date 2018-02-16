@@ -4,7 +4,7 @@ package AST
   * An Expr is an expression statement that returns
   * some value or is void
   */
-sealed trait Expr extends Stmt
+sealed trait Expr extends AstNode
 
 /**
   * BinaryExpr represents a binary operator acting on a left and right side

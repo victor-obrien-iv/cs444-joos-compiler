@@ -1,11 +1,9 @@
 package AST
 
-import jdk.nashorn.internal.ir.Assignment
-
 /**
   * Decl represents a declaration
   */
-trait Decl
+trait Decl extends AstNode
 
 /**
   * TranslationUnit is a special declaration that encapsulates everything
