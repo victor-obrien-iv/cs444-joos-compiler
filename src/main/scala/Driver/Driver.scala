@@ -2,6 +2,7 @@ package Driver
 
 import java.io.{FileInputStream, ObjectInputStream}
 
+import AST.Visitor
 import Lalr.Lalr
 import akka.pattern.ask
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -74,6 +75,20 @@ object Driver {
       println(node)
     }
     if ( errorsFound ) ErrorExit()
+
+    // CST -> AST call
+
+    // create the weeding objects
+    val weeders: Array[ActorRef] = Array(
+      actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(tokens.head._1 , reporter)), "FileNameClassNamePass" ),
+      actorSystem.actorOf( Props(new Weeder.HasConstructorPass(tokens.head._1 , reporter)), "HasConstructorPass" ),
+      actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(tokens.head._1 , reporter)), "IntegerBoundsPass" ),
+      actorSystem.actorOf( Props(new Weeder.ModifiersPass(tokens.head._1 , reporter)), "ModifiersPass" )
+    )
+
+    // wait for the ast to complete
+
+    for(w <)
 
     CleanExit()
   }

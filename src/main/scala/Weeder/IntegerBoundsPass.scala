@@ -19,15 +19,16 @@ class IntegerBoundsPass(val fileName: String, val reporter: ActorRef) extends Vi
 
   // 2147483648, can only appear in front of a unary minus operator
   override def visit(ue: UnaryExpr): Unit = {
-    ue.rhs match {
-      case ValExpr(value: Token.Literal) =>
-        value match {
-          case IntegerLiteral(_, _, _, value: BigInt) =>
-            if( value <= twoPow31 ) return
-          case _ =>
-        }
-      case _ =>
-    }
+    if( ue.operatorTok.isInstanceOf[Token.Minus])
+      ue.rhs match {
+        case ValExpr(value: Token.Literal) =>
+          value match {
+            case IntegerLiteral(_, _, _, value: BigInt) =>
+              if( value <= twoPow31 ) return
+            case _ =>
+          }
+        case _ =>
+      }
 
     super.visit(ue: UnaryExpr)
   }
