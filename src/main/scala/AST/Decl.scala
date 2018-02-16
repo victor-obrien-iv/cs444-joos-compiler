@@ -6,7 +6,7 @@ package AST
 trait Decl extends AstNode
 
 /**
-  * TranslationUnit is a special declaration that encapsulates everything
+  * CompilationUnit is a special declaration that encapsulates everything
   *   in a .java file
   * @param packageName the identifier that comes after 'package' in the source code
   *                    or None if no package declaration exists for this file
