@@ -221,7 +221,9 @@ abstract class Visitor extends Actor {
   }
 
   override def receive: Receive = {
-    case cu: CompilationUnit => visit(cu: CompilationUnit)
+    case cu: CompilationUnit =>
+      visit(cu: CompilationUnit)
+      context.stop(self)
     case _ => assert(false, "Visitor must start on a compilation unit!")
   }
 }
