@@ -13,7 +13,7 @@ import akka.actor.ActorRef
   *   ClassDecl
   *   InterfaceDecl
   */
-class FileNameClassNamePass (val fileName: String, val reporter: ActorRef) extends Visitor {
+class FileNameClassNamePass(val fileName: String, val reporter: ActorRef) extends Visitor {
   private val fileBaseName = fileName.substring(0, fileName.length - 5) // remove the .java from the end
 
   override def visit(cu: CompilationUnit): Unit = {
