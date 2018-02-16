@@ -35,7 +35,7 @@ case class UnaryExpr(operatorTok: Token.Operator, rhs: Expr) extends Expr
 case class CallExpr(obj: Option[Expr], call: Token.Identifier, params: List[Expr]) extends Expr
 
 /**
-  * ThisExpr represents "this()" in the source code
+  * ThisExpr represents "this" in the source code
   */
 case class ThisExpr() extends Expr
 
