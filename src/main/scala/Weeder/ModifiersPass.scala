@@ -10,6 +10,8 @@ import akka.actor.ActorRef
   *   An abstract method cannot be static or final
   *   A static method cannot be final
   *   No field can be final
+  *   A class must be public
+  *   A method must be public or protected
   *
   * this pass analyses:
   *   ClassDecl
@@ -20,12 +22,19 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
 
   // A class cannot be both abstract and final
   override def visit(cd: ClassDecl): Unit = {
-    if( cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
-        && cd.modifiers.exists(_.isInstanceOf[Token.JavaFinal]) )
+    val isAbstract = cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
+    val isFinal = cd.modifiers.exists(_.isInstanceOf[Token.JavaFinal])
+    val isPublic = cd.modifiers.exists(_.isInstanceOf[Token.JavaPublic])
+
+    if( !isPublic )
+      reporter ! Error.Error(cd.name.lexeme, "A class must be public",
+        Error.Type.ModifiersPass, Some( Error.Location(cd.name.row, cd.name.col, fileName)))
+
+    if( isAbstract && isFinal )
       reporter ! Error.Error(cd.name.lexeme, "A class cannot be both abstract and final",
         Error.Type.ModifiersPass, Some( Error.Location(cd.name.row, cd.name.col, fileName)))
 
-    super.visit(cd)
+    super.visit(cd: ClassDecl)
   }
 
   override def visit(md: MethodDecl): Unit = {
@@ -37,9 +46,16 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
     val isNative = md.modifiers.exists(_.isInstanceOf[Token.JavaNative])
     val isStatic = md.modifiers.exists(_.isInstanceOf[Token.JavaStatic])
     val isFinal = md.modifiers.exists(_.isInstanceOf[Token.JavaFinal])
+    val isPublic = md.modifiers.exists(_.isInstanceOf[Token.JavaPublic])
+    val isProtected = md.modifiers.exists(_.isInstanceOf[Token.JavaProtected])
+
+    if( !isPublic && !isProtected )
+      error("A method must be public or protected")
 
     // A method has a body if and only if it is neither abstract nor native
     if ( (isAbstract || isNative) && md.body.stmts.nonEmpty )
+      error("A method has a body if and only if it is neither abstract nor native")
+    else if ( !(isAbstract || isNative) && md.body.stmts.isEmpty )
       error("A method has a body if and only if it is neither abstract nor native")
 
     // An abstract method cannot be static or final
@@ -50,7 +66,6 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
     if ( isStatic && isFinal )
       error("A static method cannot be final")
 
-    super.visit(md)
   }
 
   // No field can be final
@@ -59,6 +74,5 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
       reporter ! Error.Error(fd.name.lexeme, "No field can be final",
         Error.Type.ModifiersPass, Some( Error.Location(fd.name.row, fd.name.col, fileName)))
 
-    super.visit(fd)
   }
 }
