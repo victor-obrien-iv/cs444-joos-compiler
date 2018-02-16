@@ -1,7 +1,7 @@
 package Error
 
 case object Type extends Enumeration {
-  val CommandLine, Lexer, LiteralDFA, Parser, ModifiersPass = Value
+  val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass = Value
 }
 
 case class Location ( lineNum: Integer, col: Integer, file: String )
