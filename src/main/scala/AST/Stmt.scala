@@ -17,7 +17,7 @@ case class BlockStmt(stmts: List[Stmt]) extends Stmt
   * ex: int i;
   * @param decl the declaration
   */
-case class DeclStmt(decl: VarDecl) extends Stmt
+case class DeclStmt(decl: VarDecl, assignment: Option[Expr]) extends Stmt
 
 /**
   * ExprStmt represents the use of an expression as a statement
@@ -57,7 +57,7 @@ sealed trait LoopStmt extends CtrlFlowStmt
   * @param update The statement run at the end of the body before checking condition again
   * @param bodyStmt The statement to be run each loop iteration
   */
-case class ForStmt(init: Option[DeclStmt], condition: Option[Expr],
+case class ForStmt(init: Option[Stmt], condition: Option[Expr],
                    update: Option[Stmt], bodyStmt: Stmt) extends LoopStmt
 
 /**

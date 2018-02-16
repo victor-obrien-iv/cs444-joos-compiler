@@ -112,3 +112,9 @@ case class ObjNewExpr(ctor: FullyQualifiedID, params: List[Expr]) extends NewExp
   * @param arrayType The type of the elements in the array
   */
 case class ArrayNewExpr(arrayType: ArrayType) extends NewExpr
+
+/**
+  * Named expression for variable and field references
+  * @param name The name of the field
+  */
+case class NamedExpr(name: FullyQualifiedID) extends Expr

@@ -1,5 +1,7 @@
 package AST
 
+import Token.Identifier
+
 /**
   * Decl represents a declaration
   */
@@ -53,7 +55,8 @@ case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, ex
   * @param parameters the parameter declarations for this constructor
   * @param body the code body of this constructor that contains statements
   */
-case class ConstructorDecl(modifiers: List[Token.Modifier], parameters: List[ParameterDecl], body: BlockStmt) extends Decl
+case class ConstructorDecl(modifiers: List[Token.Modifier], identifier: Identifier,
+                           parameters: List[ParameterDecl], body: BlockStmt) extends Decl
 
 /**
   * FieldDecl represents a variable declaration within a class body
