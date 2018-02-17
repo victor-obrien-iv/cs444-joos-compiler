@@ -1,5 +1,7 @@
 package Parser
 
-case class TreeNode(state: String, children: List[TreeNode])
+import Token.Token
+
+case class TreeNode(state: Either[Token, String], children: List[TreeNode])
 
 case class ParseError(message: String) extends Exception

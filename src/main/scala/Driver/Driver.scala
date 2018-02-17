@@ -2,7 +2,9 @@ package Driver
 
 import java.io.{FileInputStream, ObjectInputStream}
 
+import AST.AstActor
 import Lalr.Lalr
+import Parser.TreeNode
 import akka.pattern.ask
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.util.Timeout
@@ -46,8 +48,9 @@ object Driver {
     // instantiate parser actor while lexer works
     val lalrSteam = new ObjectInputStream(new FileInputStream("src/main/resources/lalr-obj"))
     val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
-    val parser = actorSystem.actorOf( Props(new Parser.Parser(lalr,
+    val parser = actorSystem.actorOf( Props(new Parser.ParserActor(lalr,
       tokens.head._1 /*TODO: fix this for multiple files*/, reporter)), "Parser" )
+    val builder = actorSystem.actorOf(  Props(new AstActor(tokens.head._1, reporter)), "ASTBuilder")
 
     for( ft <- tokens ) {
       // just print out the tokens for now
@@ -68,11 +71,24 @@ object Driver {
         filterNot(_.isInstanceOf[Token.Comment])
       parser ask tokens
     }
-    for(node <- CSTroot) {
-      Await.ready(node, Duration.Inf)
+
+    for (node <- CSTroot) Await.ready(node, Duration.Inf)
+    if ( errorsFound ) ErrorExit()
+
+    val ASTroot = for(node <- CSTroot) yield {
+      val treeNode = Await.result(node, Duration.Inf).asInstanceOf[TreeNode]
       // just print out the nodes for now
+      println()
+      println(treeNode)
+      builder ask treeNode
+    }
+
+    for(node <- ASTroot) yield {
+      Await.ready(node, Duration.Inf)
       println(node)
     }
+
+
     if ( errorsFound ) ErrorExit()
 
     CleanExit()

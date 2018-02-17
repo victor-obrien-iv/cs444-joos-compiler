@@ -22,8 +22,11 @@ class Reporter extends Actor {
       case Some(l) =>
         val file: BufferedSource = Source.fromFile( l.file )
         val lines: Array[String] = file.getLines().toArray
-        println(lines(l.lineNum - 1))
-        println("~" * (l.col - 1) + "^")
+        val errorLine = if (l.lineNum > 0) l.lineNum - 1 else 0
+        val errorCol = if (l.col > 0) l.col - 1 else 0
+
+        println(lines(errorLine))
+        println("~" * (errorCol) + "^")
         println("\t" + l.file + " at " + l.lineNum + ":" + l.col)
       case None =>
     }
