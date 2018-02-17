@@ -50,7 +50,7 @@ object Driver {
     val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
     val parser = actorSystem.actorOf( Props(new Parser.ParserActor(lalr,
       tokens.head._1 /*TODO: fix this for multiple files*/, reporter)), "Parser" )
-    val builder = actorSystem.actorOf(  Props(new AstActor()), "ASTBuilder")
+    val builder = actorSystem.actorOf(  Props(new AstActor(tokens.head._1, reporter)), "ASTBuilder")
 
     for( ft <- tokens ) {
       // just print out the tokens for now
@@ -71,12 +71,15 @@ object Driver {
         filterNot(_.isInstanceOf[Token.Comment])
       parser ask tokens
     }
+
+    for (node <- CSTroot) Await.ready(node, Duration.Inf)
+    if ( errorsFound ) ErrorExit()
+
     val ASTroot = for(node <- CSTroot) yield {
       val treeNode = Await.result(node, Duration.Inf).asInstanceOf[TreeNode]
       // just print out the nodes for now
       println()
       println(treeNode)
-      println()
       builder ask treeNode
     }
 

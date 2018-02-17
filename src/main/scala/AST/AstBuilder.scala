@@ -1,11 +1,11 @@
 package AST
 
-import Error.Error
+import Error._
 import Parser.TreeNode
 import Token._
 import jdk.nashorn.internal.codegen.CompilerConstants.FieldAccess
 
-class AstBuilder {
+class AstBuilder(filename: String) {
 
   def buildCompilationUnit(node: TreeNode): CompilationUnit = {
 
@@ -84,10 +84,13 @@ class AstBuilder {
 
   def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): Left[InterfaceDecl, ClassDecl] = {
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
-    val superInterfaces = buildSuperInterfaces(node.children(2))
-    val body = buildClassBody(node.children(3))
+    val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildSuperInterfaces(node.children(2))
+    println(node.state)
+    println(node.children.map(node => node.state))
+    val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(3)
+    val bodyDecls = buildClassBody(body.children(1))
 
-    Left(InterfaceDecl(modifiers, identifier, superInterfaces, body))
+    Left(InterfaceDecl(modifiers, identifier, superInterfaces, bodyDecls))
   }
 
   def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): Right[InterfaceDecl, ClassDecl] = {
@@ -109,13 +112,14 @@ class AstBuilder {
 
   def buildSuperInterfaces(node: TreeNode): List[FullyQualifiedID] = {
     if (node.children.nonEmpty) {
-      buildInterfaceList(node.children(2))
+      buildInterfaceList(node.children(1))
     } else {
       Nil
     }
   }
 
   def buildInterfaceList(node: TreeNode): List[FullyQualifiedID] = {
+    println(node)
     if (node.children.lengthCompare(1) == 0) {
       List(buildFullyQualifiedId(node.children.head))
     } else {
@@ -136,9 +140,6 @@ class AstBuilder {
       case TreeNode(Right("ConstructorDeclaration"), _) =>
         buildConstructorDecl(node.children.head)
       case TreeNode(Right("ClassMemberDeclaration"), children) =>
-        println("$$$$$$$$$$$")
-        println(children.head)
-        println("$$$$$$$$$$$$")
         children.head match {
           case TreeNode(Right("MethodDeclaration"), _) =>
             buildMethodDecl(children.head)
@@ -189,37 +190,63 @@ class AstBuilder {
     FieldDecl(modifiers, typ, identifier, assignment)
   }
 
-  def buildExpr(node: TreeNode): Expr = node match {
-    case TreeNode(Left(value), children) if value.isInstanceOf[Identifier] =>
-      DeclRefExpr(value.asInstanceOf[Identifier])
-    case TreeNode(Right("FieldAccess"), children) =>
-      buildFieldAccess(node)
-    case TreeNode(Right("ArrayAccess"), children) =>
-      buildArrayAccess(node)
-    case TreeNode(Right("Primary"), children) =>
-      buildPrimary(node)
-    case TreeNode(Right("Name"), children) =>
-      NamedExpr(buildFullyQualifiedId(node))
-    case _ =>
-      node.children.length match {
-        case 1 => buildExpr(node.children.head)
-        case 2 => UnaryExpr(node.children.head.state.left.get.asInstanceOf[Operator], buildExpr(node.children(1)))
-        case 3 =>
-          val operator = if (node.children(1).state.isLeft) {
-            node.children(1).state.left.get.asInstanceOf[Operator]
-          } else {
-            node.children(1).children.head.state.left.get.asInstanceOf[Operator]
-          }
-          BinaryExpr(buildExpr(node.children.head),
-            operator,
-            buildExpr(node.children(2))
-          )
-        case 4 =>
-          CastExpr(buildType(node.children(1)), buildExpr(node.children(3)))
-        case _ =>
+  def buildExpr(node: TreeNode): Expr = {
+    println(node)
+    node match {
+      case TreeNode(Left(value), children) if value.isInstanceOf[Identifier] =>
+        DeclRefExpr(value.asInstanceOf[Identifier])
+      case TreeNode(Right("FieldAccess"), children) =>
+        buildFieldAccess(node)
+      case TreeNode(Right("ArrayAccess"), children) =>
+        buildArrayAccess(node)
+      case TreeNode(Right("Primary"), _) =>
+        buildPrimary(node)
+      case TreeNode(Right("PrimaryNoNewArray"), children) =>
+        buildNoNewArrayPrimary(node)
+      case TreeNode(Right("MethodInvocation"), _) =>
+        buildMethodInvocation(node)
+      case TreeNode(Right("ClassInstanceCreationExpression"), children) =>
+        ObjNewExpr(buildFullyQualifiedId(children(1)), buildArguments(children(2)))
+      case TreeNode(Right("Name"), children) =>
+        NamedExpr(buildFullyQualifiedId(node))
+      case _ =>
+        node.children.length match {
+          case 1 => buildExpr(node.children.head)
+          case 2 => UnaryExpr(node.children.head.state.left.get.asInstanceOf[Operator], buildExpr(node.children(1)))
+          case 3 =>
+            val operator = if (node.children(1).state.isLeft) {
+              node.children(1).state.left.get.asInstanceOf[Operator]
+            } else {
+              node.children(1).children.head.state.left.get.asInstanceOf[Operator]
+            }
+            BinaryExpr(buildExpr(node.children.head),
+              operator,
+              buildExpr(node.children(2))
+            )
+          case 4 =>
+            CastExpr(buildCastType(node.children(1)), buildExpr(node.children(3)))
+          case _ =>
+            println(node)
+            throw new Exception()
+        }
+    }
+  }
+
+  def buildCastType(node: TreeNode): Type = node.state match {
+    case Right(value) =>
+      value match {
+        case "Name" | "PrimitiveType" =>
           println(node)
-          throw new Exception()
+          buildType(node)
+        case _ => buildCastType(node.children.head)
       }
+    case Left(value) =>
+      throw Error(
+        value.lexeme,
+        "Cast must be a type",
+        Type.Parser,
+        Some(Location(value.row, value.col, filename))
+      )
   }
 
   def buildFieldAccess(node: TreeNode): AccessExpr = {
@@ -307,7 +334,7 @@ class AstBuilder {
           ArrayType(arrayType, None)
       }
     case TreeNode(Right("Name"), _) =>
-          ClassType(buildFullyQualifiedId(node.children.head))
+          ClassType(buildFullyQualifiedId(node))
   }
 
   def buildMethodBody(node: TreeNode): BlockStmt = {
@@ -351,7 +378,7 @@ class AstBuilder {
             Some(buildExpr(node.children(1)))
           }
           ReturnStmt(retVal)
-        case "ExpressionStatement" => ExprStmt(buildExpr(node.children.head))
+        case "StatementExpression" => ExprStmt(buildExpr(node))
         case "IfThenStatement" => IfStmt(buildExpr(node.children(2)), buildStatement(node.children(4)), None)
         case "IfThenElseStatement" | "IfThenElseStatementNoShortIf" =>
           IfStmt(buildExpr(node.children(2)), buildStatement(node.children(4)), Some(buildStatement(node.children(6))))
@@ -361,8 +388,16 @@ class AstBuilder {
           ForStmt(buildForInit(node.children(2)), buildForExpr(node.children(4)),
             buildForUpdate(node.children(6)), buildStatement(node.children(8)))
         case _ =>
+          println(node)
           buildStatement(node.children.head)
       }
+      case Left(value) =>
+        throw Error(
+          value.lexeme,
+          "Problem with tree construction",
+          Type.Parser,
+          Some(Location(value.row, value.col, filename))
+        )
     }
   }
 
@@ -374,11 +409,12 @@ class AstBuilder {
         case Right(value) =>
           value match {
             case "LocalVariableDeclaration" =>
-              val declaration = node.children.head.children.head
-              val init = if (node.children.lengthCompare(2) == 0) {
+              val declaration = node.children.head
+              println(node)
+              val init = if (declaration.children.lengthCompare(2) == 0) {
                 None
               } else {
-                Some(buildExpr(node.children(3)))
+                Some(buildExpr(declaration.children(3)))
               }
               DeclStmt(VarDecl(buildType(declaration.children.head),
                 declaration.children(1).state.left.get.asInstanceOf[Identifier]), init)
