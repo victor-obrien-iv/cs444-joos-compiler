@@ -29,7 +29,7 @@ class AstBuilder {
 
   def buildFullyQualifiedId(node: TreeNode): FullyQualifiedID = {
     val idNode = if (node.children.lengthCompare(1) == 0) node.children.head else node.children(2)
-    val id = idNode.state.left.asInstanceOf[Identifier]
+    val id = idNode.state.left.get.asInstanceOf[Identifier]
 
     if (node.children.lengthCompare(1) == 0)
       FullyQualifiedID(Nil, id)
@@ -39,7 +39,7 @@ class AstBuilder {
 
   def buildQualifiers(node: TreeNode): List[Identifier] = {
     val idNode = if (node.children.lengthCompare(1) == 0) node.children.head else node.children(2)
-    val id = idNode.state.left.asInstanceOf[Identifier]
+    val id = idNode.state.left.get.asInstanceOf[Identifier]
 
     if (node.children.lengthCompare(1) == 0) {
       List(id)
@@ -73,15 +73,17 @@ class AstBuilder {
   }
 
   def buildModifiers(node: TreeNode): List[Modifier] = {
+    println(node)
     if (node.children.lengthCompare(1) == 0) {
-      List(node.children.head.state.left.asInstanceOf[Modifier])
+      List(node.children.head.children.head.state.left.get.asInstanceOf[Modifier])
     } else {
-      buildModifiers(node.children.head) :+ node.children(1).state.left.asInstanceOf[Modifier]
+      println(node.children(1).children.head)
+      buildModifiers(node.children.head) :+ node.children(1).children.head.state.left.get.asInstanceOf[Modifier]
     }
   }
 
   def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): Left[InterfaceDecl, ClassDecl] = {
-    val identifier = node.children(1).state.left.asInstanceOf[Identifier]
+    val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superInterfaces = buildSuperInterfaces(node.children(2))
     val body = buildClassBody(node.children(3))
 
@@ -89,10 +91,10 @@ class AstBuilder {
   }
 
   def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): Right[InterfaceDecl, ClassDecl] = {
-    val id = node.children(1).state.left.asInstanceOf[Identifier]
+    val id = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superCLass = buildSuperClass(node.children(2))
     val superInterfaces = buildSuperInterfaces(node.children(3))
-    val body = buildClassBody(node.children(4).children(2))
+    val body = buildClassBody(node.children(4).children(1))
 
     Right(ClassDecl(modifiers, id, superCLass, superInterfaces, body))
   }
@@ -134,6 +136,9 @@ class AstBuilder {
       case TreeNode(Right("ConstructorDeclaration"), _) =>
         buildConstructorDecl(node.children.head)
       case TreeNode(Right("ClassMemberDeclaration"), children) =>
+        println("$$$$$$$$$$$")
+        println(children.head)
+        println("$$$$$$$$$$$$")
         children.head match {
           case TreeNode(Right("MethodDeclaration"), _) =>
             buildMethodDecl(children.head)
@@ -145,7 +150,7 @@ class AstBuilder {
 
   def buildConstructorDecl(node: TreeNode): ConstructorDecl = {
     val modifiers = buildModifiers(node.children.head)
-    val identifier = node.children(1).state.left.asInstanceOf[Identifier]
+    val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val parameters = buildFormalParameters(node.children(2))
     val body = buildMethodBody(node.children(3))
 
@@ -160,11 +165,11 @@ class AstBuilder {
 
       MethodDecl(modifiers, typ, identifier, parameters, body)
     } else {
-      val nativeModifiers = modifiers ++ (node.children(1).state.left.asInstanceOf[Modifier]
-        :: node.children(2).state.left.asInstanceOf[Modifier] :: Nil)
-      val typ = PrimitiveType(node.children(3).state.left.asInstanceOf[JavaInt])
-      val id = node.children(4).state.left.asInstanceOf[Identifier]
-      val parameterDecl = ParameterDecl(buildType(node.children(6)), node.children(7).state.left.asInstanceOf[Identifier])
+      val nativeModifiers = modifiers ++ (node.children(1).state.left.get.asInstanceOf[Modifier]
+        :: node.children(2).state.left.get.asInstanceOf[Modifier] :: Nil)
+      val typ = PrimitiveType(node.children(3).state.left.get.asInstanceOf[JavaInt])
+      val id = node.children(4).state.left.get.asInstanceOf[Identifier]
+      val parameterDecl = ParameterDecl(buildType(node.children(6)), node.children(7).state.left.get.asInstanceOf[Identifier])
       val body = buildMethodBody(node.children(9))
 
       MethodDecl(nativeModifiers, Some(typ), id, List(parameterDecl), body)
@@ -172,11 +177,11 @@ class AstBuilder {
   }
 
   def buildFieldDecl(node: TreeNode): FieldDecl = {
-    val modifiers = buildModifiers(node.children(1))
-    val typ = buildType(node.children(2))
-    val varDecl = node.children(3)
+    val modifiers = buildModifiers(node.children.head)
+    val typ = buildType(node.children(1))
+    val varDecl = node.children(2)
 
-    val identifier = varDecl.children.head.state.left.asInstanceOf[Identifier]
+    val identifier = varDecl.children.head.state.left.get.asInstanceOf[Identifier]
     val assignment = if (varDecl.children.lengthCompare(3) == 0) {
       Some(buildExpr(varDecl.children(2).children.head))
     } else None
@@ -198,19 +203,27 @@ class AstBuilder {
     case _ =>
       node.children.length match {
         case 1 => buildExpr(node.children.head)
-        case 2 => UnaryExpr(node.children.head.state.left.asInstanceOf[Operator], buildExpr(node.children(1)))
+        case 2 => UnaryExpr(node.children.head.state.left.get.asInstanceOf[Operator], buildExpr(node.children(1)))
         case 3 =>
+          val operator = if (node.children(1).state.isLeft) {
+            node.children(1).state.left.get.asInstanceOf[Operator]
+          } else {
+            node.children(1).children.head.state.left.get.asInstanceOf[Operator]
+          }
           BinaryExpr(buildExpr(node.children.head),
-            node.children(1).state.left.asInstanceOf[Operator],
+            operator,
             buildExpr(node.children(2))
           )
         case 4 =>
           CastExpr(buildType(node.children(1)), buildExpr(node.children(3)))
+        case _ =>
+          println(node)
+          throw new Exception()
       }
   }
 
   def buildFieldAccess(node: TreeNode): AccessExpr = {
-    AccessExpr(buildPrimary(node.children.head), node.children(1).state.left.asInstanceOf[Identifier])
+    AccessExpr(buildPrimary(node.children.head), node.children(2).state.left.get.asInstanceOf[Identifier])
   }
 
   def buildArrayAccess(node: TreeNode): ArrayAccessExpr = {
@@ -225,26 +238,26 @@ class AstBuilder {
   def buildNoNewArrayPrimary(node: TreeNode): Expr = node.children.head match {
     case TreeNode(Right(value), children) =>
       value match {
-        case "Literal" => ValExpr(children.head.state.left.asInstanceOf[Literal])
+        case "Literal" => ValExpr(children.head.state.left.get.asInstanceOf[Literal])
         case "ClassInstanceCreationExpression" => ObjNewExpr(buildFullyQualifiedId(children(1)), buildArguments(children(2)))
-        case "FieldAccess" => buildFieldAccess(children.head)
-        case "ArrayAccess" => buildArrayAccess(children.head)
-        case "MethodInvocation" => buildMethodInvocation(children.head)
+        case "FieldAccess" => buildFieldAccess(node.children.head)
+        case "ArrayAccess" => buildArrayAccess(node.children.head)
+        case "MethodInvocation" => buildMethodInvocation(node.children.head)
       }
     case TreeNode(Left(value), children) =>
       value match {
         case _: JavaThis => ThisExpr()
-        case _: LParen => buildExpr(children(1))
+        case _: LParen => buildExpr(node.children(1))
       }
   }
 
   def buildMethodInvocation(node: TreeNode): CallExpr = {
     if (node.children.lengthCompare(2) == 0) {
-      CallExpr(None, node.children.head.state.left.asInstanceOf[Identifier], buildArguments(node.children(1)))
+      CallExpr(None, node.children.head.state.left.get.asInstanceOf[Identifier], buildArguments(node.children(1)))
     } else {
       CallExpr(
         Some(buildExpr(node.children.head)),
-        node.children(2).state.left.asInstanceOf[Identifier],
+        node.children(2).state.left.get.asInstanceOf[Identifier],
         buildArguments(node.children(3))
       )
     }
@@ -275,11 +288,13 @@ class AstBuilder {
     ArrayNewExpr(ArrayType(buildType(node.children(1)), expr))
   }
 
-  def buildType(node: TreeNode): Type = node.children.head match {
+  def buildType(node: TreeNode): Type = node match {
+    case TreeNode(Right("Type"), children) =>
+      buildType(children.head)
     case TreeNode(Right("PrimitiveType"), children) =>
       children.head match {
         case TreeNode(Right(_), grandChildren) =>
-          PrimitiveType(grandChildren.head.state.left.asInstanceOf[Primitive])
+          PrimitiveType(grandChildren.head.state.left.get.asInstanceOf[Primitive])
         case TreeNode(Left(value), _) =>
           PrimitiveType(value.asInstanceOf[JavaBoolean])
       }
@@ -296,14 +311,19 @@ class AstBuilder {
   }
 
   def buildMethodBody(node: TreeNode): BlockStmt = {
-    if (node.children.lengthCompare(1) == 0) {
+    if (node.children.head.state.isLeft) {
       BlockStmt(Nil)
     } else {
-      buildBlockStatement(node.children(1))
+      buildBlock(node.children.head)
     }
   }
 
+  def buildBlock(node: TreeNode): BlockStmt = {
+    buildBlockStatement(node.children(1))
+  }
+
   def buildBlockStatement(node: TreeNode): BlockStmt = {
+    println("0000" + node)
     if (node.children.isEmpty) {
       BlockStmt(Nil)
     } else {
@@ -311,34 +331,38 @@ class AstBuilder {
     }
   }
 
-  def buildStatement(node: TreeNode): Stmt = node.state match {
-    case Right(value) => value match {
-      case "LocalVariableDeclaration" =>
-        val init = if (node.children.lengthCompare(2) == 0) {
-          None
-        } else {
-          Some(buildExpr(node.children(3)))
-        }
-        DeclStmt(VarDecl(buildType(node.children.head), node.children(1).state.left.asInstanceOf[Identifier]), init)
-      case "EmptyStatement" => BlockStmt(Nil)
-      case "Block" => buildBlockStatement(node.children(1))
-      case "ReturnStatement" =>
-        val retVal = if (node.children.lengthCompare(2) == 0) {
-          None
-        } else {
-          Some(buildExpr(node.children(1)))
-        }
-        ReturnStmt(retVal)
-      case "ExpressionsStatement" => ExprStmt(buildExpr(node.children.head))
-      case "IfThenStatement" => IfStmt(buildExpr(node.children(1)), buildStatement(node.children(3)), None)
-      case "IfThenElseStatement" | "IfThenElseStatementNoShortIf" =>
-        IfStmt(buildExpr(node.children(2)), buildStatement(node.children(4)), Some(buildStatement(node.children(6))))
-      case "WhileStatement" | "WhileStatementNoShortIf" =>
-        WhileStmt(buildExpr(node.children(2)), buildStatement(node.children(4)))
-      case "ForStatement" | "ForStatementNoShortIf" =>
-        ForStmt(buildForInit(node.children(2)), buildForExpr(node.children(4)),
-          buildForUpdate(node.children(6)), buildStatement(node.children(8)))
-      case _ => buildStatement(node.children.head)
+  def buildStatement(node: TreeNode): Stmt = {
+    node.state match {
+      case Right(value) => value match {
+        case "LocalVariableDeclaration" =>
+          val init = if (node.children.lengthCompare(2) == 0) {
+            None
+          } else {
+            Some(buildExpr(node.children(3)))
+          }
+          DeclStmt(VarDecl(buildType(node.children.head), node.children(1).state.left.get.asInstanceOf[Identifier]), init)
+        case "EmptyStatement" => BlockStmt(Nil)
+        case "Block" =>
+          buildBlockStatement(node.children(1))
+        case "ReturnStatement" =>
+          val retVal = if (node.children.lengthCompare(2) == 0) {
+            None
+          } else {
+            Some(buildExpr(node.children(1)))
+          }
+          ReturnStmt(retVal)
+        case "ExpressionStatement" => ExprStmt(buildExpr(node.children.head))
+        case "IfThenStatement" => IfStmt(buildExpr(node.children(2)), buildStatement(node.children(4)), None)
+        case "IfThenElseStatement" | "IfThenElseStatementNoShortIf" =>
+          IfStmt(buildExpr(node.children(2)), buildStatement(node.children(4)), Some(buildStatement(node.children(6))))
+        case "WhileStatement" | "WhileStatementNoShortIf" =>
+          WhileStmt(buildExpr(node.children(2)), buildStatement(node.children(4)))
+        case "ForStatement" | "ForStatementNoShortIf" =>
+          ForStmt(buildForInit(node.children(2)), buildForExpr(node.children(4)),
+            buildForUpdate(node.children(6)), buildStatement(node.children(8)))
+        case _ =>
+          buildStatement(node.children.head)
+      }
     }
   }
 
@@ -357,8 +381,8 @@ class AstBuilder {
                 Some(buildExpr(node.children(3)))
               }
               DeclStmt(VarDecl(buildType(declaration.children.head),
-                declaration.children(1).state.left.asInstanceOf[Identifier]), init)
-            case "StatementExpression" => buildStatement(node.children.head)
+                declaration.children(1).state.left.get.asInstanceOf[Identifier]), init)
+            case "StatementExpression" => buildExpr(node.children.head)
           }
       }
       Some(buildStatement(node.children.head))
@@ -380,7 +404,6 @@ class AstBuilder {
       Some(buildStatement(node.children.head))
     }
   }
-
   def buildMethodHeader(node: TreeNode): (Option[Type], Identifier, List[ParameterDecl]) = {
     val typ = node.children.head match {
       case TreeNode(Left(_), _) => None
@@ -388,8 +411,8 @@ class AstBuilder {
     }
 
     val declarator = node.children(1)
-    val identifier = declarator.children.head.state.left.asInstanceOf[Identifier]
-    val parameters = buildFormalParameters(declarator.children(2))
+    val identifier = declarator.children.head.state.left.get.asInstanceOf[Identifier]
+    val parameters = buildFormalParameters(declarator.children(1))
 
     (typ, identifier, parameters)
   }
@@ -411,6 +434,6 @@ class AstBuilder {
   }
 
   def buildParameterDecl(node: TreeNode): ParameterDecl =
-    ParameterDecl(buildType(node.children.head), node.children(1).state.left.asInstanceOf[Identifier])
+    ParameterDecl(buildType(node.children.head), node.children(1).children.head.state.left.get.asInstanceOf[Identifier])
 }
 

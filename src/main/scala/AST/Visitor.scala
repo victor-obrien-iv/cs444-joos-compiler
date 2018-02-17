@@ -175,7 +175,7 @@ abstract class Visitor extends Actor {
   }
   def visit(fs: ForStmt): Unit = {
     fs.init match {
-      case Some(ds) => visit(ds: DeclStmt)
+      case Some(s) => visit(s: Stmt)
       case None =>
     }
     fs.condition match {

@@ -58,7 +58,6 @@ case class JavaGoto(lexeme:String = "goto", row: Int, col: Int) extends Keyword
 case class JavaIf(lexeme:String = "if", row: Int, col: Int) extends Keyword
 case class JavaImplements(lexeme:String = "implements", row: Int, col: Int) extends Keyword
 case class JavaImport(lexeme:String = "import", row: Int, col: Int) extends Keyword
-case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Keyword
 case class JavaInterface(lexeme:String = "interface", row: Int, col: Int) extends Keyword
 case class JavaNew(lexeme:String = "new", row: Int, col: Int) extends Keyword
 case class JavaPackage(lexeme:String = "package", row: Int, col: Int) extends Keyword
@@ -78,7 +77,7 @@ case class JavaWhile(lexeme:String = "while", row: Int, col: Int) extends Keywor
   */
 sealed trait Modifier extends Keyword
 
-case class JavaAbstract(lexeme:String = "abstract", row: Int, col: Int) extends Keyword
+case class JavaAbstract(lexeme:String = "abstract", row: Int, col: Int) extends Modifier
 case class JavaFinal(lexeme:String = "final", row: Int, col: Int) extends Modifier
 case class JavaStatic(lexeme:String = "static", row: Int, col: Int) extends Modifier
 case class JavaPrivate(lexeme:String = "private", row: Int, col: Int) extends Modifier
@@ -154,3 +153,4 @@ case class Minus(lexeme:String ="-", row: Int, col: Int) extends Operator
 case class Star(lexeme:String = "*", row: Int, col: Int) extends Operator
 case class Slash(lexeme:String = "/", row: Int, col: Int) extends Operator
 case class Percent(lexeme:String = "%", row: Int, col: Int) extends Operator
+case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Operator

@@ -13,7 +13,7 @@ class ParserSpec extends FlatSpec with Matchers{
   val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
 
   val basicClassTest = List(JavaClass(row = 0, col = 0), Identifier("a", 0, 0), LBrace(row = 0, col = 0), RBrace(row = 0, col = 0))
-  val parser = new Parser(lalr)
+  val parser = new Parser(lalr, "")
 
   "Parser" should "parse correct java programs" in {
     parser.parse(basicClassTest).state shouldBe "CompilationUnit"

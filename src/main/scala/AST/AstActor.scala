@@ -9,6 +9,14 @@ class AstActor extends Actor{
 
   override def receive: Receive = {
     case parseTree: TreeNode =>
-      sender ! builder.buildCompilationUnit(parseTree)
+      try {
+        sender ! builder.buildCompilationUnit(parseTree)
+      } catch {
+        case e =>
+          println(e.printStackTrace())
+          sender ! e
+      }
+    case x =>
+      sender ! "why did you give me that??"
   }
 }
