@@ -73,11 +73,11 @@ class AstBuilder(filename: String) {
   }
 
   def buildModifiers(node: TreeNode): List[Modifier] = {
-    println(node)
+//    println(node)
     if (node.children.lengthCompare(1) == 0) {
       List(node.children.head.children.head.state.left.get.asInstanceOf[Modifier])
     } else {
-      println(node.children(1).children.head)
+//      println(node.children(1).children.head)
       buildModifiers(node.children.head) :+ node.children(1).children.head.state.left.get.asInstanceOf[Modifier]
     }
   }
@@ -85,8 +85,8 @@ class AstBuilder(filename: String) {
   def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): Left[InterfaceDecl, ClassDecl] = {
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildSuperInterfaces(node.children(2))
-    println(node.state)
-    println(node.children.map(node => node.state))
+//    println(node.state)
+//    println(node.children.map(node => node.state))
     val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(3)
     val bodyDecls = buildClassBody(body.children(1))
 
@@ -119,7 +119,7 @@ class AstBuilder(filename: String) {
   }
 
   def buildInterfaceList(node: TreeNode): List[FullyQualifiedID] = {
-    println(node)
+//    println(node)
     if (node.children.lengthCompare(1) == 0) {
       List(buildFullyQualifiedId(node.children.head))
     } else {
@@ -191,7 +191,7 @@ class AstBuilder(filename: String) {
   }
 
   def buildExpr(node: TreeNode): Expr = {
-    println(node)
+//    println(node)
     node match {
       case TreeNode(Left(value), children) if value.isInstanceOf[Identifier] =>
         DeclRefExpr(value.asInstanceOf[Identifier])
@@ -226,7 +226,7 @@ class AstBuilder(filename: String) {
           case 4 =>
             CastExpr(buildCastType(node.children(1)), buildExpr(node.children(3)))
           case _ =>
-            println(node)
+//            println(node)
             throw new Exception()
         }
     }
@@ -236,7 +236,7 @@ class AstBuilder(filename: String) {
     case Right(value) =>
       value match {
         case "Name" | "PrimitiveType" =>
-          println(node)
+//          println(node)
           buildType(node)
         case _ => buildCastType(node.children.head)
       }
@@ -350,7 +350,7 @@ class AstBuilder(filename: String) {
   }
 
   def buildBlockStatement(node: TreeNode): BlockStmt = {
-    println("0000" + node)
+//    println("0000" + node)
     if (node.children.isEmpty) {
       BlockStmt(Nil)
     } else {
@@ -388,7 +388,7 @@ class AstBuilder(filename: String) {
           ForStmt(buildForInit(node.children(2)), buildForExpr(node.children(4)),
             buildForUpdate(node.children(6)), buildStatement(node.children(8)))
         case _ =>
-          println(node)
+//          println(node)
           buildStatement(node.children.head)
       }
       case Left(value) =>
@@ -410,7 +410,7 @@ class AstBuilder(filename: String) {
           value match {
             case "LocalVariableDeclaration" =>
               val declaration = node.children.head
-              println(node)
+//              println(node)
               val init = if (declaration.children.lengthCompare(2) == 0) {
                 None
               } else {
