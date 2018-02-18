@@ -79,7 +79,7 @@ case class FieldDecl(modifiers: List[Token.Modifier], typ: Type, name: Token.Ide
   * @param body the statements in this method
   */
 case class MethodDecl(modifiers: List[Token.Modifier], returnType: Option[Type],
-                      name: Token.Identifier, parameters: List[ParameterDecl], body: BlockStmt) extends Decl
+                      name: Token.Identifier, parameters: List[ParameterDecl], body: Option[BlockStmt]) extends Decl
 
 /**
   * ParameterDecl represents a parameter in a method or constructor
