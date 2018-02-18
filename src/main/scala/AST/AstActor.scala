@@ -13,7 +13,6 @@ class AstActor(filename: String, reporter: ActorRef) extends Actor{
         sender ! builder.buildCompilationUnit(parseTree)
       } catch {
         case e =>
-          println(e.printStackTrace())
           sender ! e
           reporter ! e
       }

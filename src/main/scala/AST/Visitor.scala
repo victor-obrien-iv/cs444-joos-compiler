@@ -63,7 +63,10 @@ abstract class Visitor extends Actor {
       case None =>
     }
     for(p <- md.parameters) visit(p: ParameterDecl)
-    visit(md.body: BlockStmt)
+    md.body match {
+      case Some(bs) => visit(bs: BlockStmt)
+      case None =>
+    }
   }
   def visit(pd: ParameterDecl): Unit = {
     visit(pd.typ: Type)
@@ -87,6 +90,7 @@ abstract class Visitor extends Actor {
     case dre: DeclRefExpr     => visit(dre: DeclRefExpr)
     case ioe: InstanceOfExpr  => visit(ioe: InstanceOfExpr)
     case ne:  NewExpr         => visit(ne: NewExpr)
+    case ne:  NamedExpr       => visit(ne: NamedExpr)
   }
   def visit(be: BinaryExpr): Unit = {
     visit(be.lhs: Expr)
@@ -133,6 +137,9 @@ abstract class Visitor extends Actor {
   def visit(ane: ArrayNewExpr): Unit = {
     visit(ane.arrayType: ArrayType)
   }
+  def visit(ne: NamedExpr): Unit = {
+    visit(ne.name: FullyQualifiedID)
+  }
 
       //
       //  STATEMENT VISITS
@@ -149,6 +156,10 @@ abstract class Visitor extends Actor {
   }
   def visit(ds: DeclStmt): Unit = {
     visit(ds.decl: Decl)
+    ds.assignment match {
+      case Some(e) => visit(e: Expr)
+      case None =>
+    }
   }
   def visit(es: ExprStmt): Unit = {
     visit(es.expr: Expr)
@@ -221,7 +232,10 @@ abstract class Visitor extends Actor {
   }
 
   override def receive: Receive = {
-    case cu: CompilationUnit => visit(cu: CompilationUnit)
+    case cu: CompilationUnit =>
+      visit(cu: CompilationUnit)
+      sender() ! Nil
+      context.stop(self)
     case _ => assert(false, "Visitor must start on a compilation unit!")
   }
 }
