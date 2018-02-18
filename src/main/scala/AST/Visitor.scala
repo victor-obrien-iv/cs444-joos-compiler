@@ -91,6 +91,7 @@ abstract class Visitor extends Actor {
     case ioe: InstanceOfExpr  => visit(ioe: InstanceOfExpr)
     case ne:  NewExpr         => visit(ne: NewExpr)
     case ne:  NamedExpr       => visit(ne: NamedExpr)
+    case pe:  ParenExpr       => visit(pe: ParenExpr)
   }
   def visit(be: BinaryExpr): Unit = {
     visit(be.lhs: Expr)
@@ -98,6 +99,9 @@ abstract class Visitor extends Actor {
   }
   def visit(ue: UnaryExpr): Unit = {
     visit(ue.rhs)
+  }
+  def visit(pe: ParenExpr): Unit = {
+    visit(pe.expr: Expr)
   }
   def visit(ce: CallExpr): Unit = {
     ce.obj match {

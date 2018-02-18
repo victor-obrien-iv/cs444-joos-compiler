@@ -12,7 +12,7 @@ class AstActor(filename: String, reporter: ActorRef) extends Actor{
       try {
         sender ! builder.buildCompilationUnit(parseTree)
       } catch {
-        case e =>
+        case e: Throwable =>
           sender ! e
           reporter ! e
       }

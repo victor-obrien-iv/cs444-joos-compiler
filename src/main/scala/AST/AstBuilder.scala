@@ -291,7 +291,7 @@ class AstBuilder(filename: String) {
     case TreeNode(Left(value), _) =>
       value match {
         case _: JavaThis => ThisExpr()
-        case _: LParen => buildExpr(node.children(1))
+        case _: LParen => ParenExpr(buildExpr(node.children(1)))
         case _ => throw AstError(node)
       }
   }

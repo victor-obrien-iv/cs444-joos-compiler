@@ -22,6 +22,11 @@ case class BinaryExpr(lhs: Expr, operatorTok: Token.Operator, rhs: Expr) extends
 case class UnaryExpr(operatorTok: Token.Operator, rhs: Expr) extends Expr
 
 /**
+  * ParenExpr represents an expression enclosed in parentheses
+  * @param expr The expression with the parentheses
+  */
+case class ParenExpr(expr: Expr) extends Expr
+/**
   * CallExpr represents a function or method call
   * ex: myClass.myStaticFn(a)
   *     myObjArray[0].myFn(a)
