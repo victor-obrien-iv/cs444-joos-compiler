@@ -257,10 +257,9 @@ class AstBuilder(filename: String) {
   def buildCastType(node: TreeNode): Type = node.state match {
     case Right(value) =>
       value match {
-        case "Name" | "PrimitiveType" =>
-          println(node)
-          buildType(node)
-        case _ => buildCastType(node.children.head)
+        case "Name" | "PrimitiveType" | "ReferenceType" | "ArrayType" => buildType(node)
+        case _ if node.children.lengthCompare(1) == 0 => buildCastType(node.children.head)
+        case _ => throw AstError(node)
       }
     case Left(token) => throw AstError(token)
   }
@@ -344,17 +343,12 @@ class AstBuilder(filename: String) {
         case TreeNode(Left(value), _) =>
           PrimitiveType(value.asInstanceOf[JavaBoolean])
       }
-    case TreeNode(Right("ReferenceType"), children) =>
-      children.head match {
-        case TreeNode(Right("Name"), _) =>
-          ClassType(buildFullyQualifiedId(children.head))
-        case TreeNode(Right("ArrayType"), children) =>
-          val arrayType = buildType(children.head)
-          ArrayType(arrayType, None)
-        case _ => throw AstError(node)
-      }
-    case TreeNode(Right("Name"), _) =>
-          ClassType(buildFullyQualifiedId(node))
+      //Recursive Case for reference type, since it refers to a type
+    case TreeNode(Right("ReferenceType"), children) => buildType(children.head)
+    case TreeNode(Right("Name"), _) => ClassType(buildFullyQualifiedId(node))
+    case TreeNode(Right("ArrayType"), children) =>
+      val arrayType = buildType(children.head)
+      ArrayType(arrayType, None)
     case TreeNode(Left(token), _) => throw AstError(token)
     case _ => throw AstError(node)
   }
