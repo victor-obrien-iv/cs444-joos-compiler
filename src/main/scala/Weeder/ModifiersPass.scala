@@ -75,4 +75,11 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
         Error.Type.ModifiersPass, Some( Error.Location(fd.name.row, fd.name.col, fileName)))
 
   }
+
+  override def visit(cd: ConstructorDecl): Unit = {
+    val isAbstract = cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
+    if ( isAbstract )
+      reporter ! Error.Error(fileName /*TODO give ConstructorDecl a name*/, "A constructor cannot be abstract",
+        Error.Type.ModifiersPass, None /*TODO Fix this*/)
+  }
 }

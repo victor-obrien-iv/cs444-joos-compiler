@@ -153,6 +153,10 @@ abstract class Visitor extends Actor {
   }
   def visit(ds: DeclStmt): Unit = {
     visit(ds.decl: Decl)
+    ds.assignment match {
+      case Some(e) => visit(e: Expr)
+      case None =>
+    }
   }
   def visit(es: ExprStmt): Unit = {
     visit(es.expr: Expr)
