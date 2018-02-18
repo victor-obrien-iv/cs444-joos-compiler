@@ -63,7 +63,10 @@ abstract class Visitor extends Actor {
       case None =>
     }
     for(p <- md.parameters) visit(p: ParameterDecl)
-    visit(md.body: BlockStmt)
+    md.body match {
+      case Some(bs) => visit(bs: BlockStmt)
+      case None =>
+    }
   }
   def visit(pd: ParameterDecl): Unit = {
     visit(pd.typ: Type)

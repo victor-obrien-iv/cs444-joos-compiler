@@ -53,9 +53,9 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
       error("A method must be public or protected")
 
     // A method has a body if and only if it is neither abstract nor native
-    if ( (isAbstract || isNative) && md.body.stmts.nonEmpty )
+    if ( (isAbstract || isNative) && md.body.isDefined )
       error("A method has a body if and only if it is neither abstract nor native")
-    else if ( !(isAbstract || isNative) && md.body.stmts.isEmpty )
+    else if ( !(isAbstract || isNative) && md.body.isEmpty )
       error("A method has a body if and only if it is neither abstract nor native")
 
     // An abstract method cannot be static or final
