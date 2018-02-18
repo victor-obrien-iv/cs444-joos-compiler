@@ -17,7 +17,7 @@ import scala.language.postfixOps
 object Driver {
   val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
   val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter), "Reporter" )
-  implicit val timeout: Timeout = 5 second
+  implicit val timeout: Timeout = 5 hour
 
   def ErrorExit(): Unit = {
     actorSystem.terminate()

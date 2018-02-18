@@ -95,7 +95,7 @@ class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
 
 
       do {
-        implicit val timeout: Timeout = 5 second
+        implicit val timeout: Timeout = 5 hour
 
         // ask each dfa
         val futures: Map[ActorRef, Option[Future[Any]]] =
