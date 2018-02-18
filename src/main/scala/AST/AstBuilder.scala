@@ -175,7 +175,7 @@ class AstBuilder(filename: String) {
     val modifiers = buildModifiers(node.children.head)
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val parameters = buildFormalParameters(node.children(2))
-    val body = buildMethodBody(node.children(3))
+    val body = buildMethodBody(node.children(3)).getOrElse(throw AstError(node))
 
     ConstructorDecl(modifiers, identifier, parameters, body)
   }
@@ -353,11 +353,11 @@ class AstBuilder(filename: String) {
     case _ => throw AstError(node)
   }
 
-  def buildMethodBody(node: TreeNode): BlockStmt = {
+  def buildMethodBody(node: TreeNode): Option[BlockStmt] = {
     if (node.children.head.state.isLeft) {
-      BlockStmt(Nil)
+      None
     } else {
-      buildBlock(node.children.head)
+      Some(buildBlock(node.children.head))
     }
   }
 
