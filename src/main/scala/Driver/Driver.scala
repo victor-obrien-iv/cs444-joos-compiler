@@ -2,7 +2,7 @@ package Driver
 
 import java.io.{FileInputStream, ObjectInputStream}
 
-import AST.{AstActor, AstBuilder, AstNode}
+import AST.{AstBuilder, AstNode}
 import Lalr.Lalr
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
@@ -10,16 +10,17 @@ import akka.pattern.ask
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.util.Timeout
 
+import scala.collection.mutable.ArrayOps
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Driver {
   val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
   val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter), "Reporter" )
-  implicit val timeout: Timeout = 5 hour
+  implicit val timeout: Timeout = 5 seconds
 
   def ErrorExit(): Unit = {
     actorSystem.terminate()
@@ -56,7 +57,7 @@ object Driver {
     val parser = new Parser(lalr, fileName)
     val builder = new AstBuilder(fileName)
     // create the weeding objects
-    val weeders: Array[ActorRef] = Array(
+    val weeders: List[ActorRef] = List(
       actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(fileName, reporter)), "FileNameClassNamePass" ),
       actorSystem.actorOf( Props(new Weeder.HasConstructorPass(fileName , reporter)), "HasConstructorPass" ),
       actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(fileName , reporter)), "IntegerBoundsPass" ),
@@ -72,8 +73,17 @@ object Driver {
       parseTreeNode => builder.build(parseTreeNode)
     }
 
-    ast onComplete {
-      case Success(astNode) => CleanExit()
+    val weeding: Future[List[Try[Any]]] = ast.flatMap {
+      rootNode =>
+        val completedNodes: List[Future[Try[Unit]]] = for (weeder <- weeders)
+        yield ask(weeder, rootNode).mapTo[Try[Unit]]
+        Future.sequence(completedNodes)
+    }
+
+    weeding onComplete {
+      case Success(weedings) =>
+        val failed = weedings.filter(_.isFailure)
+        if (failed.nonEmpty) ErrorExit() else CleanExit()
       case Failure(error) => ErrorExit()
     }
   }
