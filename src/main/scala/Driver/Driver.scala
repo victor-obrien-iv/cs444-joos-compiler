@@ -2,10 +2,10 @@ package Driver
 
 import java.io.{FileInputStream, ObjectInputStream}
 
-import AST.AstActor
-
+import AST.{AstActor, AstBuilder, AstNode}
 import Lalr.Lalr
-import Parser.TreeNode
+import Parser.{Parser, TreeNode}
+import Token.{Comment, Token}
 import akka.pattern.ask
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.util.Timeout
@@ -13,6 +13,8 @@ import akka.util.Timeout
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Driver {
   val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
@@ -44,69 +46,35 @@ object Driver {
     // create lexer actor
     val lexer = actorSystem.actorOf( Props(new Lexer.Lexer(actorSystem, reporter)), "Lexer" )
 
+    val fileName = commandLine.files.head
     // give the lexer work
-    val tokens: Seq[(String, Future[Any])] = for(f <- commandLine.files ) yield (f, lexer ask f)
+    val tokens: Future[List[Token]] = ask(lexer, fileName).mapTo[List[Token]]
 
     // instantiate parser actor while lexer works
     val lalrSteam = new ObjectInputStream(new FileInputStream("src/main/resources/lalr-obj"))
     val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
-    val parser = actorSystem.actorOf( Props(new Parser.ParserActor(lalr,
-      tokens.head._1 /*TODO: fix this for multiple files*/, reporter)), "Parser" )
-    val builder = actorSystem.actorOf(  Props(new AstActor(tokens.head._1, reporter)), "ASTBuilder")
+    val parser = new Parser(lalr, fileName)
+    val builder = new AstBuilder(fileName)
     // create the weeding objects
     val weeders: Array[ActorRef] = Array(
-      actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(tokens.head._1 , reporter)), "FileNameClassNamePass" ),
-      actorSystem.actorOf( Props(new Weeder.HasConstructorPass(tokens.head._1 , reporter)), "HasConstructorPass" ),
-      actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(tokens.head._1 , reporter)), "IntegerBoundsPass" ),
-      actorSystem.actorOf( Props(new Weeder.ModifiersPass(tokens.head._1 , reporter)), "ModifiersPass" )
+      actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(fileName, reporter)), "FileNameClassNamePass" ),
+      actorSystem.actorOf( Props(new Weeder.HasConstructorPass(fileName , reporter)), "HasConstructorPass" ),
+      actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(fileName , reporter)), "IntegerBoundsPass" ),
+      actorSystem.actorOf( Props(new Weeder.ModifiersPass(fileName , reporter)), "ModifiersPass" )
     )
 
-    // wait for the lexer to finish
-    for( ft <- tokens ) {
-      // just print out the tokens for now
-//      println(ft._1 + ":")
-      val tokenList = Await.result(ft._2, Duration.Inf).asInstanceOf[List[Token.Token]]
-//      println(tokenList)
+    val parseTree: Future[TreeNode] = tokens.map {
+      tokenList =>
+        parser.parse(tokenList.filterNot(_.isInstanceOf[Comment]))
     }
 
-    // wait for the lexer to finish
-    for (ft <- tokens) Await.ready(ft._2, Duration.Inf)
-    if ( errorsFound ) ErrorExit()
-    actorSystem.stop(lexer)
-
-    // give the parser work
-    val CSTroot: Seq[Future[Any]] = for( t <- tokens ) yield {
-      // get the tokens and filter out comment tokens
-      val tokens = Await.result(t._2, Duration.Inf).asInstanceOf[List[Token.Token]].
-        filterNot(_.isInstanceOf[Token.Comment])
-      parser ask tokens
+    val ast: Future[AstNode] = parseTree.map {
+      parseTreeNode => builder.build(parseTreeNode)
     }
 
-    // wait for the parser to finish
-    for (node <- CSTroot) Await.ready(node, Duration.Inf)
-    if ( errorsFound ) ErrorExit()
-
-    // give the ast builder work
-    val ASTroot = for(node <- CSTroot) yield {
-      val treeNode = Await.result(node, Duration.Inf).asInstanceOf[TreeNode]
-      // just print out the nodes for now
-//      println()
-//      println(treeNode)
-      builder ask treeNode
+    ast onComplete {
+      case Success(astNode) => CleanExit()
+      case Failure(error) => ErrorExit()
     }
-
-    // wait for the ast builder to finish
-    val astnode = for(node <- ASTroot) yield {
-      Await.result(node, Duration.Inf)
-//      println(node)
-    }
-    if ( errorsFound ) ErrorExit()
-
-    // give the weeders work
-    val finished = for( w <- weeders; n <- astnode ) yield w ask n
-    for ( f <- finished ) Await.ready(f, Duration.Inf)
-    if ( errorsFound ) ErrorExit()
-
-    CleanExit()
   }
 }
