@@ -39,7 +39,7 @@ class IntegerBoundsPass(val fileName: String, val reporter: ActorRef) extends Vi
       case IntegerLiteral(lexeme, row, col, value: BigInt) =>
         assert(value >= 0, "No integer literal should have been saved as a negative")
         if( value > intMax )
-          reporter ! Error.Error(lexeme,
+          throw Error.Error(lexeme,
             "An integer literal cannot exceed 2147483647",
             Error.Type.Weeder, Some( Error.Location(row, col, fileName)))
       case _ =>

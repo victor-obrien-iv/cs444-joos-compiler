@@ -27,11 +27,11 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
     val isPublic = cd.modifiers.exists(_.isInstanceOf[Token.JavaPublic])
 
     if( !isPublic )
-      reporter ! Error.Error(cd.name.lexeme, "A class must be public",
+      throw Error.Error(cd.name.lexeme, "A class must be public",
         Error.Type.ModifiersPass, Some( Error.Location(cd.name.row, cd.name.col, fileName)))
 
     if( isAbstract && isFinal )
-      reporter ! Error.Error(cd.name.lexeme, "A class cannot be both abstract and final",
+      throw Error.Error(cd.name.lexeme, "A class cannot be both abstract and final",
         Error.Type.ModifiersPass, Some( Error.Location(cd.name.row, cd.name.col, fileName)))
 
     super.visit(cd: ClassDecl)
@@ -39,7 +39,7 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
 
   override def visit(md: MethodDecl): Unit = {
     def error(err: String): Unit = {
-      reporter ! Error.Error(md.name.lexeme, err, Error.Type.ModifiersPass,
+      throw Error.Error(md.name.lexeme, err, Error.Type.ModifiersPass,
         Some( Error.Location(md.name.row, md.name.col, fileName)))
     }
     val isAbstract = md.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
@@ -71,7 +71,7 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
   // No field can be final
   override def visit(fd: FieldDecl): Unit = {
     if ( fd.modifiers.exists(_.isInstanceOf[Token.JavaFinal]) )
-      reporter ! Error.Error(fd.name.lexeme, "No field can be final",
+      throw Error.Error(fd.name.lexeme, "No field can be final",
         Error.Type.ModifiersPass, Some( Error.Location(fd.name.row, fd.name.col, fileName)))
 
   }
@@ -79,7 +79,7 @@ class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visito
   override def visit(cd: ConstructorDecl): Unit = {
     val isAbstract = cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
     if ( isAbstract )
-      reporter ! Error.Error(fileName /*TODO give ConstructorDecl a name*/, "A constructor cannot be abstract",
+      throw Error.Error(fileName /*TODO give ConstructorDecl a name*/, "A constructor cannot be abstract",
         Error.Type.ModifiersPass, None /*TODO Fix this*/)
   }
 }
