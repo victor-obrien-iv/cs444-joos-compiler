@@ -18,7 +18,7 @@ import akka.actor.ActorRef
   *   FieldDecl
   *   MethodDecl
   */
-class ModifiersPass(val fileName: String, val reporter: ActorRef) extends Visitor {
+class ModifiersPass(val fileName: String) extends Visitor {
 
   // A class cannot be both abstract and final
   override def visit(cd: ClassDecl): Unit = {

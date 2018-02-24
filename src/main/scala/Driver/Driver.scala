@@ -3,6 +3,7 @@ package Driver
 import java.io.{FileInputStream, ObjectInputStream}
 
 import AST.{AstBuilder, AstNode}
+import Error.{ErrorFormatter, Reporter}
 import Lalr.Lalr
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
@@ -20,6 +21,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Driver {
   val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
   val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter), "Reporter" )
+  val errorFormatter = new ErrorFormatter
   implicit val timeout: Timeout = 5 seconds
 
   def ErrorExit(): Unit = {
@@ -58,10 +60,10 @@ object Driver {
     val builder = new AstBuilder(fileName)
     // create the weeding objects
     val weeders: List[ActorRef] = List(
-      actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(fileName, reporter)), "FileNameClassNamePass" ),
-      actorSystem.actorOf( Props(new Weeder.HasConstructorPass(fileName , reporter)), "HasConstructorPass" ),
-      actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(fileName , reporter)), "IntegerBoundsPass" ),
-      actorSystem.actorOf( Props(new Weeder.ModifiersPass(fileName , reporter)), "ModifiersPass" )
+      actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(fileName)), "FileNameClassNamePass" ),
+      actorSystem.actorOf( Props(new Weeder.HasConstructorPass(fileName)), "HasConstructorPass" ),
+      actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(fileName)), "IntegerBoundsPass" ),
+      actorSystem.actorOf( Props(new Weeder.ModifiersPass(fileName)), "ModifiersPass" )
     )
 
     val parseTree: Future[TreeNode] = tokens.map {
@@ -83,6 +85,11 @@ object Driver {
     weeding onComplete {
       case Success(weedings) =>
         val failed = weedings.filter(_.isFailure)
+        for (error <- failed)
+          error.recover {
+            case error: Error.Error => println(errorFormatter.format(error))
+          }
+
         if (failed.nonEmpty) ErrorExit() else CleanExit()
       case Failure(error) => ErrorExit()
     }

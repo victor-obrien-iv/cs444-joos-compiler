@@ -13,7 +13,7 @@ import akka.actor.ActorRef
   *   UnaryExpr
   *   ValExpr
   */
-class IntegerBoundsPass(val fileName: String, val reporter: ActorRef) extends Visitor {
+class IntegerBoundsPass(val fileName: String) extends Visitor {
   val twoPow31: BigInt = 2147483648L
   val intMax: BigInt = 2147483647
 

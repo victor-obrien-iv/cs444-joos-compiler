@@ -12,7 +12,7 @@ import akka.actor.ActorRef
   *   ClassDecl
   *   ConstructorDecl
   */
-class HasConstructorPass(val fileName: String, val reporter: ActorRef) extends Visitor  {
+class HasConstructorPass(val fileName: String) extends Visitor  {
 
   override def visit(cu: CompilationUnit): Unit = {
     for(cd: ClassDecl <- cu.classes) {

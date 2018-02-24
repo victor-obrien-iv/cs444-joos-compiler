@@ -13,7 +13,7 @@ import akka.actor.ActorRef
   *   ClassDecl
   *   InterfaceDecl
   */
-class FileNameClassNamePass(val fileName: String, val reporter: ActorRef) extends Visitor {
+class FileNameClassNamePass(val fileName: String) extends Visitor {
   def getFileBaseName: String = {
     val lastSlash = fileName.lastIndexWhere((c: Char) => c == '/' || c == '\\')
     val str = fileName.substring(
