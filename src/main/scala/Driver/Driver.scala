@@ -34,7 +34,8 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
       actorSystem.actorOf( Props(new Weeder.FileNameClassNamePass(fileName)), "FileNameClassNamePass" ),
       actorSystem.actorOf( Props(new Weeder.HasConstructorPass(fileName)), "HasConstructorPass" ),
       actorSystem.actorOf( Props(new Weeder.IntegerBoundsPass(fileName)), "IntegerBoundsPass" ),
-      actorSystem.actorOf( Props(new Weeder.ModifiersPass(fileName)), "ModifiersPass" )
+      actorSystem.actorOf( Props(new Weeder.ModifiersPass(fileName)), "ModifiersPass" ),
+      actorSystem.actorOf( Props(new Weeder.EnvironmentPass(fileName)), "blah")
     )
 
     val parseTree: Future[TreeNode] = tokens.map {
