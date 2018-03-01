@@ -47,6 +47,7 @@ object Main extends App {
             error =>
               error.recover {
                 case e: Error.Error => println(errorFormatter.format(e))
+                case _ => println("UNEXPECTED ERROR OCCURRED:"); println(error)
               }
           }
           ErrorExit()
@@ -55,6 +56,7 @@ object Main extends App {
       case Failure(e) =>
         e match {
           case error: Error.Error => println(errorFormatter.format(error))
+          case _ => println("UNEXPECTED ERROR OCCURRED:"); println(e)
         }
         ErrorExit()
     }
