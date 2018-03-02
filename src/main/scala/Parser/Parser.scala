@@ -33,7 +33,7 @@ class Parser(lalr: Lalr, filename: String) {
       catch {
         case _: NoSuchElementException =>
           throw Error.Error(head.lexeme,
-          "illegal transition", Error.Type.Parser, Some( Error.Location(head.row, head.col, filename)))
+          s"illegal transition for state ${stack.head._2}", Error.Type.Parser, Some( Error.Location(head.row, head.col, filename)))
       }
   }
 

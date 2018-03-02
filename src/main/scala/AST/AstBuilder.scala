@@ -105,13 +105,44 @@ class AstBuilder(filename: String) {
 
   private def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): Left[InterfaceDecl, ClassDecl] = {
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
-    val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildSuperInterfaces(node.children(2))
+    val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildInterfaceList(node.children(3))
 //    println(node.state)
 //    println(node.children.map(node => node.state))
-    val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(3)
-    val bodyDecls = buildClassBody(body.children(1))
+    val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(4)
+    val bodyDecls = buildInterfaceBody(body.children(1))
 
     Left(InterfaceDecl(modifiers, identifier, superInterfaces, bodyDecls))
+  }
+
+  private def buildInterfaceBody(node: TreeNode): List[Decl] = {
+    if (node.children.nonEmpty) {
+      //InterfaceBodyDeclarations InterfaceBodyDeclarations InterfaceBodyDeclaration
+      if (node.children(1).children.lengthCompare(2) == 0) {
+        //InterfaceBodyDeclaration public InterfaceMethodDeclaration
+        buildInterfaceBody(node.children.head) :+ buildInterfaceBodyDeclaration(node.children(1))
+      } else {
+        //InterfaceBodyDeclaration ;
+        buildInterfaceBody(node.children.head)
+      }
+    } else {
+      //InterfaceBodyDeclarations
+      Nil
+    }
+  }
+
+  private def buildInterfaceBodyDeclaration(node: TreeNode): MethodDecl = {
+    //InterfaceBodyDeclaration public InterfaceMethodDeclaration
+    val publicModifier = node.children.head.state match {
+      case Left(token) => token.asInstanceOf[Modifier]
+      case Right(_) => throw AstError(node)
+    }
+    val modifiers = List(publicModifier)
+    val methodDecl = node.children(1)
+
+    //InterfaceMethodDeclaration MethodHeader ;
+    val (typ, identifier, parameters) = buildMethodHeader(methodDecl.children.head)
+
+    MethodDecl(modifiers, typ, identifier, parameters, None)
   }
 
   private def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): Right[InterfaceDecl, ClassDecl] = {

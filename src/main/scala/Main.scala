@@ -1,4 +1,4 @@
-import AST.{AstNode, CompilationUnit}
+import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -48,6 +48,8 @@ object Main extends App {
           error =>
             error.recover {
               case e: Error.Error => println(errorFormatter.format(e))
+                //TODO: Add debug mode to print stacktraces
+                //error.printStackTrace()
               case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); println(error)
             }
         }
@@ -56,6 +58,8 @@ object Main extends App {
     case Failure(e) =>
       e match {
         case error: Error.Error => println(errorFormatter.format(error))
+          //TODO: Add debug mode to print stacktraces
+          //error.printStackTrace()
         case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); println(e)
       }
       ErrorExit()
