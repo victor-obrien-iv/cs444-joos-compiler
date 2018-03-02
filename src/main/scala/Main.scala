@@ -1,5 +1,7 @@
+import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
+import TypeLinker.TypeLinker
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -37,6 +39,7 @@ object Main extends App {
   if (errorsFound) ErrorExit()
 
   val driver = new Driver(reporter)
+  val typeLinker = new TypeLinker
 
   val astFutures = for (file <- commandLine.files) yield driver.poduceAST(file)
   val astResults = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
@@ -63,12 +66,18 @@ object Main extends App {
       }
       ErrorExit()
   }
-  //val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
 
-  // TODO: this should actually divide asts into appropriate packages
-  //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
+  val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
+  val typeContext = try {
+    typeLinker.buildContext(asts.toList)
+  } catch {
+    case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+    case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
+  }
+    // TODO: this should actually divide asts into appropriate packages
+    //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
 
-  //val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
+    //val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
 
   CleanExit()
 }
