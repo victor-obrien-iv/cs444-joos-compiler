@@ -1,30 +1,15 @@
 package TypeLinker
 
-import AST.{CompilationUnit, FullyQualifiedID, ImportDecl, TypeDecl}
-import Token.Identifier
+import AST.{CompilationUnit, TypeDecl}
 
 class TypeLinker {
 
-  def buildContext(units: List[CompilationUnit]): List[Package] = {
+  def buildContext(units: List[CompilationUnit]): Map[String, List[TypeDecl]] = {
     val ctx = units.groupBy(_.packageName.map(_.name).getOrElse("")).mapValues(_.map(_.typeDecl))
     val classNames = ctx.flatMap {
       case (packageId, typeDecls) =>
         typeDecls.map {
           decl => s"$packageId.${decl.name.lexeme}"
-        }
-    }
-
-    val packages = ctx.map{
-      case (packageName, classes) =>
-        Package(packageName, Nil, classes)
-    }
-
-    val sortedCtx = packages.toSeq.sortBy(_.name.split(".").length).foldLeft(List.empty[Package]) {
-      (listSoFar: List[Package], curPackage: Package) =>
-        if (curPackage.name == "") {
-          curPackage::listSoFar
-        } else {
-          Package(curPackage.name, listSoFar.filter(_.name.contains(curPackage.name + ".")), curPackage.types) :: listSoFar
         }
     }
 
@@ -38,47 +23,40 @@ class TypeLinker {
           }
       }
 
-    sortedCtx
+    ctx
   }
 
   def buildLocalContext(unit: CompilationUnit,
-                        typeCtx: List[Package]): List[TypeDecl] = {
+                        typeCtx: Map[String, List[TypeDecl]]): List[TypeDecl] = {
     val containsLang = unit.imports.exists {
       importDecl =>
         importDecl.name.name == "java.lang" && importDecl.asterisk
     }
-    typeCtx.foreach(p => println(p.name))
-    println
     unit.imports flatMap {
       importDecl =>
         if (importDecl.asterisk) {
           val packageName = importDecl.name.name
           println(packageName)
-          val packageGroup = typeCtx.find(_.name == packageName)
-          packageGroup match {
-            case Some(value) => typesFromPackage(value)
-            case None => throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
+          val allPackages = typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName)
+          if (allPackages.nonEmpty) {
+            allPackages.flatMap(_._2)
+          } else {
+            throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
           }
         } else {
-          val packageName = importDecl.name.qualifiers.mkString(".")
-          println(packageName)
-          val packageGroup = typeCtx.find(_.name == packageName)
-          packageGroup match {
-            case Some(value) =>
-              val classDecl = value.types.find(_.name.lexeme == importDecl.name.id.lexeme)
+          val packageName = importDecl.name.qualifiers.map(_.lexeme).mkString(".")
+          if (typeCtx.contains(packageName)) {
+              val classDecl = typeCtx(packageName).find(_.name.lexeme == importDecl.name.id.lexeme)
               classDecl match {
                 case Some(classType) => List(classType)
-                case None => throw Error.Error(importDecl.name.id.lexeme, s"Could not find import ${importDecl.name}",
+                case None => throw Error.Error(importDecl.name.id.lexeme, s"Could not find import ${importDecl.name.name}",
                   Error.Type.TypeLinking)
               }
-            case None => throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
+          } else {
+            throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
           }
         }
     }
-  }
-
-  private def typesFromPackage(packagedClasses: Package): List[TypeDecl] = {
-    packagedClasses.types ++ packagedClasses.subPackages.flatMap(p => p.types ++ typesFromPackage(p))
   }
 
 }
