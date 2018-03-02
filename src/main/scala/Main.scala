@@ -1,4 +1,4 @@
-import AST.AstNode
+import AST.{AstNode, CompilationUnit}
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -60,12 +60,12 @@ object Main extends App {
       }
       ErrorExit()
   }
-  val asts: Array[AstNode] = astResults.collect { case Success((ast, _)) => ast }
+  val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
 
   // TODO: this should actually divide asts into appropriate packages
-  val packages: Map[String, Array[AstNode]] = Map( "Unnamed" -> asts )
+  val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
 
-  val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(packages, ast)
+  val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
 
   CleanExit()
 }

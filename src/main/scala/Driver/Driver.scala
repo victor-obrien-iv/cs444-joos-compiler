@@ -2,7 +2,7 @@ package Driver
 
 import java.io.{FileInputStream, ObjectInputStream}
 
-import AST.{AstBuilder, AstNode}
+import AST.{AstBuilder, AstNode, CompilationUnit}
 import Lalr.Lalr
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
@@ -16,7 +16,7 @@ import scala.language.postfixOps
 import scala.util.Try
 
 class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Timeout) {
-  def poduceAST(fileName: String): Future[(AstNode, List[Try[Unit]])] = {
+  def poduceAST(fileName: String): Future[(CompilationUnit, List[Try[Unit]])] = {
 
     // create lexer actor
     val lexer = actorSystem.actorOf( Props(new Lexer.Lexer(actorSystem, reporter)) )
@@ -43,11 +43,11 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
         parser.parse(tokenList.filterNot(_.isInstanceOf[Comment]))
     }
 
-    val ast: Future[AstNode] = parseTree.map {
+    val ast: Future[CompilationUnit] = parseTree.map {
       parseTreeNode => builder.build(parseTreeNode)
     }
 
-    val weeding: Future[(AstNode, List[Try[Unit]])] = ast.flatMap {
+    val weeding: Future[(CompilationUnit, List[Try[Unit]])] = ast.flatMap {
       rootNode =>
         val completedNodes: List[Future[Try[Unit]]] =
           for (weeder <- weeders) yield ask(weeder, rootNode).mapTo[Try[Unit]]
@@ -58,7 +58,7 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
     weeding
   }
 
-  def translate(packages: Map[String, Array[AstNode]], ast: AstNode) = Future /*TODO: this will probably need to return something...*/ {
+  def translate(hierarchy: Map[String, Array[CompilationUnit]], ast: CompilationUnit) = Future /*TODO: this will probably need to return something...*/ {
     // type linking
 
     // hierarchy checking
