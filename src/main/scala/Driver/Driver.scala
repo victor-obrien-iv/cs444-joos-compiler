@@ -3,7 +3,7 @@ package Driver
 import java.io.{FileInputStream, ObjectInputStream}
 
 import AST.{AstBuilder, AstNode}
-import Lalr.Lalr
+import Lalr.{Lalr, LalrReader}
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -25,8 +25,8 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
     val tokens: Future[List[Token]] = ask(lexer, fileName).mapTo[List[Token]]
 
     // instantiate parser actor while lexer works
-    val lalrSteam = new ObjectInputStream(new FileInputStream("src/main/resources/lalr-obj"))
-    val lalr: Lalr = lalrSteam.readObject().asInstanceOf[Lalr]
+    val lalrReader = new LalrReader()
+    val lalr: Lalr = lalrReader.read("src/main/resources/joos.lr1")
     val parser = new Parser(lalr, fileName)
     val builder = new AstBuilder(fileName)
     // create the weeding objects
@@ -43,7 +43,8 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
     }
 
     val ast: Future[AstNode] = parseTree.map {
-      parseTreeNode => builder.build(parseTreeNode)
+      parseTreeNode =>
+        builder.build(parseTreeNode)
     }
 
     val weeding: Future[(AstNode, List[Try[Unit]])] = ast.flatMap {
