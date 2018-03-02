@@ -5,35 +5,40 @@ import Token.Identifier
 
 class TypeLinker {
 
-  def buildContext(units: List[CompilationUnit]): Map[Option[FullyQualifiedID], List[TypeDecl]] = {
-    val ctx = units.groupBy(_.packageName).mapValues(_.map(_.typeDecl))
+  def buildContext(units: List[CompilationUnit]): List[Package] = {
+    val ctx = units.groupBy(_.packageName.map(_.name).getOrElse("")).mapValues(_.map(_.typeDecl))
     val classNames = ctx.flatMap {
       case (packageId, typeDecls) =>
         typeDecls.map {
-          decl =>
-            packageId match {
-              case Some(id) =>
-                s"${id.name}.${decl.name.lexeme}"
-              case None =>
-            }
+          decl => s"$packageId.${decl.name.lexeme}"
         }
     }
+
+    val packages = ctx.map{
+      case (packageName, classes) =>
+        Package(packageName, Nil, classes)
+    }
+
+    val sortedCtx = packages.toSeq.sortBy(_.name.split(".").length).foldLeft(List.empty[Package]) {
+      (listSoFar: List[Package], curPackage: Package) =>
+        if (curPackage.name == "") {
+          curPackage::listSoFar
+        } else {
+          Package(curPackage.name, listSoFar.filter(_.name.contains(curPackage.name + ".")), curPackage.types) :: listSoFar
+        }
+    }
+
     classNames foreach {
       name => ctx foreach  {
         case (packageName, _) =>
-          packageName match {
-            case Some(value) =>
-              if (value.name.contains(name + ".") || value.name == name) {
-                throw Error.Error(value.name,
-                  s"package ${value.name} conflicts with class $name", Error.Type.TypeLinking)
+          if (packageName.contains(name + ".") || packageName == name) {
+                throw Error.Error(packageName,
+                  s"package $packageName conflicts with class $name", Error.Type.TypeLinking)
               }
-            case None =>
           }
       }
-    }
-    println(classNames)
-    println(ctx.keys.map(_.map(_.name)))
-    ctx
+
+    sortedCtx
   }
 
 //  def buildLocalContext(unit: CompilationUnit,

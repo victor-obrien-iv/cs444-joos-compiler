@@ -1,7 +1,7 @@
 package Error
 
 case object Type extends Enumeration {
-  val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder,
+  val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder, TypeLinking,
     EnvironmentPass, ExtendsPass = Value
 }
 
