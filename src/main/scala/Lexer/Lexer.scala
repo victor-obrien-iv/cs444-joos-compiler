@@ -79,9 +79,9 @@ class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
     val status = new Status( fileName, reporter )
     val DFAs: Array[ActorRef] = Array(
-      actorSystem.actorOf( Props(new LiteralDFA(status)), "LiteralDFA" ),
-      actorSystem.actorOf( Props(new IdentifierDFA(status)), "IdentifierDFA" ),
-      actorSystem.actorOf( Props(new PunctuationDFA(status)), "PunctuationDFA" )
+      actorSystem.actorOf( Props(new LiteralDFA(status)) ),
+      actorSystem.actorOf( Props(new IdentifierDFA(status)) ),
+      actorSystem.actorOf( Props(new PunctuationDFA(status)) )
     )
 
     while( status.trimWhitespace() ) {
