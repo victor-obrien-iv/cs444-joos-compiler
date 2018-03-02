@@ -66,4 +66,6 @@ object Main extends App {
   val packages: Map[String, Array[AstNode]] = Map( "Unnamed" -> asts )
 
   val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(packages, ast)
+
+  CleanExit()
 }
