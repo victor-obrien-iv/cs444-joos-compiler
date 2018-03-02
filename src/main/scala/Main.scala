@@ -9,7 +9,7 @@ import akka.util.Timeout
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object Main extends App {
   implicit val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
@@ -68,12 +68,17 @@ object Main extends App {
   }
 
   val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
-  val typeContext = try {
+  val typeContextTry = Try {
     typeLinker.buildContext(asts.toList)
-  } catch {
+  }
+
+  typeContextTry.map{
+    typeContext => asts.map(typeLinker.buildLocalContext(_, typeContext))
+  }.recover {
     case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
     case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
   }
+
     // TODO: this should actually divide asts into appropriate packages
     //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
 

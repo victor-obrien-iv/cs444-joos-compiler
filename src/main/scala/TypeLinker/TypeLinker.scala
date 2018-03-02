@@ -41,16 +41,44 @@ class TypeLinker {
     sortedCtx
   }
 
-//  def buildLocalContext(unit: CompilationUnit,
-//                        typeCtx: Map[Option[FullyQualifiedID], List[TypeDecl]]): Map[Identifier, TypeDecl] = {
-//    val containsLang = unit.imports.exists {
-//      importDecl =>
-//        importDecl.name.name == "java.lang" && importDecl.asterisk
-//    }
-//    unit.imports map {
-//      importDecl =>
-//
-//    }
-//  }
+  def buildLocalContext(unit: CompilationUnit,
+                        typeCtx: List[Package]): List[TypeDecl] = {
+    val containsLang = unit.imports.exists {
+      importDecl =>
+        importDecl.name.name == "java.lang" && importDecl.asterisk
+    }
+    typeCtx.foreach(p => println(p.name))
+    println
+    unit.imports flatMap {
+      importDecl =>
+        if (importDecl.asterisk) {
+          val packageName = importDecl.name.name
+          println(packageName)
+          val packageGroup = typeCtx.find(_.name == packageName)
+          packageGroup match {
+            case Some(value) => typesFromPackage(value)
+            case None => throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
+          }
+        } else {
+          val packageName = importDecl.name.qualifiers.mkString(".")
+          println(packageName)
+          val packageGroup = typeCtx.find(_.name == packageName)
+          packageGroup match {
+            case Some(value) =>
+              val classDecl = value.types.find(_.name.lexeme == importDecl.name.id.lexeme)
+              classDecl match {
+                case Some(classType) => List(classType)
+                case None => throw Error.Error(importDecl.name.id.lexeme, s"Could not find import ${importDecl.name}",
+                  Error.Type.TypeLinking)
+              }
+            case None => throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
+          }
+        }
+    }
+  }
+
+  private def typesFromPackage(packagedClasses: Package): List[TypeDecl] = {
+    packagedClasses.types ++ packagedClasses.subPackages.flatMap(p => p.types ++ typesFromPackage(p))
+  }
 
 }
