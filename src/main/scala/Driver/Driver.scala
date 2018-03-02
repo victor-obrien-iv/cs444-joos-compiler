@@ -19,7 +19,7 @@ class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Tim
   def poduceAST(fileName: String): Future[(AstNode, List[Try[Unit]])] = {
 
     // create lexer actor
-    val lexer = actorSystem.actorOf( Props(new Lexer.Lexer(actorSystem, reporter)), "Lexer" )
+    val lexer = actorSystem.actorOf( Props(new Lexer.Lexer(actorSystem, reporter)) )
 
     // give the lexer work
     val tokens: Future[List[Token]] = ask(lexer, fileName).mapTo[List[Token]]
