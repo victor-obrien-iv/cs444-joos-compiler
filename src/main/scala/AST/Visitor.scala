@@ -31,8 +31,7 @@ abstract class Visitor extends Actor {
       case None =>
     }
     for(i <- cu.imports) visit(i: ImportDecl)
-    for(i <- cu.interfaces) visit(i: InterfaceDecl)
-    for(cd <- cu.classes) visit(cd: ClassDecl)
+    visit(cu.typeDecl)
   }
   def visit(id: ImportDecl): Unit = {
     visit(id.name: FullyQualifiedID)

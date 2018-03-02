@@ -1,4 +1,3 @@
-import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -60,16 +59,16 @@ object Main extends App {
         case error: Error.Error => println(errorFormatter.format(error))
           //TODO: Add debug mode to print stacktraces
           //error.printStackTrace()
-        case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); println(e)
+        case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); e.printStackTrace()
       }
       ErrorExit()
   }
-  val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
+  //val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
 
   // TODO: this should actually divide asts into appropriate packages
-  val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
+  //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
 
-  val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
+  //val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
 
   CleanExit()
 }
