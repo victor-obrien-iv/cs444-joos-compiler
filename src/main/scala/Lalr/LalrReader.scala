@@ -6,32 +6,28 @@ import Parser.{ParseError, ProdRule, Reduce, Shift}
 
 import scala.io.Source
 
-object LalrReader extends App {
+class LalrReader {
 
-  val lr1File = Source.fromFile("src/main/resources/joos.lr1").getLines().toArray
+  def read(filename: String): Lalr = {
+    val lr1File = Source.fromFile (filename).getLines ().toArray
+    val terminalEndIdx = lr1File (0).toInt + 1
+    val terminals = lr1File.slice (1, terminalEndIdx).toSet
 
-  val terminalEndIdx = lr1File(0).toInt + 1
-  val terminals = lr1File.slice(1, terminalEndIdx).toSet
+    val nonTerminalEndIdx = terminalEndIdx + lr1File (terminalEndIdx).toInt + 1
+    val nonTerminals = lr1File.slice (terminalEndIdx + 1, nonTerminalEndIdx).toSet
 
-  val nonTerminalEndIdx = terminalEndIdx + lr1File(terminalEndIdx).toInt + 1
-  val nonTerminals = lr1File.slice(terminalEndIdx + 1, nonTerminalEndIdx).toSet
+    val startSymbol = lr1File (nonTerminalEndIdx)
 
-  val startSymbol = lr1File(nonTerminalEndIdx)
+    val prodRulesEndIdx = nonTerminalEndIdx + lr1File (nonTerminalEndIdx + 1).toInt + 2
+    val prodRules = lr1File.slice (nonTerminalEndIdx + 2, prodRulesEndIdx)
 
-  val prodRulesEndIdx = nonTerminalEndIdx + lr1File(nonTerminalEndIdx + 1).toInt + 2
-  val prodRules = lr1File.slice(nonTerminalEndIdx + 2, prodRulesEndIdx)
+    val states = lr1File (prodRulesEndIdx).toInt
 
-  val states = lr1File(prodRulesEndIdx).toInt
+    val actionsEndIdx = prodRulesEndIdx + lr1File (prodRulesEndIdx + 1).toInt + 2
+    val actions = lr1File.slice (prodRulesEndIdx + 2, actionsEndIdx)
 
-  val actionsEndIdx = prodRulesEndIdx + lr1File(prodRulesEndIdx + 1).toInt + 2
-  val actions = lr1File.slice(prodRulesEndIdx + 2, actionsEndIdx)
-
-  val lalr = Lalr(terminals, nonTerminals, parseProdRules(prodRules), startSymbol, states, parseActions(actions))
-
-  val out = new ObjectOutputStream(new FileOutputStream("src/main/resources/lalr-obj"))
-
-  out.writeObject(lalr)
-  out.close()
+    Lalr (terminals, nonTerminals, parseProdRules (prodRules), startSymbol, states, parseActions (actions) )
+  }
 
   def parseProdRules(rules: Array[String]): Array[ProdRule] = rules map { rule: String =>
     rule.split(" ").toList match {

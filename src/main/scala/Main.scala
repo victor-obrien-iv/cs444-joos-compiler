@@ -54,7 +54,11 @@ object Main extends App {
         else CleanExit()
       case Failure(e) =>
         e match {
-          case error: Error.Error => println(errorFormatter.format(error))
+          case error: Error.Error =>
+            //TODO: Add debug mode to print stacktraces
+            //error.printStackTrace()
+            println(errorFormatter.format(error))
+          case error => //error.printStackTrace()
         }
         ErrorExit()
     }
