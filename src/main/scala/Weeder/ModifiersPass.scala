@@ -20,6 +20,14 @@ import akka.actor.ActorRef
   */
 class ModifiersPass(val fileName: String) extends Visitor {
 
+  // All methods in an interface are implicitly abstract
+  var inInterface = false
+  override def visit(id: InterfaceDecl): Unit = {
+    inInterface = true
+    super.visit(id)
+    inInterface = false
+  }
+
   // A class cannot be both abstract and final
   override def visit(cd: ClassDecl): Unit = {
     val isAbstract = cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
@@ -42,7 +50,7 @@ class ModifiersPass(val fileName: String) extends Visitor {
       throw Error.Error(md.name.lexeme, err, Error.Type.ModifiersPass,
         Some( Error.Location(md.name.row, md.name.col, fileName)))
     }
-    val isAbstract = md.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
+    val isAbstract = md.modifiers.exists(_.isInstanceOf[Token.JavaAbstract]) || inInterface
     val isNative = md.modifiers.exists(_.isInstanceOf[Token.JavaNative])
     val isStatic = md.modifiers.exists(_.isInstanceOf[Token.JavaStatic])
     val isFinal = md.modifiers.exists(_.isInstanceOf[Token.JavaFinal])
