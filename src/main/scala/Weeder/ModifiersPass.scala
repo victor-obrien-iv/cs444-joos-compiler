@@ -59,7 +59,7 @@ class ModifiersPass(val fileName: String) extends Visitor {
       error("A method has a body if and only if it is neither abstract nor native")
 
     // An abstract method cannot be static or final
-    if ( isAbstract && isStatic || isFinal )
+    if ( isAbstract && ( isStatic || isFinal ) )
       error("An abstract method cannot be static or final")
 
     // A static method cannot be final
