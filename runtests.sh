@@ -1,9 +1,24 @@
 #!/bin/bash
 
-# check for -j flag
-#parallelflag=''
-while getopts 'jl:' flag; do
+while getopts 'hjl:s:' flag; do
 	case "${flag}" in
+		h)
+			echo "
+
+	To run joos tests
+	
+	-j,
+		Run tests in parallel
+	
+	-l <lib>,
+		Include library lib in each compilation
+	
+	-s <test>,
+		Run a single test
+
+			"
+			exit
+		;;
 		j)
 			parallelflag='true'
 			shift
@@ -19,15 +34,29 @@ while getopts 'jl:' flag; do
 			shift 2
 			echo "using library files from $libpath"
 		;;
+		s)
+			singletest=${OPTARG}
+			shift 2
+		;;
 		*) echo "Unexpected option ${flag}" && exit ;;
 	esac
 done
 
+# if given a single test to run
+if [[ -n "$singletest" ]]; then
+	./joosc $files $libfiles
+	exit
+fi
+
 # check that there is only one arg
 [[ "$#" -ne 1 ]] && echo "usage: <testdir|testfile>" && exit
 
-#testdir=/u/cs444/pub/assignment_testcases/a1/
-testsrc=$1
+# set testsrc to the passes path if it exists, otherwise treat it as a public test folder
+if [[ -d "$1" ]] || [[ -f "$1" ]]; then
+	testsrc=$1
+else
+	testsrc=/u/cs444/pub/assignment_testcases/$1
+fi
 
 # create a new directory to put the results
 dirnum=0
@@ -86,9 +115,6 @@ elif [ -f $testsrc ]; then
 	# a file of test paths was passed to the script
 	numfiles=`wc -l < $testsrc`
 	tests=`cat $testsrc`
-else
-	echo "test source is not a file or directory...?"
-	exit
 fi
 
 if [ -n "$parallelflag" ]; then
