@@ -9,7 +9,11 @@ while getopts 'jl:' flag; do
 			shift
 		;;
 		l)
-			libpath="/u/cs444/pub/stdlib/${OPTARG}"
+			if [[ -d "${OPTARG}" ]]; then
+				libpath=${OPTARG}
+			else
+				libpath=/u/cs444/pub/stdlib/${OPTARG}
+			fi
 			[[ ! -d "$libpath" ]] && echo "could not find library $libpath" && exit
 			libfiles=`find "$libpath" -type f -name '*.java'`
 			shift 2
