@@ -2,19 +2,17 @@ package Driver
 
 import AST.{AstBuilder, CompilationUnit}
 import Lalr.{Lalr, LalrReader}
-
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Timeout) {
+class Driver(reporter: ActorRef)(implicit actorSystem: ActorSystem, timeout: Timeout, ec: ExecutionContext) {
   def poduceAST(fileName: String): Future[(CompilationUnit, List[Try[Unit]])] = {
 
     // create lexer actor

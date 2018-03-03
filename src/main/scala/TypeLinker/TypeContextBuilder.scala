@@ -3,7 +3,6 @@ package TypeLinker
 import AST.{CompilationUnit, FullyQualifiedID, ImportDecl, TypeDecl}
 import Token.Identifier
 
-import scala.collection.immutable
 
 class TypeContextBuilder {
 
@@ -42,7 +41,11 @@ class TypeContextBuilder {
     }
 
     val curClassImport = ImportDecl(FullyQualifiedID(packageQualifiers, unit.typeDecl.name), asterisk = false)
-    val imports = unit.imports /*:+ javaLangImport*/ :+ curClassImport
+    val defaultImports = javaLangImport :: curClassImport :: unit.imports
+    val imports = unit.packageName match {
+      case Some(value) => defaultImports :+ ImportDecl(value, asterisk = true)
+      case None => defaultImports
+    }
 
     val wildCards = imports.filter(_.asterisk) flatMap {
       importDecl =>

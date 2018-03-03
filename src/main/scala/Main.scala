@@ -1,18 +1,19 @@
 import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
-import TypeLinker.TypeContextBuilder
+import TypeLinker.{TypeContextBuilder, TypeLinker}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 object Main extends App {
   implicit val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
+  implicit val ec: ExecutionContext = actorSystem.dispatcher
   implicit val timeout: Timeout = 5 seconds
 
   val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter) )
@@ -72,12 +73,38 @@ object Main extends App {
     typeLinker.buildContext(asts.toList)
   }
 
-  typeContextTry.map{
-    typeContext => asts.map(typeLinker.buildLocalContext(_, typeContext))
-  }.recover {
-    case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-    case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+  val typeLinked = typeContextTry.map{
+    typeContext =>
+      val linkedAsts = asts.map { ast =>
+        val context = typeLinker.buildLocalContext(ast, typeContext)
+        val linker = actorSystem.actorOf(Props(new TypeLinker(context)))
+        ask(linker, ast).mapTo[Try[Unit]]
+      }
+      Future.sequence(linkedAsts.toList)
   }
+
+  typeLinked match {
+    case Failure(exception) => exception match {
+          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+    }
+    case Success(value) => value onComplete {
+      case Failure(exception) => exception match {
+        case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+        case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+      }
+      case Success(tryList) => tryList foreach {
+        case Success(tryValue) =>
+        case Failure(exception) => exception match {
+          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+        }
+      }
+    }
+  }
+//  }.recover {
+
+//  }
 
     // TODO: this should actually divide asts into appropriate packages
     //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
