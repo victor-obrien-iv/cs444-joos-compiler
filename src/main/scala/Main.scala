@@ -48,12 +48,12 @@ object Main extends App {
     case Success((_, errors)) =>
       if (errors.exists(_.isFailure)) {
         errors.foreach {
-          error =>
+          error: Try[Unit] =>
             error.recover {
               case e: Error.Error => println(errorFormatter.format(e))
                 //TODO: Add debug mode to print stacktraces
                 //error.printStackTrace()
-              case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); println(error)
+              case e: Exception => println("INTERNAL COMPILER ERROR OCCURRED:"); println(e.printStackTrace())
             }
         }
         ErrorExit()

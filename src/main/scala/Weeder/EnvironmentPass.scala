@@ -1,6 +1,6 @@
 package Weeder
 
-import AST.{BlockStmt, FieldDecl, VarDecl, Visitor}
+import AST._
 
 import scala.collection.mutable.ListBuffer
 
@@ -10,7 +10,10 @@ import scala.collection.mutable.ListBuffer
   *   No two local variables with overlapping scope have the same name
   *
   * this pass analyses:
-  *   ClassDecl
+  *   FieldDecl
+  *   BlockStmt
+  *   VarDecl
+  *   ParameterDecl
   *
   */
 class EnvironmentPass(val fileName: String) extends Visitor {
@@ -45,5 +48,24 @@ class EnvironmentPass(val fileName: String) extends Visitor {
       throw Error.Error(vd.name.lexeme, "No two local variables with overlapping scope may have the same name",
         Error.Type.EnvironmentPass, Some( Error.Location(vd.name.row, vd.name.col, fileName)))
     scopesStack.head += vd.name.lexeme
+  }
+
+  override def visit(cd: ConstructorDecl): Unit = {
+    scopesStack. +=: ( ListBuffer() ) // push an empty scope to the top of the stack
+    super.visit(cd)
+    scopesStack.remove(0)
+  }
+
+  override def visit(md: MethodDecl): Unit = {
+    scopesStack. +=: ( ListBuffer() ) // push an empty scope to the top of the stack
+    super.visit(md)
+    scopesStack.remove(0)
+  }
+
+  override def visit(pd: ParameterDecl): Unit = {
+    if ( isInScope(pd.name.lexeme) )
+      throw Error.Error(pd.name.lexeme, "No two local variables with overlapping scope may have the same name",
+        Error.Type.EnvironmentPass, Some( Error.Location(pd.name.row, pd.name.col, fileName)))
+    scopesStack.head += pd.name.lexeme
   }
 }
