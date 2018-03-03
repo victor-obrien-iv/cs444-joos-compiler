@@ -21,7 +21,7 @@ class AstBuilder(filename: String) {
     )
   }
 
-  def build(node: TreeNode): AstNode = {
+  def build(node: TreeNode): CompilationUnit = {
     buildCompilationUnit(node)
   }
 

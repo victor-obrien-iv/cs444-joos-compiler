@@ -10,6 +10,9 @@ scalacOptions ++= Seq("-deprecation", "-feature")
 // allow for the killing of the run without killing sbt
 fork in run := true
 
+// set program entry point to Main
+mainClass in (Compile, run) := Some("Main")
+
 // assert java 8
 initialize := {
   val _ = initialize.value // run the previous initialization
