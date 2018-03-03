@@ -1,7 +1,7 @@
 import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
-import TypeLinker.TypeLinker
+import TypeLinker.TypeContextBuilder
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -39,7 +39,7 @@ object Main extends App {
   if (errorsFound) ErrorExit()
 
   val driver = new Driver(reporter)
-  val typeLinker = new TypeLinker
+  val typeLinker = new TypeContextBuilder
 
   val astFutures = for (file <- commandLine.files) yield driver.poduceAST(file)
   val astResults = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
@@ -76,7 +76,7 @@ object Main extends App {
     typeContext => asts.map(typeLinker.buildLocalContext(_, typeContext))
   }.recover {
     case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-    case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
+    case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
   }
 
     // TODO: this should actually divide asts into appropriate packages
