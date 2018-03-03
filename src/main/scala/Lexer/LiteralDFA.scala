@@ -58,7 +58,7 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
         catch {
           case _: InvalidEscapeException =>
             // the treadEscapes method failed due to a bad escape char
-            status.reporter ! Error.Error(status.getLexeme,
+            throw Error.Error(status.getLexeme,
               "bad escape character", Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
             // this still needs to return a token, just return a str token with the untreated text
             Token.StringLiteral.apply(status.getLexeme, status.getRow, status.getCol, text)
@@ -74,7 +74,7 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
         catch {
           case _: InvalidEscapeException =>
             // the treadEscapes method failed due to a bad escape char
-            status.reporter ! Error.Error(status.getLexeme,
+            throw Error.Error(status.getLexeme,
               "bad escape character", Error.Type.LiteralDFA, Some( Error.Location(status.getRow, status.getCol, status.fileName)))
             // this still needs to return a token, just return a char token with the untreated text
             Token.CharacterLiteral.apply(status.getLexeme, status.getRow, status.getCol, text.charAt(0))
@@ -176,12 +176,11 @@ class LiteralDFA(status: Status) extends DFA[LiteralDFA.Value](status) {
     charTransitions ++
     intTransitions
 
-  def receive: PartialFunction[Any, Unit] = {
-    case c: Char =>
-      sender() ! run(c)
-      if ( textState ) text += c
-    case EOF() =>
-      sender() ! Some(lastToken)
+
+  override def run(c: Char): Option[Option[Token]] = {
+    val retval = super.run(c)
+    if ( textState ) text += c
+    retval
   }
 
   override def reset(): Unit = {

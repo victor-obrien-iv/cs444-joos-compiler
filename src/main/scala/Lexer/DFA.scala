@@ -20,7 +20,7 @@ object DFA {
   val allAscii: immutable.IndexedSeq[Char] = ( for (i <- 33 to 126 ) yield i.toChar ) + whitespace
 }
 
-abstract class DFA[state](status: Status) extends Actor {
+abstract class DFA[state](status: Status) {
 
   var lastToken: Option[Token.Token] = None
   var currentState: state
@@ -51,6 +51,10 @@ abstract class DFA[state](status: Status) extends Actor {
         // return none to indicate we can handle more input
         None
     }
+  }
+
+  def getLastToken: Option[Option[Token]] = {
+    Some(lastToken)
   }
 
   def reset(): Unit = {
