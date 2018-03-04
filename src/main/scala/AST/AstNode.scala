@@ -18,5 +18,9 @@ trait AstNode
   * @param id The identifier
   */
 case class FullyQualifiedID(qualifiers: List[Token.Identifier], id: Token.Identifier) {
+
+  /**
+    * @return The String representation of the Qualifier e.g. java.util.String
+    */
   def name: String = (qualifiers.map(_.lexeme) :+ id.lexeme).mkString(".")
 }

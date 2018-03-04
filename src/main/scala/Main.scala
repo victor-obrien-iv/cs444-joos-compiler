@@ -77,7 +77,7 @@ object Main extends App {
     typeContext =>
       val linkedAsts = asts.map { ast =>
         val context = typeLinker.buildLocalContext(ast, typeContext)
-        val linker = actorSystem.actorOf(Props(new TypeLinker(context)))
+        val linker = actorSystem.actorOf(Props(new TypeLinker(context, typeContextTry.get)))
         ask(linker, ast).mapTo[Try[Unit]]
       }
       Future.sequence(linkedAsts.toList)

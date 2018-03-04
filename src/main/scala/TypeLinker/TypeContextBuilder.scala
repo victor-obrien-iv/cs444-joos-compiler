@@ -6,6 +6,12 @@ import Token.Identifier
 
 class TypeContextBuilder {
 
+  /**
+    * Provides a reference of all qualified types throughout all provided compilation units
+    *
+    * @param units All units found in the system
+    * @return A map of the package name -> all types and their ASTs found in that package
+    */
   def buildContext(units: List[CompilationUnit]): Map[String, List[TypeDecl]] = {
     val ctx = units.groupBy(_.packageName.map(_.name).getOrElse("")).mapValues(_.map(_.typeDecl))
     val classNames = ctx.flatMap {
@@ -29,8 +35,15 @@ class TypeContextBuilder {
     ctx
   }
 
+  /**
+    * Provides a reference of simple identifers for types to their TypeDecl
+    *
+    * @param unit The CompilationUnit that we are building a context for
+    * @param typeCtx The full Qualified Type context
+    * @return An association list of simple types -> the type AST
+    */
   def buildLocalContext(unit: CompilationUnit,
-                        typeCtx: Map[String, List[TypeDecl]]): Map[String, TypeDecl]= {
+                        typeCtx: Map[String, List[TypeDecl]]): List[(String, TypeDecl)]= {
 
     val javaLangIdentifier = FullyQualifiedID(List(Identifier("java",0,0)), Identifier("lang",0,0))
     val javaLangImport = ImportDecl(javaLangIdentifier, asterisk = true)
@@ -87,7 +100,7 @@ class TypeContextBuilder {
       throw Error.Error("duplicate", s"Type clash error", Error.Type.TypeLinking)
     }
 
-    allTypes.toMap
+    allTypes
   }
 
 }
