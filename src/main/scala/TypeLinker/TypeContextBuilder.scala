@@ -43,26 +43,17 @@ class TypeContextBuilder {
     * @return An association list of simple types -> the type AST
     */
   def buildLocalContext(unit: CompilationUnit,
-                        typeCtx: Map[String, List[TypeDecl]]): List[(String, TypeDecl)]= {
+                        typeCtx: Map[String, List[TypeDecl]]): Map[String, TypeDecl]= {
 
-    val javaLangIdentifier = FullyQualifiedID(List(Identifier("java",0,0)), Identifier("lang",0,0))
-    val javaLangImport = ImportDecl(javaLangIdentifier, asterisk = true)
-
-    val packageQualifiers = unit.packageName match {
-      case Some(FullyQualifiedID(qualifiers, id)) => qualifiers :+ id
-      case None => Nil
+    val defaultPackage = unit.packageName match {
+      case Some(value) => value.name
+      case None => ""
     }
 
-    val curClassImport = ImportDecl(FullyQualifiedID(packageQualifiers, unit.typeDecl.name), asterisk = false)
-    val defaultImports = javaLangImport :: curClassImport :: unit.imports
-    val imports = unit.packageName match {
-      case Some(value) => defaultImports :+ ImportDecl(value, asterisk = true)
-      case None => defaultImports
-    }
-
-    val wildCards = imports.filter(_.asterisk) flatMap {
-      importDecl =>
-        val packageName = importDecl.name.name
+    val wildCards = unit.imports.filter(_.asterisk)
+    val onDemandImports = defaultPackage :: "java.lang" :: wildCards.map(_.name.name)
+    val onDemand = onDemandImports flatMap {
+      packageName =>
         val allPackages = typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName)
         if (allPackages.nonEmpty) allPackages.flatMap {
           case (key, value) =>
@@ -75,7 +66,7 @@ class TypeContextBuilder {
         }
     }
 
-    val declaredTypes = imports.filterNot(_.asterisk).map {
+    val declaredTypes = unit.imports.filterNot(_.asterisk).map {
       importDecl =>
         val packageName = importDecl.name.qualifiers.map(_.lexeme).mkString(".")
         if (typeCtx.contains(packageName)) {
@@ -93,14 +84,30 @@ class TypeContextBuilder {
     }
 
 
-    val allTypes = wildCards ++ declaredTypes
+    val allTypes = declaredTypes ++ onDemand
 
     val duplicates  = declaredTypes.groupBy(_._1.split('.').last).mapValues(_.groupBy(_._1))
-    if (duplicates.exists(_._2.size > 1)) {
+
+    if (duplicateTypes(declaredTypes)) {
       throw Error.Error("duplicate", s"Type clash error", Error.Type.TypeLinking)
     }
 
-    allTypes
+    val typeNames = allTypes map {
+      case (name, decl) => (name.split('.').last, decl)
+    }
+
+    typeNames.toMap
+  }
+
+  /**
+    * Finds if there are duplicate types with different package names
+    *
+    * @param list A List of package name + type name -> type declaration
+    * @return Whether there are duplicates with different package names
+    */
+  private def duplicateTypes(list: List[(String, TypeDecl)]): Boolean = {
+    val duplicates = list.groupBy(_._1.split('.').last).mapValues(_.groupBy(_._1))
+    duplicates.exists(_._2.size > 1)
   }
 
 }

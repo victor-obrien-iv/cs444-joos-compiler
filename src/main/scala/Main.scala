@@ -1,16 +1,18 @@
+import java.util.concurrent.Executors
+
 import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 object Main extends App {
   val errorFormatter: ErrorFormatter = new ErrorFormatter
+  implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def ErrorExit(): Unit = {
     println("exit: 42")
@@ -62,7 +64,7 @@ object Main extends App {
     typeContext =>
       val linkedAsts = asts.map { ast =>
         val context = typeLinker.buildLocalContext(ast, typeContext)
-        val linker = new TypeLinker(context)
+        val linker = new TypeLinker(context, typeContext)
         linker.run(ast)
       }
       Future.sequence(linkedAsts.toList)
