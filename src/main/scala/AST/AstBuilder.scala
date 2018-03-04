@@ -21,7 +21,7 @@ class AstBuilder(filename: String) {
     )
   }
 
-  def build(node: TreeNode): AstNode = {
+  def build(node: TreeNode): CompilationUnit = {
     buildCompilationUnit(node)
   }
 
@@ -31,12 +31,7 @@ class AstBuilder(filename: String) {
     val imports = buildImports(node.children(2))
     val typeDeclaration = buildTypeDecl(node.children(3))
 
-    typeDeclaration match {
-      case Left(value) =>
-        CompilationUnit(packageDeclaration, imports, List(value), Nil)
-      case Right(value) =>
-        CompilationUnit(packageDeclaration, imports, Nil, List(value))
-    }
+    CompilationUnit(packageDeclaration, imports, typeDeclaration)
   }
 
   private def buildPackageAst(node: TreeNode): Option[FullyQualifiedID] = {
@@ -79,7 +74,7 @@ class AstBuilder(filename: String) {
     if (node.children.lengthCompare(3) == 0) ImportDecl(id, asterisk = false) else ImportDecl(id, asterisk = true)
   }
 
-  def buildTypeDecl(node: TreeNode): Either[InterfaceDecl, ClassDecl] = {
+  def buildTypeDecl(node: TreeNode): TypeDecl = {
     val typeDeclaration = node.children.head
     val modifiers = buildModifiers(typeDeclaration.children.head)
 
@@ -103,7 +98,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): Left[InterfaceDecl, ClassDecl] = {
+  private def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): InterfaceDecl = {
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildInterfaceList(node.children(3))
 //    println(node.state)
@@ -111,7 +106,7 @@ class AstBuilder(filename: String) {
     val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(4)
     val bodyDecls = buildInterfaceBody(body.children(1))
 
-    Left(InterfaceDecl(modifiers, identifier, superInterfaces, bodyDecls))
+    InterfaceDecl(modifiers, identifier, superInterfaces, bodyDecls)
   }
 
   private def buildInterfaceBody(node: TreeNode): List[Decl] = {
@@ -131,12 +126,8 @@ class AstBuilder(filename: String) {
   }
 
   private def buildInterfaceBodyDeclaration(node: TreeNode): MethodDecl = {
-    //InterfaceBodyDeclaration public InterfaceMethodDeclaration
-    val publicModifier = node.children.head.state match {
-      case Left(token) => token.asInstanceOf[Modifier]
-      case Right(_) => throw AstError(node)
-    }
-    val modifiers = List(publicModifier)
+    //InterfaceBodyDeclaration InterfaceModifiers InterfaceMethodDeclaration
+    val modifiers = buildModifiers(node.children.head)
     val methodDecl = node.children(1)
 
     //InterfaceMethodDeclaration MethodHeader ;
@@ -145,13 +136,13 @@ class AstBuilder(filename: String) {
     MethodDecl(modifiers, typ, identifier, parameters, None)
   }
 
-  private def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): Right[InterfaceDecl, ClassDecl] = {
+  private def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): ClassDecl = {
     val id = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superCLass = buildSuperClass(node.children(2))
     val superInterfaces = buildSuperInterfaces(node.children(3))
     val body = buildClassBody(node.children(4).children(1))
 
-    Right(ClassDecl(modifiers, id, superCLass, superInterfaces, body))
+    ClassDecl(modifiers, id, superCLass, superInterfaces, body)
   }
 
   private def buildSuperClass(node: TreeNode): Option[FullyQualifiedID] = {

@@ -1,7 +1,6 @@
 package Weeder
 
 import AST._
-import akka.actor.ActorRef
 
 
 /**
@@ -24,15 +23,10 @@ class FileNameClassNamePass(val fileName: String) extends Visitor {
   private val fileBaseName = getFileBaseName
 
   override def visit(cu: CompilationUnit): Unit = {
-    for(i: InterfaceDecl <- cu.interfaces) {
-      if ( i.name.lexeme == fileBaseName ) return
+    if (cu.typeDecl.name.lexeme != fileBaseName) {
+      throw Error.Error(fileName,
+        "A class/interface must be declared in a .java file with the same base name as the class/interface",
+        Error.Type.Weeder, None)
     }
-    for(cd: ClassDecl <- cu.classes) {
-      if ( cd.name.lexeme == fileBaseName ) return
-    }
-
-    throw Error.Error(fileName,
-      "A class/interface must be declared in a .java file with the same base name as the class/interface",
-      Error.Type.Weeder, None)
   }
 }

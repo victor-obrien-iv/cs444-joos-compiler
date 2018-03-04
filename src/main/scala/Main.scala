@@ -1,66 +1,65 @@
+import java.util.concurrent.Executors
+
+import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.pattern.ask
-import akka.util.Timeout
+import TypeLinker.{TypeContextBuilder, TypeLinker}
 
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object Main extends App {
-  implicit val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
-  implicit val timeout: Timeout = 5 seconds
-
-  val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter), "Reporter" )
   val errorFormatter: ErrorFormatter = new ErrorFormatter
+  implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   def ErrorExit(): Unit = {
-    actorSystem.terminate()
     println("exit: 42")
     System.exit(42) // the input file is not lexically/syntactically valid Joos 1W
   }
 
   def CleanExit(): Unit = {
-    actorSystem.terminate()
     println("exit: 0")
     System.exit(0) // the input file is lexically/syntactically valid Joos 1W
   }
 
-  def errorsFound: Boolean = {
-    val report = reporter ask Error.Report
-    Await.result(report, Duration.Inf).asInstanceOf[Boolean]
+  val commandLine = new CommandLine(args, errorFormatter)
+
+  val driver = new Driver()
+  val typeLinker = new TypeContextBuilder
+
+  val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
+
+  val asts = Future.sequence(astFutures.toList)
+
+  val typeContextTry = asts map {
+    astList =>
+      typeLinker.buildContext(astList)
   }
 
-  val commandLine = new CommandLine(args, reporter)
-  if (errorsFound) ErrorExit()
-
-  val driver = new Driver(reporter)
-
-  commandLine.files foreach {
-    file => driver.compile(file) onComplete {
-      case Success((ast, errors)) =>
-        if (errors.exists(_.isFailure)) {
-          errors.foreach {
-            error =>
-              error.recover {
-                case e: Error.Error => println(errorFormatter.format(e))
-              }
-          }
-          ErrorExit()
+  val typeLinked = typeContextTry.flatMap{
+    typeContext =>
+      asts.flatMap{ futures =>
+        val linkers = futures.map { ast =>
+          val context = typeLinker.buildLocalContext(ast, typeContext)
+          val linker = new TypeLinker(context, typeContext)
+          linker.run(ast)
         }
-        else CleanExit()
-      case Failure(e) =>
-        e match {
-          case error: Error.Error =>
-            //TODO: Add debug mode to print stacktraces
-            //error.printStackTrace()
-            println(errorFormatter.format(error))
-          case error => //error.printStackTrace()
-        }
-        ErrorExit()
+        Future.sequence(linkers)
+      }
+  }
+
+  typeLinked onComplete  {
+    case Failure(exception) => exception match {
+          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
     }
+    case Success(_) => CleanExit()
   }
+
+    // TODO: this should actually divide asts into appropriate packages
+    //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
+
+    //val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
 }
