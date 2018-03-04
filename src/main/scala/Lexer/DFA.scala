@@ -1,7 +1,6 @@
 package Lexer
 
 import Token.Token
-import akka.actor.Actor
 
 import scala.collection.immutable
 

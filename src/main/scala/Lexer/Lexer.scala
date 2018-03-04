@@ -1,14 +1,8 @@
 package Lexer
 
-import scala.io.{BufferedSource, Source}
-import akka.pattern.ask
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.util.Timeout
-
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.io.{BufferedSource, Source}
 import scala.language.postfixOps
 
 class Status(val fileName: String) {

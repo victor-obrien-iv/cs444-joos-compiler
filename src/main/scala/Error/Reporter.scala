@@ -1,9 +1,6 @@
 package Error
 
-import scala.io.{BufferedSource, Source}
 import scala.collection.mutable.ListBuffer
-
-import akka.actor.Actor
 
 case class Report()
 

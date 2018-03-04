@@ -3,8 +3,9 @@ import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
@@ -57,37 +58,37 @@ object Main extends App {
     typeLinker.buildContext(asts.toList)
   }
 
-//  val typeLinked = typeContextTry.map{
-//    typeContext =>
-//      val linkedAsts = asts.map { ast =>
-//        val context = typeLinker.buildLocalContext(ast, typeContext)
-//        val linker = actorSystem.actorOf(Props(new TypeLinker(context)))
-//        ask(linker, ast).mapTo[Try[Unit]]
-//      }
-//      Future.sequence(linkedAsts.toList)
-//  }
+  val typeLinked: Try[Future[List[Try[Unit]]]] = typeContextTry.map{
+    typeContext =>
+      val linkedAsts = asts.map { ast =>
+        val context = typeLinker.buildLocalContext(ast, typeContext)
+        val linker = new TypeLinker(context)
+        linker.run(ast)
+      }
+      Future.sequence(linkedAsts.toList)
+  }
 
-//  typeLinked match {
-//    case Failure(exception) => exception match {
-//          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-//          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
-//    }
-//    case Success(value) => value onComplete {
-//      case Failure(exception) => exception match {
-//        case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-//        case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
-//      }
-//      case Success(tryList) => tryList foreach {
-//        case Success(tryValue) =>
-//        case Failure(exception) => exception match {
-//          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-//          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
-//        }
-//      }
-//    }
-//  }
+  typeLinked match {
+    case Failure(exception) => exception match {
+          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+    }
+    case Success(value) => value onComplete {
+      case Failure(exception) => exception match {
+        case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+        case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+      }
+      case Success(tryList) => tryList foreach {
+        case Success(tryValue) =>
+        case Failure(exception) => exception match {
+          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
+        }
+      }
+    }
+  }
 //  }.recover {
-
+//
 //  }
 
     // TODO: this should actually divide asts into appropriate packages
