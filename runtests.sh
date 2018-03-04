@@ -1,27 +1,40 @@
 #!/bin/bash
 
-while getopts 'hj:l:s:' flag; do
+function printusage {
+echo "
+        To run joos tests
+                runtest.sh <flags>
+
+        -t <testdir|testfile>
+                Run the batch of tests specified in testdir or testfile
+
+        -j <numtasks>,
+                Run tests in parallel with <numtasks> number of background processes at a time
+
+        -l <lib>,
+                Include library <lib> in each compilation
+
+        -s <test>,
+                Run a single test
+"
+exit
+}
+
+while getopts 'ht:j:l:s:' flag; do
 	case "${flag}" in
 		h)
-			echo "
-
-	To run joos tests
-	
-	-j <numtasks>,
-		Run tests in parallel with <numtasks> number of background processes at a time
-	
-	-l <lib>,
-		Include library <lib> in each compilation
-	
-	-s <test>,
-		Run a single test
-
-			"
-			exit
+			printusage
+		;;
+		t)
+			# set testsrc to the passes path if it exists, otherwise treat it as a public test folder
+			if [[ -d "${OPTARG}" ]] || [[ -f "${OPTARG}" ]]; then
+				testsrc=${OPTARG}
+			else
+				testsrc=/u/cs444/pub/assignment_testcases/${OPTARG}
+			fi
 		;;
 		j)
 			parallelnum=${OPTARG}
-			shift 2
 		;;
 		l)
 			if [[ -d "${OPTARG}" ]]; then
@@ -31,12 +44,10 @@ while getopts 'hj:l:s:' flag; do
 			fi
 			[[ ! -d "$libpath" ]] && echo "could not find library $libpath" && exit
 			libfiles=`find "$libpath" -type f -name '*.java'`
-			shift 2
 			echo "using library files from $libpath"
 		;;
 		s)
 			singletest=${OPTARG}
-			shift 2
 		;;
 		*) echo "Unexpected option ${flag}" && exit ;;
 	esac
@@ -48,15 +59,8 @@ if [[ -n "$singletest" ]]; then
 	exit
 fi
 
-# check that there is only one arg
-[[ "$#" -ne 1 ]] && echo "usage: <testdir|testfile>" && exit
-
-# set testsrc to the passes path if it exists, otherwise treat it as a public test folder
-if [[ -d "$1" ]] || [[ -f "$1" ]]; then
-	testsrc=$1
-else
-	testsrc=/u/cs444/pub/assignment_testcases/$1
-fi
+# if no test src was specified, exit
+[[ -z "$testsrc" ]] && printusage
 
 # create a new directory to put the results
 dirnum=0
@@ -65,7 +69,6 @@ while [ -d "result$dirnum" ]; do
 done
 rundir=result$dirnum
 mkdir $rundir
-echo "sending output files to" $rundir
 
 # files to append results
 failfile=$rundir/fails.out
@@ -150,6 +153,7 @@ fi
 # print info and results
 duration=$(( SECONDS - starttime ))
 echo "done"
+echo "output files in" $rundir/
 echo -e "
 Passes:\t" `wc -l < $passfile` "
 Fails:\t" `wc -l < $failfile` "
