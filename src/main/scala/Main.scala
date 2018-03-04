@@ -38,7 +38,7 @@ object Main extends App {
       typeLinker.buildContext(astList)
   }
 
-  val typeLinked = typeContextTry.flatMap{
+  val typeLinked = typeContextTry.flatMap {
     typeContext =>
       asts.flatMap{ futures =>
         val linkers = futures.map { ast =>
