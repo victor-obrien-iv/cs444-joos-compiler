@@ -14,8 +14,9 @@ import AST._
   *
   * this pass analyses:
   *   ClassDecl
-  *   FieldDecl
   *   MethodDecl
+  *   FieldDecl
+  *   ConstructorDecl
   */
 class ModifiersPass(val fileName: String) extends Visitor {
 
@@ -86,7 +87,7 @@ class ModifiersPass(val fileName: String) extends Visitor {
   override def visit(cd: ConstructorDecl): Unit = {
     val isAbstract = cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])
     if ( isAbstract )
-      throw Error.Error(fileName /*TODO give ConstructorDecl a name*/, "A constructor cannot be abstract",
-        Error.Type.ModifiersPass, None /*TODO Fix this*/)
+      throw Error.Error(cd.identifier.lexeme, "A constructor cannot be abstract",
+        Error.Type.ModifiersPass, Some(Error.Location(cd.identifier.row, cd.identifier.col, fileName)))
   }
 }
