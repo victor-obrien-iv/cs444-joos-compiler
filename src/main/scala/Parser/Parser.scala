@@ -2,7 +2,8 @@ package Parser
 
 import Lalr.Lalr
 import Token._
-import akka.actor.{Actor, ActorRef}
+
+import scala.annotation.tailrec
 
 class Parser(lalr: Lalr, filename: String) {
 
@@ -15,7 +16,7 @@ class Parser(lalr: Lalr, filename: String) {
   //TODO: add EOF to lexer to record line number
   def parse(tokens: List[Token]): TreeNode = parseRec((Bof() :: tokens) :+ Eof(), Nil)
 
-  private def parseRec(tokens: List[Token], stack: List[(Int, TreeNode)]): TreeNode = tokens match {
+  @tailrec private def parseRec(tokens: List[Token], stack: List[(Int, TreeNode)]): TreeNode = tokens match {
     //Base case: No tokens to be read
     case Nil =>
       reduce(lalr.productionRules(0), stack, Nil).head._2
@@ -41,7 +42,7 @@ class Parser(lalr: Lalr, filename: String) {
     * @param children The children accumulated to be added to the node once reduced
     * @return The new stack
     */
-  private def reduce(prodRule: ProdRule, stack: List[(Int, TreeNode)], children: List[TreeNode]): List[(Int, TreeNode)] = {
+  @tailrec private def reduce(prodRule: ProdRule, stack: List[(Int, TreeNode)], children: List[TreeNode]): List[(Int, TreeNode)] = {
     prodRule match {
       //Base case: Production rule is empty
       case ProdRule(nonTerminal, Nil) =>

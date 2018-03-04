@@ -1,7 +1,6 @@
 package Weeder
 
 import AST._
-import akka.actor.ActorRef
 
 
 /**

@@ -2,58 +2,43 @@ import AST.CompilationUnit
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.pattern.ask
-import akka.util.Timeout
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 object Main extends App {
-  implicit val actorSystem: ActorSystem = ActorSystem( "actorSystem" )
-  implicit val ec: ExecutionContext = actorSystem.dispatcher
-  implicit val timeout: Timeout = 5 seconds
-
-  val reporter: ActorRef = actorSystem.actorOf( Props(new Error.Reporter) )
   val errorFormatter: ErrorFormatter = new ErrorFormatter
 
   def ErrorExit(): Unit = {
-    actorSystem.terminate()
     println("exit: 42")
     System.exit(42) // the input file is not lexically/syntactically valid Joos 1W
   }
 
   def CleanExit(): Unit = {
-    actorSystem.terminate()
     println("exit: 0")
     System.exit(0) // the input file is lexically/syntactically valid Joos 1W
   }
 
-  def errorsFound: Boolean = {
-    val report = reporter ask Error.Report
-    Await.result(report, Duration.Inf).asInstanceOf[Boolean]
-  }
+  val commandLine = new CommandLine(args, errorFormatter)
 
-  val commandLine = new CommandLine(args, reporter)
-  if (errorsFound) ErrorExit()
-
-  val driver = new Driver(reporter)
+  val driver = new Driver()
   val typeLinker = new TypeContextBuilder
 
-  val astFutures = for (file <- commandLine.files) yield driver.poduceAST(file)
+  val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
   val astResults = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
   astResults foreach {
     case Success((_, errors)) =>
       if (errors.exists(_.isFailure)) {
         errors.foreach {
-          error =>
+          error: Try[Unit] =>
             error.recover {
               case e: Error.Error => println(errorFormatter.format(e))
                 //TODO: Add debug mode to print stacktraces
                 //error.printStackTrace()
-              case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); println(error)
+              case e: Exception => println("INTERNAL COMPILER ERROR OCCURRED:"); println(e.printStackTrace())
             }
         }
         ErrorExit()
@@ -73,12 +58,12 @@ object Main extends App {
     typeLinker.buildContext(asts.toList)
   }
 
-  val typeLinked = typeContextTry.map{
+  val typeLinked: Try[Future[List[Try[Unit]]]] = typeContextTry.map{
     typeContext =>
       val linkedAsts = asts.map { ast =>
         val context = typeLinker.buildLocalContext(ast, typeContext)
-        val linker = actorSystem.actorOf(Props(new TypeLinker(context, typeContextTry.get)))
-        ask(linker, ast).mapTo[Try[Unit]]
+        val linker = new TypeLinker(context)
+        linker.run(ast)
       }
       Future.sequence(linkedAsts.toList)
   }
@@ -103,7 +88,7 @@ object Main extends App {
     }
   }
 //  }.recover {
-
+//
 //  }
 
     // TODO: this should actually divide asts into appropriate packages
