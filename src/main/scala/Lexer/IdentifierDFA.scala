@@ -79,8 +79,8 @@ class IdentifierDFA(status: Status) extends DFA[IdentifierDFA.Value](status){
     "synchronized"  -> (() => Token.JavaSyncronized(row = status.getRow, col = status.getCol))
   )
   val wordLiterals: Map[String, () => Token] = Map(
-    "true"          -> (() => Token.BooleanLiteral(status.getRow, status.getCol, true)),
-    "false"         -> (() => Token.BooleanLiteral(status.getRow, status.getCol, false)),
+    "true"          -> (() => Token.BooleanLiteral(status.getRow, status.getCol, value = true)),
+    "false"         -> (() => Token.BooleanLiteral(status.getRow, status.getCol, value = false)),
     "null"          -> (() => Token.NullLiteral(row = status.getRow, col = status.getCol))
   )
   val reservedWords: Map[String, () => Token] = keywords ++ wordLiterals
@@ -110,10 +110,12 @@ class IdentifierDFA(status: Status) extends DFA[IdentifierDFA.Value](status){
         token
     }
   }
-  def receive: PartialFunction[Any, Unit] = {
-    case c: Char =>
-      sender() ! getToken(run(c))
-    case EOF() =>
-      sender() ! getToken(Some(lastToken))
+
+  override def run(c: Char): Option[Option[Token]] = {
+    getToken(super.run(c))
+  }
+
+  override def getLastToken: Option[Option[Token]] = {
+    getToken(Some(lastToken))
   }
 }

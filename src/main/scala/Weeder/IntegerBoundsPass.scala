@@ -2,7 +2,6 @@ package Weeder
 
 import AST._
 import Token._
-import akka.actor.ActorRef
 
 /**
   * A pass to check the following:

@@ -1,17 +1,11 @@
 package Lexer
 
-import scala.io.{BufferedSource, Source}
-import akka.pattern.ask
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.util.Timeout
-
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.io.{BufferedSource, Source}
 import scala.language.postfixOps
 
-class Status(val fileName: String, val reporter: ActorRef) {
+class Status(val fileName: String) {
   val file: BufferedSource = Source.fromFile( fileName )
   val fileList: List[Char] = file.toList
   private var lexeme: String = ""
@@ -73,15 +67,15 @@ class Status(val fileName: String, val reporter: ActorRef) {
   }
 }
 
-class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
+class Lexer() {
 
   def tokenize ( fileName: String ): List[Token.Token] = {
     var tokens: ListBuffer[Token.Token] = ListBuffer()
-    val status = new Status( fileName, reporter )
-    val DFAs: Array[ActorRef] = Array(
-      actorSystem.actorOf( Props(new LiteralDFA(status)) ),
-      actorSystem.actorOf( Props(new IdentifierDFA(status)) ),
-      actorSystem.actorOf( Props(new PunctuationDFA(status)) )
+    val status = new Status(fileName)
+    val DFAs: List[DFA[_]] = List(
+      new LiteralDFA(status),
+      new IdentifierDFA(status),
+      new PunctuationDFA(status)
     )
 
     while( status.trimWhitespace() ) {
@@ -91,51 +85,38 @@ class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
         def compare(x: (Int, Token.Token), y: (Int, Token.Token)): Int = x._1.compare(y._1)
       }
       var resultHeap: mutable.PriorityQueue[(Int, Token.Token)] = mutable.PriorityQueue.empty[(Int, Token.Token)]
-      var activeDFAs: Set[ActorRef] = DFAs.toSet
 
+      var activeDFAs: List[DFA[_]] = DFAs
+      while ( activeDFAs.nonEmpty ) {
+        def runDFAs(dfas: List[DFA[_]]): List[DFA[_]] = {
+          var next: List[DFA[_]] = List()
+          for( dfa <- dfas ) {
+            val token = if (!status.eof) dfa.run(status.getChar) else dfa.getLastToken
+            token match {
+              case None =>
+                // the dfa can continue accepting input
+                // append it to the active list
+                next = next.::(dfa)
 
-      do {
-        implicit val timeout: Timeout = 5 hour
-
-        // ask each dfa
-        val futures: Map[ActorRef, Option[Future[Any]]] =
-          if ( !status.eof )
-            ( for( dfa <- activeDFAs ) yield dfa -> Some(dfa ask status.getChar) ).toMap
-          else
-            // we've hit eof, have each remaining dfa report its last accept state
-            ( for( dfa <- activeDFAs ) yield dfa -> Some(dfa ask EOF()) ).toMap
-
-        // read each response
-        for( f <- futures ) {
-          val token: Option[Option[Token.Token]]
-            = Await.result( f._2.get, Duration.Inf ).asInstanceOf[Option[Option[Token.Token]]]
-          token match {
-            case None =>
-              // the dfa can continue accepting input
-              // don't do anything
-
-            case Some(None) =>
+              case Some(None) =>
               // the dfa never hit an accepting state
               // just remove it from activeDFAs
-              activeDFAs = activeDFAs - f._1
 
-            case Some(Some(t)) =>
-              // the dfa hit an error state and could move no further
-              // store the result and remove from activeDFAs
-              val r = (t.lexeme.toString.length, t)
-              resultHeap += r
-              activeDFAs = activeDFAs - f._1
+              case Some(Some(t)) =>
+                // the dfa hit an error state and could move no further
+                // store the result and remove from activeDFAs
+                val r = (t.lexeme.toString.length, t)
+                resultHeap += r
+            }
           }
+          next
         }
+        activeDFAs = runDFAs(activeDFAs)
 
-      } while(
-        if ( activeDFAs.nonEmpty ) {
-          if ( !status.eof ) status.advance()
-          true
-        }
-        else
-          false
-      )
+        if (activeDFAs.nonEmpty && !status.eof)
+          status.advance()
+      }
+
 
       // the DFAs have finished, take the longest result
       if ( resultHeap.nonEmpty ) {
@@ -149,9 +130,8 @@ class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
         status.restoreTo(top._2)
       } else {
         // no dfa returned a token, give the reporter an error
-        reporter ! Error.Error(status.getLexeme, "Unable to tokenize", Error.Type.Lexer,
+        throw Error.Error(status.getLexeme, "Unable to tokenize", Error.Type.Lexer,
           Some( Error.Location(status.getRow, status.getCol, status.fileName)))
-        status.nextLine()
       }
     }
 
@@ -159,7 +139,4 @@ class Lexer(actorSystem: ActorSystem, reporter: ActorRef) extends Actor {
     tokens.toList
   }
 
-  override def receive: Receive = {
-    case f: String => sender() ! tokenize(f)
-  }
 }

@@ -13,11 +13,10 @@ trait Decl extends AstNode
   * @param packageName the identifier that comes after 'package' in the source code
   *                    or None if no package declaration exists for this file
   * @param imports the list of import declarations in this file
-  * @param interfaces the list of interface declarations in this file
-  * @param classes the list of class declarations in this file
+  * @param typeDecl the type declared in the compilation unit
   */
 case class CompilationUnit(packageName: Option[FullyQualifiedID], imports: List[ImportDecl],
-                           interfaces: List[InterfaceDecl], classes: List[ClassDecl]) extends Decl
+                           typeDecl: TypeDecl) extends Decl
 
 /**
   * ImportDecl represents an 'import' usage in the source code
@@ -27,6 +26,14 @@ case class CompilationUnit(packageName: Option[FullyQualifiedID], imports: List[
 case class ImportDecl(name: FullyQualifiedID, asterisk : Boolean) extends Decl
 
 /**
+  * Represents a Type
+  */
+sealed trait TypeDecl extends Decl {
+  def modifiers: List[Token.Modifier]
+  def name: Token.Identifier
+  def members: List[Decl]
+}
+/**
   * InterfaceDecl represents an interface declaration
   * ex: public interface A extends B, C, D {...}
   * @param modifiers the modifiers for this interface
@@ -35,7 +42,7 @@ case class ImportDecl(name: FullyQualifiedID, asterisk : Boolean) extends Decl
   * @param members the field and method declarations in this interface's body
   */
 case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier,
-                         extensionOf: List[FullyQualifiedID], members: List[Decl]) extends Decl
+                         extensionOf: List[FullyQualifiedID], members: List[Decl]) extends TypeDecl
 
 /**
   * ClassDecl represents a class declaration
@@ -47,7 +54,7 @@ case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier
   * @param members the field, method and constructor declarations in this class' body
   */
 case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, extensionOf: Option[FullyQualifiedID],
-                     implementationOf: List[FullyQualifiedID], members: List[Decl]) extends Decl
+                     implementationOf: List[FullyQualifiedID], members: List[Decl]) extends TypeDecl
 
 /**
   * ConstructorDecl represents a class constructor method in a class or interface body

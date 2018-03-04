@@ -2,15 +2,25 @@
 
 # check for -j flag
 #parallelflag=''
-while getopts 'j' flag; do
+while getopts 'jl:' flag; do
 	case "${flag}" in
-		j) parallelflag='true'; shift ;;
-		*) error "Unexpected option ${flag}" ;;
+		j)
+			parallelflag='true'
+			shift
+		;;
+		l)
+			libpath="${OPTARG}"
+			[[ ! -d "$libpath" ]] && echo "could not find library $libpath" && exit
+			libfiles=`find "$libpath" -type f -name '*.java'`
+			shift 2
+			echo "using library files from $libpath"
+		;;
+		*) echo "Unexpected option ${flag}" && exit ;;
 	esac
 done
 
 # check that there is only one arg
-if [[ "$#" -ne 1 ]]; then echo "usage: <testdir|testfile>"; exit; fi
+[[ "$#" -ne 1 ]] && echo "usage: <testdir|testfile>" && exit
 
 #testdir=/u/cs444/pub/assignment_testcases/a1/
 testsrc=$1
@@ -40,9 +50,11 @@ function runtest {
 	# is this a single file or a directory of them?
 	if [ -d $testpath ]; then
 		files=`find "$testpath" -type f -name '*.java'`
-		./joosc $files > $tempfile
+		echo "./joosc" $testpath $libfiles > $tempfile
+		./joosc $files $libfiles >> $tempfile
 	else
-		./joosc "$testpath" > $tempfile
+		echo "./joosc" $testpath $libfiles > $tempfile
+		./joosc $testpath $libfiles >> $tempfile
 	fi
 	retcode=${PIPESTATUS[0]}
 

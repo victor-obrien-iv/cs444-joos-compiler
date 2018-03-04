@@ -88,11 +88,4 @@ class PunctuationDFA(status: Status) extends DFA[PunctuationDFA.Value](status) {
 
   val transitions: Map[(Value, Char), Value] =
     separatorTransitions ++ operatorTransitions
-
-  def receive: PartialFunction[Any, Unit] = {
-    case c: Char =>
-      sender() ! run(c)
-    case EOF() =>
-      sender() ! Some(lastToken)
-  }
 }
