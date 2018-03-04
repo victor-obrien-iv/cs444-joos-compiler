@@ -1,19 +1,66 @@
 #!/bin/bash
 
-# check for -j flag
-#parallelflag=''
-while getopts 'j' flag; do
+function printusage {
+echo "
+        To run joos tests
+                runtest.sh <flags>
+
+        -t <testdir|testfile>
+                Run the batch of tests specified in testdir or testfile
+
+        -j <numtasks>,
+                Run tests in parallel with <numtasks> number of background processes at a time
+
+        -l <lib>,
+                Include library <lib> in each compilation
+
+        -s <test>,
+                Run a single test
+"
+exit
+}
+
+while getopts 'ht:j:l:s:' flag; do
 	case "${flag}" in
-		j) parallelflag='true'; shift ;;
-		*) error "Unexpected option ${flag}" ;;
+		h)
+			printusage
+		;;
+		t)
+			# set testsrc to the passes path if it exists, otherwise treat it as a public test folder
+			if [[ -d "${OPTARG}" ]] || [[ -f "${OPTARG}" ]]; then
+				testsrc=${OPTARG}
+			else
+				testsrc=/u/cs444/pub/assignment_testcases/${OPTARG}
+			fi
+		;;
+		j)
+			parallelnum=${OPTARG}
+		;;
+		l)
+			if [[ -d "${OPTARG}" ]]; then
+				libpath=${OPTARG}
+			else
+				libpath=/u/cs444/pub/stdlib/${OPTARG}
+			fi
+			[[ ! -d "$libpath" ]] && echo "could not find library $libpath" && exit
+			libfiles=`find "$libpath" -type f -name '*.java'`
+			echo "using library files from $libpath"
+		;;
+		s)
+			singletest=${OPTARG}
+		;;
+		*) echo "Unexpected option ${flag}" && exit ;;
 	esac
 done
 
-# check that there is only one arg
-if [[ "$#" -ne 1 ]]; then echo "usage: <testdir|testfile>"; exit; fi
+# if given a single test to run
+if [[ -n "$singletest" ]]; then
+	./joosc $files $libfiles
+	exit
+fi
 
-#testdir=/u/cs444/pub/assignment_testcases/a1/
-testsrc=$1
+# if no test src was specified, exit
+[[ -z "$testsrc" ]] && printusage
 
 # create a new directory to put the results
 dirnum=0
@@ -22,7 +69,6 @@ while [ -d "result$dirnum" ]; do
 done
 rundir=result$dirnum
 mkdir $rundir
-echo "sending output files to" $rundir
 
 # files to append results
 failfile=$rundir/fails.out
@@ -35,14 +81,16 @@ function runtest {
 	tempfile=$(mktemp)
 
 	# if the parallel flag isn't defined, echo progress
-	[ -z "$parallelflag" ] && echo -ne $numfails "/" $progress "/" $numfiles'\t'$testpath'\t'
+	[ -z "$parallelnum" ] && echo -ne $numfails "/" $progress "/" $numfiles'\t'$testpath'\t'
 
 	# is this a single file or a directory of them?
 	if [ -d $testpath ]; then
 		files=`find "$testpath" -type f -name '*.java'`
-		./joosc $files > $tempfile
+		echo "./joosc" $testpath $libfiles > $tempfile
+		./joosc $files $libfiles >> $tempfile
 	else
-		./joosc "$testpath" > $tempfile
+		echo "./joosc" $testpath $libfiles > $tempfile
+		./joosc $testpath $libfiles >> $tempfile
 	fi
 	retcode=${PIPESTATUS[0]}
 
@@ -50,11 +98,11 @@ function runtest {
 	# JX_... => return 0, Je_... => return 42
 	testname=${testpath##*/}
         if ([ "Je" == ${testname:0:2} ] && [ "$retcode" -eq "42" ]) || ([ "Je" != ${testname:0:2} ] && [ "$retcode" -eq "0" ]); then
-		[ -z "$parallelflag" ] && echo ""
+		[ -z "$parallelnum" ] && echo ""
 		# the test passed, save the path for reference
 		echo $testpath >> $passfile
         else
-		[ -z "$parallelflag" ] && echo "failed" && numfails=$((numfails + 1))
+		[ -z "$parallelnum" ] && echo "failed" && numfails=$((numfails + 1))
 		# the return code was incorrect, save the output and append the path to the fail file
 		echo $testpath >> $failfile
 		cp $tempfile $rundir/$testname.out
@@ -70,20 +118,25 @@ elif [ -f $testsrc ]; then
 	# a file of test paths was passed to the script
 	numfiles=`wc -l < $testsrc`
 	tests=`cat $testsrc`
-else
-	echo "test source is not a file or directory...?"
-	exit
 fi
 
-if [ -n "$parallelflag" ]; then
-	echo $parallelflag
+if [ -n "$parallelnum" ]; then
+	echo `date`
 	# start a background process for each test
 	starttime=$SECONDS
+	count=0
+	progress=0
 	for joostest in $tests; do
 		runtest $joostest &
+		count=$((count + 1))
+		if [[ $count -eq $parallelnum ]]; then
+			wait
+			progress=$((progress + count))
+			echo $progress "/" $numfiles
+			count=0
+		fi
 	done
 
-	echo -ne "awaiting results..."'\t'
 	wait
 else
 	echo "fails / progress / total"
@@ -100,6 +153,7 @@ fi
 # print info and results
 duration=$(( SECONDS - starttime ))
 echo "done"
+echo "output files in" $rundir/
 echo -e "
 Passes:\t" `wc -l < $passfile` "
 Fails:\t" `wc -l < $failfile` "

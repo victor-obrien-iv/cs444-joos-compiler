@@ -1,10 +1,9 @@
 package AST
 
-import akka.actor.Actor
-
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-abstract class Visitor extends Actor {
+abstract class Visitor {
   def visit(n: AstNode): Unit = n match {
     case d: Decl => visit(d)
     case s: Stmt => visit(s)
@@ -31,8 +30,7 @@ abstract class Visitor extends Actor {
       case None =>
     }
     for(i <- cu.imports) visit(i: ImportDecl)
-    for(i <- cu.interfaces) visit(i: InterfaceDecl)
-    for(cd <- cu.classes) visit(cd: ClassDecl)
+    visit(cu.typeDecl)
   }
   def visit(id: ImportDecl): Unit = {
     visit(id.name: FullyQualifiedID)
@@ -237,10 +235,7 @@ abstract class Visitor extends Actor {
   def visit(fqid: FullyQualifiedID): Unit = {
   }
 
-  override def receive: Receive = {
-    case cu: CompilationUnit =>
-      sender ! Try(visit(cu: CompilationUnit))
-      context.stop(self)
-    case _ => assert(assertion = false, "Visitor must start on a compilation unit!")
+  def run(cu: CompilationUnit)(implicit executionContext: ExecutionContext): Future[Unit] = {
+    Future(visit(cu))
   }
 }

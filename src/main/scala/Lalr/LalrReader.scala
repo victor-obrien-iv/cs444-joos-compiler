@@ -1,7 +1,5 @@
 package Lalr
 
-import java.io.{FileOutputStream, ObjectOutputStream, OutputStream}
-
 import Parser.{ParseError, ProdRule, Reduce, Shift}
 
 import scala.io.Source

@@ -14,11 +14,11 @@ class AstBuilderSpec extends FlatSpec with Matchers{
       ))))
     ))))
 
-  val builder = new AstBuilder()
-
-  "Builder " should " build goddamn it" in {
-    println(builder.buildBlockStatement(blockTest))
-    builder.buildBlockStatement(blockTest).stmts.length shouldEqual 5
-  }
+//  val builder = new AstBuilder()
+//
+//  "Builder " should " build goddamn it" in {
+//    println(builder.buildBlockStatement(blockTest))
+//    builder.buildBlockStatement(blockTest).stmts.length shouldEqual 5
+//  }
 }
 
