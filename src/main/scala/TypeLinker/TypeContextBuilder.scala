@@ -43,7 +43,7 @@ class TypeContextBuilder {
     * @return An association list of simple types -> the type AST
     */
   def buildLocalContext(unit: CompilationUnit,
-                        typeCtx: Map[String, List[TypeDecl]]): Map[String, TypeDecl]= {
+                        typeCtx: Map[String, List[TypeDecl]]): Map[String, List[TypeDecl]] = {
 
     val defaultPackage = unit.packageName match {
       case Some(value) => value.name
@@ -83,20 +83,33 @@ class TypeContextBuilder {
         }
     }
 
+    //Eliminates duplicate entries in list
+    val onDemandUniqueListTypes = onDemand.toMap.toList
 
-    val allTypes = declaredTypes ++ onDemand
+    val onDemandListTypes = onDemandUniqueListTypes.groupBy {
+      fullName =>
+        if (fullName._1.isEmpty) {
+          ""
+        } else {
+          fullName._1.split('.').last
+        }
+    }
 
-    val duplicates  = declaredTypes.groupBy(_._1.split('.').last).mapValues(_.groupBy(_._1))
+    val singleImportTypes = declaredTypes.groupBy(_._1.split('.').last)
+
+    val allTypes = onDemandListTypes ++ singleImportTypes
+
+    val duplicates  = singleImportTypes.mapValues(_.groupBy(_._1))
 
     if (duplicateTypes(declaredTypes)) {
       throw Error.Error("duplicate", s"Type clash error", Error.Type.TypeLinking)
     }
 
     val typeNames = allTypes map {
-      case (name, decl) => (name.split('.').last, decl)
+      case (name, decls) => (name.split('.').last, decls.map(_._2))
     }
 
-    typeNames.toMap
+    typeNames
   }
 
   /**

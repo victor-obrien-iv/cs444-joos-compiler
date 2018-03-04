@@ -30,7 +30,6 @@ object Main extends App {
   val typeLinker = new TypeContextBuilder
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
-  val astResults: Array[Try[CompilationUnit]] = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
 
   val asts = Future.sequence(astFutures.toList)
 
