@@ -45,26 +45,38 @@ class TypeContextBuilder {
   def buildLocalContext(unit: CompilationUnit,
                         typeCtx: Map[String, List[TypeDecl]]): Map[String, List[TypeDecl]] = {
 
+    val className = unit.typeDecl.name.lexeme
+
     val defaultPackage = unit.packageName match {
       case Some(value) => value.name
       case None => ""
     }
 
+    val fullClassName = s"$defaultPackage.$className"
+
     val wildCards = unit.imports.filter(_.asterisk)
-    val onDemandImports = defaultPackage :: "java.lang" :: wildCards.map(_.name.name)
-    val onDemand = onDemandImports flatMap {
-      packageName =>
-        val allPackages = typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName)
-        if (allPackages.nonEmpty) allPackages.flatMap {
-          case (key, value) =>
-            value.map { typeDecl =>
-              val mapKey = if (packageName != "") key + "." + typeDecl.name.lexeme else typeDecl.name.lexeme
-              (mapKey, typeDecl)
+    val onDemandImports = "java.lang" :: wildCards.map(_.name.name)
+
+    /**
+      * Creates a map of package names all of their member types
+      *
+      * @param packageName Root package
+      * @return
+      */
+    def packageMemberClasses(packageName: String): Map[String, TypeDecl] = {
+      val allPackages = typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName)
+      if (allPackages.nonEmpty) allPackages.flatMap {
+        case (key, value) =>
+          value.map { typeDecl =>
+            val mapKey = if (packageName != "") key + "." + typeDecl.name.lexeme else typeDecl.name.lexeme
+            (mapKey, typeDecl)
           }
-        } else {
-          throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
-        }
+      } else {
+        throw Error.Error(packageName, s"Could not find package $packageName", Error.Type.TypeLinking)
+      }
     }
+
+    val onDemand = onDemandImports flatMap packageMemberClasses
 
     val declaredTypes = unit.imports.filterNot(_.asterisk).map {
       importDecl =>
@@ -86,7 +98,8 @@ class TypeContextBuilder {
     //Eliminates duplicate entries in list
     val onDemandUniqueListTypes = onDemand.toMap.toList
 
-    val onDemandListTypes = onDemandUniqueListTypes.groupBy {
+    //Groups the on demand statements by class name to look for overloaded classes
+    val onDemandListTypes: Map[String, List[(String, TypeDecl)]] = onDemandUniqueListTypes.groupBy {
       fullName =>
         if (fullName._1.isEmpty) {
           ""
@@ -95,9 +108,28 @@ class TypeContextBuilder {
         }
     }
 
-    val singleImportTypes = declaredTypes.groupBy(_._1.split('.').last)
+    val uniqueSingleImportTypes = declaredTypes.toMap
 
-    val allTypes = onDemandListTypes ++ singleImportTypes
+    val singleImportTypesWithoutCurClass = if (uniqueSingleImportTypes.contains(fullClassName)) {
+      uniqueSingleImportTypes - fullClassName
+    } else {
+      uniqueSingleImportTypes
+    }
+
+    val singleImportTypes: Map[String, List[(String, TypeDecl)]] =
+      singleImportTypesWithoutCurClass.toList.groupBy(_._1.split('.').last)
+
+    if (singleImportTypes.contains(className))
+      throw Error.Error(className,
+        "Cannot have single type import with the same name as class", Error.Type.TypeLinking)
+
+    //Wraps default package in the same format as OnDemand and SingleType
+    val defaultPackageClasses: Map[String, List[(String, TypeDecl)]] = packageMemberClasses(defaultPackage).map{
+      case (_, decl) => (decl.name.lexeme, List((decl.name.lexeme, decl)))
+    }
+
+    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
+    val allTypes = onDemandListTypes ++ defaultPackageClasses ++ singleImportTypes
 
     val duplicates  = singleImportTypes.mapValues(_.groupBy(_._1))
 
