@@ -6,6 +6,8 @@ import Token._
 import scala.annotation.tailrec
 
 class Parser(lalr: Lalr, filename: String) {
+  var errorLoc: Option[Error.Location] = None
+  var errorLex: String = ""
 
   /**
     * Parses an augmented version of the given tokens
@@ -14,7 +16,15 @@ class Parser(lalr: Lalr, filename: String) {
     * @return Parse Tree
     */
   //TODO: add EOF to lexer to record line number
-  def parse(tokens: List[Token]): TreeNode = parseRec((Bof() :: tokens) :+ Eof(), Nil)
+  def parse(tokens: List[Token]): TreeNode = {
+    try {
+      parseRec((Bof() :: tokens) :+ Eof(), Nil)
+    }
+    catch {
+      case _: NoSuchElementException =>
+        throw Error.Error(errorLex, "illegal transition", Error.Type.Parser, errorLoc)
+    }
+  }
 
   @tailrec private def parseRec(tokens: List[Token], stack: List[(Int, TreeNode)]): TreeNode = tokens match {
     //Base case: No tokens to be read
@@ -23,6 +33,8 @@ class Parser(lalr: Lalr, filename: String) {
     case head :: tail =>
       val state = if (stack.isEmpty) 0 else stack.head._1
 
+      errorLoc = Some(Error.Location(head.row, head.col, filename))
+      errorLex = head.lexeme
       val action = lalr.actions(state, head.kind)
       action match {
         case Shift(symbol, nextState) => parseRec(tail, (nextState, TreeNode(Left(head), Nil)) :: stack)
