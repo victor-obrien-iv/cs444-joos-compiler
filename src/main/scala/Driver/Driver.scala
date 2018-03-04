@@ -5,13 +5,12 @@ import Lalr.{Lalr, LalrReader}
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-class Driver() {
-  def produceAST(fileName: String): Future[(CompilationUnit, List[Try[Unit]])] = {
+class Driver(implicit ec: ExecutionContext) {
+  def produceAST(fileName: String): Future[CompilationUnit] = {
 
     // create lexer actor
 
@@ -45,12 +44,12 @@ class Driver() {
       parseTreeNode => builder.build(parseTreeNode)
     }
 
-    val weeding: Future[(CompilationUnit, List[Try[Unit]])] = ast.flatMap {
+    val weeding = ast.flatMap {
       rootNode =>
-        val completedNodes: List[Future[Try[Unit]]] =
+        val completedNodes: Seq[Future[Unit]] =
           for (weeder <- weeders) yield weeder.run(rootNode)
         val errors = Future.sequence(completedNodes)
-        errors.map((rootNode, _))
+        errors.map(_ => rootNode)
     }
 
     weeding

@@ -30,73 +30,37 @@ object Main extends App {
   val typeLinker = new TypeContextBuilder
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
-  val astResults = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
-  astResults foreach {
-    case Success((_, errors)) =>
-      if (errors.exists(_.isFailure)) {
-        errors.foreach {
-          error: Try[Unit] =>
-            error.recover {
-              case e: Error.Error => println(errorFormatter.format(e))
-                //TODO: Add debug mode to print stacktraces
-                //error.printStackTrace()
-              case e: Exception => println("INTERNAL COMPILER ERROR OCCURRED:"); println(e.printStackTrace())
-            }
-        }
-        ErrorExit()
-      }
-    case Failure(e) =>
-      e match {
-        case error: Error.Error => println(errorFormatter.format(error))
-          //TODO: Add debug mode to print stacktraces
-          //error.printStackTrace()
-        case _ => println("INTERNAL COMPILER ERROR OCCURRED:"); e.printStackTrace()
-      }
-      ErrorExit()
+  val astResults: Array[Try[CompilationUnit]] = for (ast <- astFutures) yield Await.ready(ast, Duration.Inf).value.get
+
+  val asts = Future.sequence(astFutures.toList)
+
+  val typeContextTry = asts map {
+    astList =>
+      typeLinker.buildContext(astList)
   }
 
-  val asts: Array[CompilationUnit] = astResults.collect { case Success((ast, _)) => ast }
-  val typeContextTry = Try {
-    typeLinker.buildContext(asts.toList)
-  }
-
-  val typeLinked: Try[Future[List[Try[Unit]]]] = typeContextTry.map{
+  val typeLinked = typeContextTry.flatMap{
     typeContext =>
-      val linkedAsts = asts.map { ast =>
-        val context = typeLinker.buildLocalContext(ast, typeContext)
-        val linker = new TypeLinker(context, typeContext)
-        linker.run(ast)
+      asts.flatMap{ futures =>
+        val linkers = futures.map { ast =>
+          val context = typeLinker.buildLocalContext(ast, typeContext)
+          val linker = new TypeLinker(context, typeContext)
+          linker.run(ast)
+        }
+        Future.sequence(linkers)
       }
-      Future.sequence(linkedAsts.toList)
   }
 
-  typeLinked match {
+  typeLinked onComplete  {
     case Failure(exception) => exception match {
           case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
           case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
     }
-    case Success(value) => value onComplete {
-      case Failure(exception) => exception match {
-        case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-        case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
-      }
-      case Success(tryList) => tryList foreach {
-        case Success(tryValue) =>
-        case Failure(exception) => exception match {
-          case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-          case e:Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
-        }
-      }
-    }
+    case Success(_) => CleanExit()
   }
-//  }.recover {
-//
-//  }
 
     // TODO: this should actually divide asts into appropriate packages
     //val hierarchy: Map[String, Array[CompilationUnit]] = Map( "Unnamed" -> asts )
 
     //val imnotsurewhatthisshouldbe: Unit = for(ast <- asts) yield driver.translate(hierarchy, ast)
-
-  CleanExit()
 }

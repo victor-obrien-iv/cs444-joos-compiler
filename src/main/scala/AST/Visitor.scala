@@ -1,6 +1,6 @@
 package AST
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 abstract class Visitor {
@@ -235,7 +235,7 @@ abstract class Visitor {
   def visit(fqid: FullyQualifiedID): Unit = {
   }
 
-  def run(cu: CompilationUnit): Future[Try[Unit]] = {
-    Future.successful(Try(visit(cu)))
+  def run(cu: CompilationUnit)(implicit executionContext: ExecutionContext): Future[Unit] = {
+    Future(visit(cu))
   }
 }
