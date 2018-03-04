@@ -10,13 +10,14 @@ trait Decl extends AstNode
 /**
   * CompilationUnit is a special declaration that encapsulates everything
   *   in a .java file
+  * @param fileName the path and file that is associated with this compilation unit
   * @param packageName the identifier that comes after 'package' in the source code
   *                    or None if no package declaration exists for this file
   * @param imports the list of import declarations in this file
   * @param typeDecl the type declared in the compilation unit
   */
-case class CompilationUnit(packageName: Option[FullyQualifiedID], imports: List[ImportDecl],
-                           typeDecl: TypeDecl) extends Decl
+case class CompilationUnit(fileName: String, packageName: Option[FullyQualifiedID],
+                           imports: List[ImportDecl], typeDecl: TypeDecl) extends Decl
 
 /**
   * ImportDecl represents an 'import' usage in the source code

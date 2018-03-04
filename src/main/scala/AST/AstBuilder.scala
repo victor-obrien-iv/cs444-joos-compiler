@@ -31,7 +31,7 @@ class AstBuilder(filename: String) {
     val imports = buildImports(node.children(2))
     val typeDeclaration = buildTypeDecl(node.children(3))
 
-    CompilationUnit(packageDeclaration, imports, typeDeclaration)
+    CompilationUnit(filename, packageDeclaration, imports, typeDeclaration)
   }
 
   private def buildPackageAst(node: TreeNode): Option[FullyQualifiedID] = {
