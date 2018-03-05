@@ -2,11 +2,16 @@ package HierarchyChecker
 
 import AST._
 
+import scala.collection.mutable.ListBuffer
+
 /**
   * A pass to check the following:
   *   A class must not extend an interface
   *   A class must not extend a final class
   *   An interface must not extend a class
+  *   A class must not implement a class
+  *   An interface must not be repeated in an implements clause
+  *   An interface must not be repeated in an extends clause of an interface
   *
   * this pass analyses:
   *   ClassDecl
@@ -24,6 +29,8 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
 
   // A class must not extend an interface
   // A class must not extend a final class
+  // A class must not implement a class
+  // An interface must not be repeated in an implements clause
   override def visit(cd: ClassDecl): Unit = {
     cd.extensionOf match {
       case Some(extend: FullyQualifiedID) =>
@@ -46,16 +53,45 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
         }
       case None =>
     }
+
+    val seen: ListBuffer[TypeDecl] = ListBuffer()
+
+    for(imple <- cd.implementationOf) {
+      val impleType: TypeDecl =
+        if ( imple.qualifiers.nonEmpty )
+          findInPack(imple.id.lexeme, typeContext(imple.pack))
+        else
+          localContext(imple.id.lexeme)
+
+      seen += impleType
+
+      impleType match {
+        case _: InterfaceDecl =>
+          throw Error.Error(imple.id.lexeme, "A class must not implement a class",
+            Error.Type.ExtendsPass, Some(Error.Location(imple.id.row, imple.id.col, ast.fileName)))
+        case _: ClassDecl => // do nothing
+      }
+    }
+
+    if( seen.toSet.size != seen.size )
+      throw Error.Error(cd.implementationOf.mkString(", "),
+        "An interface must not be repeated in an implements clause",
+        Error.Type.ExtendsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
   }
 
   // An interface must not extend a class
+  // An interface must not be repeated in an extends clause of an interface
   override def visit(id: InterfaceDecl): Unit = {
+    val seen: ListBuffer[TypeDecl] = ListBuffer()
+
     for( extend <- id.extensionOf ) {
       val extendType: TypeDecl =
         if ( extend.qualifiers.nonEmpty )
           findInPack(extend.id.lexeme, typeContext(extend.pack))
         else
           localContext(extend.id.lexeme)
+
+      seen += extendType
 
       extendType match {
         case _: InterfaceDecl => // do nothing
@@ -64,6 +100,11 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
             Error.Type.ExtendsPass, Some(Error.Location(extend.id.row, extend.id.col, ast.fileName)))
       }
     }
+
+    if( seen.toSet.size != seen.size )
+      throw Error.Error(id.extensionOf.mkString(", "),
+        "An interface must not be repeated in an extends clause of an interface",
+        Error.Type.ExtendsPass, Some(Error.Location(id.name.row, id.name.col, ast.fileName)))
   }
 
 }
