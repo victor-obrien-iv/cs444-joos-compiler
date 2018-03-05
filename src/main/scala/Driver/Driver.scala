@@ -1,13 +1,12 @@
 package Driver
 
-import AST.{AstBuilder, CompilationUnit, Visitor}
+import AST.{AstBuilder, CompilationUnit, TypeDecl, Visitor}
 import Lalr.{Lalr, LalrReader}
 import Parser.{Parser, TreeNode}
 import Token.{Comment, Token}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.Try
 
 class Driver(implicit ec: ExecutionContext) {
   def produceAST(fileName: String): Future[CompilationUnit] = {
@@ -55,16 +54,4 @@ class Driver(implicit ec: ExecutionContext) {
     weeding
   }
 
-  def translate(hierarchy: Map[String, Array[CompilationUnit]], ast: CompilationUnit) = Future {
-    /*TODO: this will probably need to return something...*/
-    // type linking
-
-    // hierarchy checking
-//    val weeders: List[Visitor] = List(
-//      // TODO: make the hierarchy weeders
-//    )
-//
-//    val weeding: List[Future[Try[Unit]]] = for(w <- weeders) yield (w ask ast).mapTo[Try[Unit]]
-
-  }
 }
