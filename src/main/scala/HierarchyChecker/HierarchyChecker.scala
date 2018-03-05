@@ -46,7 +46,8 @@ class HierarchyChecker(localContexts: Map[CompilationUnit, Map[String, TypeDecl]
 
   def check(ast: CompilationUnit): List[Future[Unit]] = {
     val passes: List[Visitor] = List(
-      new ExtendsPass(localContexts(ast), typeContext, ast)
+      new ExtendsPass(localContexts(ast), typeContext, ast),
+      new MethodsPass(localContexts, typeContext, ast)
     )
     for(pass <- passes) yield pass.run(ast)
   }
