@@ -4,8 +4,9 @@ import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
 import HierarchyChecker.HierarchyChecker
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -34,7 +35,7 @@ object Main extends App {
       typeLinker.buildContext(astList)
   }
 
-  val typeLinked: Future[List[Unit]] = typeContextTry.flatMap {
+  val linkedAndChecked = typeContextTry.flatMap {
     typeContext =>
       asts.flatMap { futures =>
         val linkAndCheck = futures.map { ast =>
@@ -47,7 +48,7 @@ object Main extends App {
       }
   }
 
-  typeLinked onComplete  {
+  val done = linkedAndChecked andThen {
     case Failure(exception) => exception match {
       case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
@@ -55,4 +56,5 @@ object Main extends App {
     case Success(_) => CleanExit()
   }
 
+  Await.ready(done, Duration.Inf)
 }
