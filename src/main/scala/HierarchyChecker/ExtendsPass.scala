@@ -67,9 +67,9 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
 
       impleType match {
         case _: InterfaceDecl =>
+        case _: ClassDecl => // do nothing
           throw Error.Error(imple.id.lexeme, "A class must not implement a class",
             Error.Type.ExtendsPass, Some(Error.Location(imple.id.row, imple.id.col, ast.fileName)))
-        case _: ClassDecl => // do nothing
       }
     }
 
