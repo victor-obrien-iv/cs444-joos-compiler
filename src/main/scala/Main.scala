@@ -1,4 +1,5 @@
 
+import AST.{CompilationUnit, TypeDecl}
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
@@ -38,13 +39,28 @@ object Main extends App {
   val linkedAndChecked = typeContextTry.flatMap {
     typeContext =>
       asts.flatMap { futures =>
-        val linkAndCheck = futures.map { ast =>
-          val context = typeLinker.buildLocalContext(ast, typeContext)
-          val linker = new TypeLinker(context, typeContext)
-          val checker = new HierarchyChecker(context, typeContext)
-          linker.run(ast) +: checker.check(ast)
+        val localContexts = futures.map { ast =>
+          ast -> typeLinker.buildLocalContext(ast, typeContext)
+        }.toMap
+
+        val linkers = futures.map { ast =>
+          val linker = new TypeLinker(localContexts(ast), typeContext)
+//          val checker = new HierarchyChecker(context, typeContext)
+          linker.run(ast) //+: checker.check(ast)
         }
-        Future.sequence(linkAndCheck.flatten)
+
+        //     Map[CompilationUnit, Map[String, List[TypeDecl]]]
+        // ==> Map[CompilationUnit, Map[String, TypeDecl]]
+        val localContextsTrimmed = localContexts.map { name => name._1 -> name._2.map { decl => decl._1 -> decl._2.head }}
+        val checker = new HierarchyChecker(localContextsTrimmed, typeContext)
+
+        val hierarchy: Future[Unit] = checker.checkForCycles()
+
+        val checkers: Seq[List[Future[Unit]]] = futures.map {
+          ast => checker.check(ast)
+        }
+
+        Future.sequence(linkers ++ checkers.flatten :+ hierarchy)
       }
   }
 

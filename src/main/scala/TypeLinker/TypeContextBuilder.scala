@@ -1,7 +1,6 @@
 package TypeLinker
 
-import AST.{CompilationUnit, FullyQualifiedID, ImportDecl, TypeDecl}
-import Token.Identifier
+import AST.{CompilationUnit, TypeDecl}
 
 
 class TypeContextBuilder {
@@ -20,6 +19,10 @@ class TypeContextBuilder {
           decl => s"$packageId.${decl.name.lexeme}"
         }
     }
+
+    if (classNames.toSet.size != classNames.size)
+      throw Error.Error(classNames.toString(),
+        "No two classes or interfaces can have the same canonical name", Error.Type.TypeLinking)
 
     classNames foreach {
       name =>
