@@ -64,14 +64,23 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   sealed trait Signature
   private case class ArraySig(typeSig: Signature) extends Signature
   private case class PrimitiveSig(typ: String)    extends Signature
-  private case class ClassSig(typeDecl: TypeDecl) extends Signature
-  case class MethodSig(name: String, params: List[Signature])
+  private case class ClassSig(typeDeclHash: Int)  extends Signature
+  case class MethodSig(name: String, params: List[Signature]) {
+    override def toString: String = {
+      name + " (" + (for(p <- params) yield p).mkString(", ") + ")"
+    }
+  }
   case class ConstructorSig(params: List[Signature])
+  {
+    override def toString: String = {
+      "Constructor (" + (for(p <- params) yield p).mkString(", ") + ")"
+    }
+  }
 
   private def makeSig(typ: Type, ast: CompilationUnit): Signature = typ match {
     case ArrayType(arrayOf, _)    => ArraySig(makeSig(arrayOf, ast))
     case PrimitiveType(typeToken) => PrimitiveSig(typeToken.lexeme)
-    case ClassType(typeID)        => ClassSig(resolve(typeID, ast))
+    case ClassType(typeID)        => ClassSig(resolve(typeID, ast).hashCode())
   }
 
   /**
@@ -84,9 +93,19 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
         case cd: ClassDecl => cd.members
       }
       val methods = members.collect { case md: MethodDecl => md }
-      methods.map { md =>
+      val methodSigs: Seq[(MethodSig, MethodDecl)] = methods.map { md =>
         MethodSig(md.name.lexeme, for(pd <- md.parameters) yield makeSig(pd.typ, ast)) -> md
-      } toMap
+      }
+
+      { // A class must not declare two methods with the same signature
+        val methodSigDuplicates = methodSigs.map(m => m._1).groupBy(identity).collect { case (x, List(_, _, _*)) => x }
+        if(methodSigDuplicates.nonEmpty)
+          throw Error.Error(methodSigDuplicates.mkString("\n"),
+            "A class or interface must not declare two methods with the same signature",
+            Error.Type.MethodsPass, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
+      }
+
+      methodSigs.toMap
     }
 
     localContexts.keys.map { cu: CompilationUnit => cu.typeDecl -> getMethods(cu) } toMap
@@ -102,9 +121,19 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
         case cd: ClassDecl => cd.members
       }
       val ctors = members.collect { case cd: ConstructorDecl => cd }
-      ctors.map { cd =>
+      val ctorSigs: Seq[(ConstructorSig, ConstructorDecl)]  = ctors.map { cd =>
         ConstructorSig(for(pd <- cd.parameters) yield makeSig(pd.typ, ast)) -> cd
-      } toMap
+      }
+
+      { // A class must not declare two constructors with the same parameter types
+        val ctorSigDuplicates = ctorSigs.map(c => c._1).groupBy(identity).collect { case (x, List(_, _, _*)) => x }
+        if(ctorSigDuplicates.nonEmpty)
+          throw Error.Error(ctorSigDuplicates.mkString("\n"),
+            "A class must not declare two constructors with the same parameter types",
+            Error.Type.MethodsPass, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
+      }
+
+      ctorSigs.toMap
     }
 
     localContexts.keys.map { cu: CompilationUnit => cu.typeDecl -> getCtors(cu) } toMap
