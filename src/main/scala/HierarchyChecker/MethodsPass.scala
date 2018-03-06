@@ -41,7 +41,11 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
         val returnTypes = (myMethods :: concreteInheritence :: abstractInheritence).collect {
           case map if map.contains(sig) => map(sig).returnType
         }
-        if(returnTypes.exists(_ != returnTypes.head))
+        val returnTypeSigs = returnTypes.collect {
+          case Some(t) => checker.makeSig(t, ast)
+          case None => voidSig()
+        }
+        if(returnTypeSigs.exists(_ != returnTypeSigs.head))
           throw Error.Error(sig + " => " + returnTypes.mkString(", "),
             "A class must not declare or inherit two methods with the same signature but different return types",
             Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))

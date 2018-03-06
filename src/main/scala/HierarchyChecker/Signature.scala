@@ -1,6 +1,7 @@
 package HierarchyChecker
 
 sealed trait Signature
+case class voidSig() extends Signature
 case class ArraySig(typeSig: Signature) extends Signature
 case class PrimitiveSig(typ: String)    extends Signature
 case class ClassSig(typeDeclHash: Int)  extends Signature
