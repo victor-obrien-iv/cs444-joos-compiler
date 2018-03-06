@@ -61,22 +61,6 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
       localContexts(ast)(fqid.id.lexeme)
   }
 
-  sealed trait Signature
-  private case class ArraySig(typeSig: Signature) extends Signature
-  private case class PrimitiveSig(typ: String)    extends Signature
-  private case class ClassSig(typeDeclHash: Int)  extends Signature
-  case class MethodSig(name: String, params: List[Signature]) {
-    override def toString: String = {
-      name + " (" + (for(p <- params) yield p).mkString(", ") + ")"
-    }
-  }
-  case class ConstructorSig(params: List[Signature])
-  {
-    override def toString: String = {
-      "Constructor (" + (for(p <- params) yield p).mkString(", ") + ")"
-    }
-  }
-
   private def makeSig(typ: Type, ast: CompilationUnit): Signature = typ match {
     case ArrayType(arrayOf, _)    => ArraySig(makeSig(arrayOf, ast))
     case PrimitiveType(typeToken) => PrimitiveSig(typeToken.lexeme)
@@ -102,7 +86,7 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
         if(methodSigDuplicates.nonEmpty)
           throw Error.Error(methodSigDuplicates.mkString("\n"),
             "A class or interface must not declare two methods with the same signature",
-            Error.Type.MethodsPass, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
+            Error.Type.HierarchyCheck, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
       }
 
       methodSigs.toMap
@@ -130,7 +114,7 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
         if(ctorSigDuplicates.nonEmpty)
           throw Error.Error(ctorSigDuplicates.mkString("\n"),
             "A class must not declare two constructors with the same parameter types",
-            Error.Type.MethodsPass, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
+            Error.Type.HierarchyCheck, Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName)))
       }
 
       ctorSigs.toMap

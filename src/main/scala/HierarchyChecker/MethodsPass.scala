@@ -2,6 +2,8 @@ package HierarchyChecker
 
 import AST._
 
+import scala.language.postfixOps
+
 /**
   * A pass to check the following:
   *   A nonstatic method must not replace a static method
@@ -16,16 +18,42 @@ import AST._
   */
 class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visitor  {
 
-  private lazy val myMethods: Map[checker.MethodSig, MethodDecl]
+  private lazy val myMethods: Map[MethodSig, MethodDecl]
     = checker.declaredMethods(ast.typeDecl)
-  private lazy val myConstructors: Map[checker.ConstructorSig, ConstructorDecl]
+  private val myConstructors: Map[ConstructorSig, ConstructorDecl]
     = checker.declaredConstructors(ast.typeDecl)
 
+  def getMethodsFromID(id: FullyQualifiedID): Map[MethodSig, MethodDecl]
+    = checker.declaredMethods( checker.resolve(id, ast) )
+
   override def visit(cd: ClassDecl): Unit = {
-    super.visit(cd)
+    val abstractInheritence: List[Map[MethodSig, MethodDecl]]
+      = for(inter <- cd.implementationOf) yield getMethodsFromID(inter)
+    val concreteInheritence: Map[MethodSig, MethodDecl] = cd.extensionOf match {
+      case Some(extend) => getMethodsFromID(extend)
+      case None => Map()
+    }
+    val allMethodSigs = myMethods.keys ++ concreteInheritence.keys ++
+      abstractInheritence.foldLeft(Iterable[MethodSig]())(_ ++ _.keys)
+
+    for(sig <- allMethodSigs) {
+      { // A method must not replace a method with a different return type
+        val returnTypes = (myMethods :: concreteInheritence :: abstractInheritence).collect {
+          case map if map.contains(sig) => map(sig).returnType
+        }
+        if(returnTypes.exists(_ != returnTypes.head))
+          throw Error.Error(sig + " => " + returnTypes.mkString(", "),
+            "A class must not declare or inherit two methods with the same signature but different return types",
+            Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
+      }
+      {
+
+      }
+    }
+
+
   }
 
   override def visit(id: InterfaceDecl): Unit = {
-    super.visit(id)
   }
 }
