@@ -8,13 +8,13 @@ import scala.language.postfixOps
 
 class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeDecl]],
                        val typeContext: Map[String, List[TypeDecl]]) {
+  val localContextsByTypeDecl: Map[TypeDecl, Map[String, TypeDecl]] = localContexts.map(context => context._1.typeDecl -> context._2)
 
   /**
     *  The hierarchy must be acyclic
     */
   def checkForCycles(): Future[Unit] = {
     val checkedUnits: mutable.Set[TypeDecl] = mutable.Set() // memoization bc/ dynamic programming is hard
-    val localContextsTransformed = localContexts.map( context => context._1.typeDecl -> context._2)
     def checkIfCyclic(unit: TypeDecl, visited: List[TypeDecl]): Unit = {
       if (visited.contains(unit))
         throw Error.Error(visited.map(decl => decl.name.lexeme).mkString(" -> "),
@@ -24,16 +24,17 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
         unit match {
           case i: InterfaceDecl =>
             for(extend <- i.extensionOf)
-              checkIfCyclic(localContextsTransformed(unit)(extend.name), visited.::(unit))
+              checkIfCyclic(resolve(extend, unit), unit :: visited)
 
           case c: ClassDecl =>
             c.extensionOf match {
               case Some(extend) =>
-                checkIfCyclic(localContextsTransformed(unit)(extend.name), visited.::(unit))
+                println(unit.name.lexeme + ":" + extend.name)
+                checkIfCyclic(resolve(extend, unit), unit :: visited)
               case None =>
             }
             for(imp <- c.implementationOf)
-              checkIfCyclic(localContextsTransformed(unit)(imp.name), visited.::(unit))
+              checkIfCyclic(resolve(imp, unit), unit :: visited)
         }
 
         checkedUnits += unit
@@ -48,7 +49,9 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   /**
     * @return what this full qualified id, used in this ast, refers to in the hierarchy
     */
-  def resolve(fqid: FullyQualifiedID, ast: CompilationUnit): TypeDecl = {
+  def resolve(fqid: FullyQualifiedID, ast: CompilationUnit): TypeDecl
+    = resolve(fqid, ast.typeDecl)
+  def resolve(fqid: FullyQualifiedID, td: TypeDecl): TypeDecl = {
     def findInPack(name: String, types: List[TypeDecl]): TypeDecl = {
       for(t <- types)
         if(t.name.lexeme == name)
@@ -58,7 +61,7 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
     if ( fqid.qualifiers.nonEmpty )
       findInPack(fqid.id.lexeme, typeContext(fqid.pack))
     else
-      localContexts(ast)(fqid.id.lexeme)
+      localContextsByTypeDecl(td)(fqid.id.lexeme)
   }
 
   def makeSig(typ: Type, ast: CompilationUnit): Signature = typ match {

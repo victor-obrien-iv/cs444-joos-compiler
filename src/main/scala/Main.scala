@@ -67,7 +67,7 @@ object Main extends App {
   val done = linkedAndChecked andThen {
     case Failure(exception) => exception match {
       case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
-      case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); ErrorExit()
+      case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
     }
     case Success(_) => CleanExit()
   }
