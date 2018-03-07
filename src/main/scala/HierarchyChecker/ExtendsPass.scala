@@ -54,7 +54,7 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
       case None =>
     }
 
-    val seen: ListBuffer[TypeDecl] = ListBuffer()
+    val seen: ListBuffer[Int] = ListBuffer()
 
     for(imple <- cd.implementationOf) {
       val impleType: TypeDecl =
@@ -63,7 +63,7 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
         else
           localContext(imple.id.lexeme)
 
-      seen += impleType
+      seen += impleType.id
 
       impleType match {
         case _: InterfaceDecl =>
@@ -82,7 +82,7 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
   // An interface must not extend a class
   // An interface must not be repeated in an extends clause of an interface
   override def visit(id: InterfaceDecl): Unit = {
-    val seen: ListBuffer[TypeDecl] = ListBuffer()
+    val seen: ListBuffer[Int] = ListBuffer()
 
     for( extend <- id.extensionOf ) {
       val extendType: TypeDecl =
@@ -91,7 +91,7 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
         else
           localContext(extend.id.lexeme)
 
-      seen += extendType
+      seen += extendType.id
 
       extendType match {
         case _: InterfaceDecl => // do nothing

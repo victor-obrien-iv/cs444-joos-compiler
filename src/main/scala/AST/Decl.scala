@@ -33,6 +33,7 @@ sealed trait TypeDecl extends Decl {
   def modifiers: List[Token.Modifier]
   def name: Token.Identifier
   def members: List[Decl]
+  def id: Int
 }
 /**
   * InterfaceDecl represents an interface declaration
@@ -42,7 +43,7 @@ sealed trait TypeDecl extends Decl {
   * @param extensionOf the identifiers of the interfaces this interface extends
   * @param members the field and method declarations in this interface's body
   */
-case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier,
+case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier, id: Int,
                          extensionOf: List[FullyQualifiedID], members: List[Decl]) extends TypeDecl
 
 /**
@@ -54,8 +55,9 @@ case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier
   * @param implementationOf the identifiers of the interfaces this class implements
   * @param members the field, method and constructor declarations in this class' body
   */
-case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, extensionOf: Option[FullyQualifiedID],
-                     implementationOf: List[FullyQualifiedID], members: List[Decl]) extends TypeDecl
+case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, id: Int,
+                     extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID],
+                     members: List[Decl]) extends TypeDecl
 
 /**
   * ConstructorDecl represents a class constructor method in a class or interface body
