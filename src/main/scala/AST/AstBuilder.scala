@@ -5,7 +5,6 @@ import Parser.TreeNode
 import Token._
 
 class AstBuilder(filename: String) {
-  var idNum = 0 // a number to uniquely define type declarations
 
   private def AstError(token: Token) = {
     Error(token.lexeme,
@@ -107,8 +106,7 @@ class AstBuilder(filename: String) {
     val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(4)
     val bodyDecls = buildInterfaceBody(body.children(1))
 
-    idNum += 1
-    InterfaceDecl(modifiers, identifier, idNum, superInterfaces, bodyDecls)
+    InterfaceDecl(modifiers, identifier, filename.hashCode, superInterfaces, bodyDecls)
   }
 
   private def buildInterfaceBody(node: TreeNode): List[Decl] = {
@@ -144,8 +142,7 @@ class AstBuilder(filename: String) {
     val superInterfaces = buildSuperInterfaces(node.children(3))
     val body = buildClassBody(node.children(4).children(1))
 
-    idNum += 1
-    ClassDecl(modifiers, id, idNum, superCLass, superInterfaces, body)
+    ClassDecl(modifiers, id, filename.hashCode, superCLass, superInterfaces, body)
   }
 
   private def buildSuperClass(node: TreeNode): Option[FullyQualifiedID] = {
