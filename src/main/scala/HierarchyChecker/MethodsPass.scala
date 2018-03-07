@@ -127,7 +127,8 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
               Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
         }
         for(inheritMap <- absInheritance; sig <- inheritMap.keys) {
-          if(!myMethods.contains(sig) && !conInheritance.contains(sig))
+          val inConInheritance = conInheritance.exists(map => map.contains(sig))
+          if(!myMethods.contains(sig) && !inConInheritance)
             throw Error.Error("class: " + cd.name.lexeme + " does not implement " + sig +
               " as required by interface " + cd.implementationOf(absInheritance.indexOf(inheritMap)).id.lexeme,
               "A class that contains (declares or inherits) any abstract methods must be abstract",
