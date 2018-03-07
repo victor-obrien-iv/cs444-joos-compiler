@@ -6,6 +6,10 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.language.postfixOps
 
+object HierarchyChecker {
+
+}
+
 class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeDecl]],
                        val typeContext: Map[String, List[TypeDecl]]) {
   val localContextsByTypeDecl: Map[TypeDecl, Map[String, TypeDecl]] = localContexts.map(context => context._1.typeDecl -> context._2)
@@ -51,8 +55,6 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   /**
     * @return what this full qualified id, used in this ast, refers to in the hierarchy
     */
-  def resolve(fqid: FullyQualifiedID, ast: CompilationUnit): TypeDecl =
-    resolve(fqid, ast.typeDecl)
   def resolve(fqid: FullyQualifiedID, td: TypeDecl): TypeDecl = {
     def findInPack(name: String, types: List[TypeDecl]): TypeDecl = {
       for(t <- types)
@@ -70,7 +72,7 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
     case ArrayType(arrayOf, _)    => ArraySig(makeSig(arrayOf, ast))
     case PrimitiveType(typeToken) => PrimitiveSig(typeToken.lexeme)
     case ClassType(typeID)        =>
-      val td = resolve(typeID, ast)
+      val td = resolve(typeID, ast.typeDecl)
       ClassSig(td.name.lexeme + "(id:" + td.hashCode() + ")")
   }
 

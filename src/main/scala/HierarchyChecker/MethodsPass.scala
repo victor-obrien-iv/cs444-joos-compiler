@@ -24,9 +24,6 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
   private val myConstructors: Map[ConstructorSig, ConstructorDecl] =
     checker.declaredConstructors(ast.typeDecl)
 
-  def getFromID(id: FullyQualifiedID): (TypeDecl, Map[MethodSig, MethodDecl]) =
-    (checker.resolve(id, ast), checker.declaredMethods(checker.resolve(id, ast)))
-
   def getFromID(id: FullyQualifiedID, td: TypeDecl): (TypeDecl, Map[MethodSig, MethodDecl]) =
     (checker.resolve(id, td), checker.declaredMethods(checker.resolve(id, td)))
 
@@ -49,7 +46,7 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
   def concreteInheritance(cd: ClassDecl): List[Map[MethodSig, MethodDecl]] = {
     cd.extensionOf match {
       case Some(fqid) =>
-        getFromID(fqid)._2 :: concreteInheritance(getFromID(fqid)._1.asInstanceOf[ClassDecl])
+        getFromID(fqid, cd)._2 :: concreteInheritance(getFromID(fqid, cd)._1.asInstanceOf[ClassDecl])
       case None =>
         List()
     }
