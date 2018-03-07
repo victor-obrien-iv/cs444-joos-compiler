@@ -1,6 +1,7 @@
 package HierarchyChecker
 
 import AST._
+import Token.JavaAbstract
 
 import scala.language.postfixOps
 
@@ -23,18 +24,40 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
   private val myConstructors: Map[ConstructorSig, ConstructorDecl]
     = checker.declaredConstructors(ast.typeDecl)
 
-  def getMethodsFromID(id: FullyQualifiedID): Map[MethodSig, MethodDecl]
-    = checker.declaredMethods( checker.resolve(id, ast) )
+  def getFromID(id: FullyQualifiedID): (TypeDecl, Map[MethodSig, MethodDecl])
+    = (checker.resolve(id, ast), checker.declaredMethods(checker.resolve(id, ast)))
 
-  def commonRules(concreteInheritance: Map[MethodSig, MethodDecl],
+  def abstractInheritance(cd: ClassDecl): List[Map[MethodSig, MethodDecl]] = {
+    cd.implementationOf.flatMap { fqid =>
+      getFromID(fqid)._2 :: abstractInheritance(getFromID(fqid)._1.asInstanceOf[InterfaceDecl])
+    }
+  }
+
+  def abstractInheritance(id: InterfaceDecl): List[Map[MethodSig, MethodDecl]] = {
+    id.extensionOf.flatMap { ex =>
+      getFromID(ex)._2 :: abstractInheritance(getFromID(ex)._1.asInstanceOf[InterfaceDecl])
+    }
+  }
+
+  def concreteInheritance(cd: ClassDecl): List[Map[MethodSig, MethodDecl]] = {
+    cd.extensionOf match {
+      case Some(fqid) =>
+        getFromID(fqid)._2 :: concreteInheritance(getFromID(fqid)._1.asInstanceOf[ClassDecl])
+      case None =>
+        List()
+    }
+  }
+
+  def commonRules(concreteInheritance: List[Map[MethodSig, MethodDecl]],
                   abstractInheritance: List[Map[MethodSig, MethodDecl]]): Unit = {
-    val allMethodSigs: Iterable[MethodSig] = myMethods.keys ++ concreteInheritance.keys ++
+    val allMethodSigs: Iterable[MethodSig] = myMethods.keys ++
+      concreteInheritance.foldLeft(Iterable[MethodSig]())(_ ++ _.keys) ++
       abstractInheritance.foldLeft(Iterable[MethodSig]())(_ ++ _.keys)
     val loc = Some(Error.Location(ast.typeDecl.name.row, ast.typeDecl.name.col, ast.fileName))
 
     for(sig <- allMethodSigs) {
       { // A nonstatic method must not replace a static method
-        val areStatic = (myMethods :: concreteInheritance :: abstractInheritance).collect {
+        val areStatic = (myMethods :: concreteInheritance ++ abstractInheritance).collect {
           case map if map.contains(sig) => map(sig).modifiers.exists(_.isInstanceOf[Token.JavaStatic])
         }
         if(areStatic.exists(_ != areStatic.head))
@@ -45,7 +68,7 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
       {
         // A class must not contain (declare or inherit) two methods with the same signature but different return types
         // A method must not replace a method with a different return type
-        val returnTypes = (myMethods :: concreteInheritance :: abstractInheritance).collect {
+        val returnTypes = (myMethods :: concreteInheritance ++ abstractInheritance).collect {
           case map if map.contains(sig) => map(sig).returnType
         }
         val returnTypeSigs = returnTypes.collect {
@@ -58,17 +81,18 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
             Error.Type.MethodsPass, loc)
       }
       { // A protected method must not replace a public method
-        if(myMethods.contains(sig) && myMethods(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected]))
-          (concreteInheritance :: abstractInheritance).foreach { map =>
+        if(myMethods.contains(sig) && myMethods(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected])) {
+          (concreteInheritance ++ abstractInheritance).foreach { map =>
             if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
               throw Error.Error(sig + " => " + map(sig).name.lexeme,
                 "A protected method must not replace a public method",
                 Error.Type.MethodsPass, loc)
           }
+        }
       }
       { // A method must not replace a final method
         if(myMethods.contains(sig))
-          (concreteInheritance :: abstractInheritance).foreach { map =>
+          (concreteInheritance ++ abstractInheritance).foreach { map =>
             if(map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaFinal]))
               throw Error.Error(sig + " => " + map(sig).name.lexeme,
                 "A method must not replace a final method",
@@ -80,32 +104,42 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
 
   override def visit(cd: ClassDecl): Unit = {
     //TODO: fix so that the hieratence follows up the tree
-    val abstractInheritance = for(inter <- cd.implementationOf) yield getMethodsFromID(inter)
     val objectClassInheritance = if(cd.id != checker.objectClass._1) checker.objectClass._2
                                   else Map[MethodSig, MethodDecl]()
-    val concreteInheritance = objectClassInheritance ++ (cd.extensionOf match {
-      case Some(extend) => getMethodsFromID(extend)
-      case None => Map()
-    })
 
-    commonRules(concreteInheritance,abstractInheritance)
+    val absInheritance = abstractInheritance(cd)
+    val conInheritance = objectClassInheritance :: concreteInheritance(cd)
 
-    { //A class that contains (declares or inherits) any abstract methods must be abstract
-      if(!cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract]))
-        for(inheritMap <- abstractInheritance; sig <- inheritMap.keys) {
-          if(!myMethods.contains(sig) && !concreteInheritance.contains(sig))
+    commonRules(conInheritance, absInheritance)
+
+    { // A class that contains (declares or inherits) any abstract methods must be abstract
+      if(!cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract])) {
+        for(decl <- myMethods.values) {
+          if(decl.modifiers.exists(_.isInstanceOf[JavaAbstract]))
+            throw Error.Error(decl.name.lexeme + " is declared abstract in non-abstract class "
+              + cd.name.lexeme, "A class that contains (declares or inherits) any abstract methods must be abstract",
+              Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
+        }
+        for(inheritMap <- conInheritance; sig_decl <- inheritMap) {
+          if(!myMethods.contains(sig_decl._1) && sig_decl._2.modifiers.exists(_.isInstanceOf[JavaAbstract]))
+            throw Error.Error(sig_decl._2.name.lexeme + " is declared abstract but not implemented by non-abstract class "
+              + cd.name.lexeme, "A class that contains (declares or inherits) any abstract methods must be abstract",
+              Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
+        }
+        for(inheritMap <- absInheritance; sig <- inheritMap.keys) {
+          if(!myMethods.contains(sig) && !conInheritance.contains(sig))
             throw Error.Error("class: " + cd.name.lexeme + " does not implement " + sig +
-              " as required by interface " + cd.implementationOf(abstractInheritance.indexOf(inheritMap)).id.lexeme,
+              " as required by interface " + cd.implementationOf(absInheritance.indexOf(inheritMap)).id.lexeme,
               "A class that contains (declares or inherits) any abstract methods must be abstract",
               Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
         }
+      }
     }
 
   }
 
   override def visit(id: InterfaceDecl): Unit = {
-    val abstractInheritance = for(inter <- id.extensionOf) yield getMethodsFromID(inter)
-    val concreteInheritance = checker.objectClass._2
-    commonRules(concreteInheritance, abstractInheritance)
+    val concreteInheritance = List(checker.objectClass._2)
+    commonRules(concreteInheritance, abstractInheritance(id))
   }
 }
