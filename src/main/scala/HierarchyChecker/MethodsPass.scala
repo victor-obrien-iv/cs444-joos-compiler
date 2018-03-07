@@ -38,8 +38,7 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
       abstractInheritence.foldLeft(Iterable[MethodSig]())(_ ++ _.keys)
 
     for(sig <- allMethodSigs) {
-      {
-        // A nonstatic method must not replace a static method
+      { // A nonstatic method must not replace a static method
         val areStatic = (myMethods :: concreteInheritence :: abstractInheritence).collect {
           case map if map.contains(sig) => map(sig).modifiers.exists(_.isInstanceOf[Token.JavaStatic])
         }
@@ -59,22 +58,20 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
           case None => voidSig()
         }
         if(returnTypeSigs.exists(_ != returnTypeSigs.head))
-        throw Error.Error(sig + " => " + returnTypes.mkString(", "),
-        "A class must not declare or inherit two methods with the same signature but different return types",
-              Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
+          throw Error.Error(sig + " => " + returnTypes.mkString(", "),
+          "A class must not declare or inherit two methods with the same signature but different return types",
+                Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
       }
-      {
-        // A protected method must not replace a public method
+      { // A protected method must not replace a public method
         if(myMethods.contains(sig) && myMethods(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected]))
-        (concreteInheritence :: abstractInheritence).foreach { map =>
-          if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
-          throw Error.Error(sig + " => " + map(sig).name.lexeme,
-          "A protected method must not replace a public method",
-              Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
-        }
+          (concreteInheritence :: abstractInheritence).foreach { map =>
+            if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
+            throw Error.Error(sig + " => " + map(sig).name.lexeme,
+            "A protected method must not replace a public method",
+                Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
+          }
       }
-      {
-        // A method must not replace a final method
+      { // A method must not replace a final method
         if(myMethods.contains(sig))
           (concreteInheritence :: abstractInheritence).foreach { map =>
             if(map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaFinal]))
@@ -84,13 +81,13 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
           }
       }
     }
-    {
+    { //A class that contains (declares or inherits) any abstract methods must be abstract
       if(!cd.modifiers.exists(_.isInstanceOf[Token.JavaAbstract]))
         for(inheritMap <- abstractInheritence; sig <- inheritMap.keys) {
-          if(!myMethods.contains(sig))
+          if(!myMethods.contains(sig) && !concreteInheritence.contains(sig))
             throw Error.Error("class: " + cd.name.lexeme + " does not implement " + sig +
               " as required by interface " + cd.implementationOf(abstractInheritence.indexOf(inheritMap)).id.lexeme,
-              "A method must not replace a final method",
+              "A class that contains (declares or inherits) any abstract methods must be abstract",
               Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
         }
     }

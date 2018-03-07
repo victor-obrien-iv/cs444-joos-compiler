@@ -29,7 +29,6 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
           case c: ClassDecl =>
             c.extensionOf match {
               case Some(extend) =>
-                println(unit.name.lexeme + ":" + extend.name)
                 checkIfCyclic(resolve(extend, unit), unit :: visited)
               case None =>
             }
