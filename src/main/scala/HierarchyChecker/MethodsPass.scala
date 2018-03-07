@@ -19,23 +19,30 @@ import scala.language.postfixOps
   */
 class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visitor  {
 
-  private val myMethods: Map[MethodSig, MethodDecl]
-    = checker.declaredMethods(ast.typeDecl)
-  private val myConstructors: Map[ConstructorSig, ConstructorDecl]
-    = checker.declaredConstructors(ast.typeDecl)
+  private val myMethods: Map[MethodSig, MethodDecl] =
+    checker.declaredMethods(ast.typeDecl)
+  private val myConstructors: Map[ConstructorSig, ConstructorDecl] =
+    checker.declaredConstructors(ast.typeDecl)
 
-  def getFromID(id: FullyQualifiedID): (TypeDecl, Map[MethodSig, MethodDecl])
-    = (checker.resolve(id, ast), checker.declaredMethods(checker.resolve(id, ast)))
+  def getFromID(id: FullyQualifiedID): (TypeDecl, Map[MethodSig, MethodDecl]) =
+    (checker.resolve(id, ast), checker.declaredMethods(checker.resolve(id, ast)))
+
+  def getFromID(id: FullyQualifiedID, td: TypeDecl): (TypeDecl, Map[MethodSig, MethodDecl]) =
+    (checker.resolve(id, td), checker.declaredMethods(checker.resolve(id, td)))
 
   def abstractInheritance(cd: ClassDecl): List[Map[MethodSig, MethodDecl]] = {
-    cd.implementationOf.flatMap { fqid =>
-      getFromID(fqid)._2 :: abstractInheritance(getFromID(fqid)._1.asInstanceOf[InterfaceDecl])
+    val fromExtension: List[Map[MethodSig, MethodDecl]] = cd.extensionOf match {
+      case Some(fqid) => abstractInheritance(getFromID(fqid, cd)._1.asInstanceOf[ClassDecl])
+      case None => List[Map[MethodSig, MethodDecl]]()
     }
+    cd.implementationOf.flatMap { fqid =>
+      getFromID(fqid, cd)._2 :: abstractInheritance(getFromID(fqid, cd)._1.asInstanceOf[InterfaceDecl])
+    } ++ fromExtension
   }
 
   def abstractInheritance(id: InterfaceDecl): List[Map[MethodSig, MethodDecl]] = {
     id.extensionOf.flatMap { ex =>
-      getFromID(ex)._2 :: abstractInheritance(getFromID(ex)._1.asInstanceOf[InterfaceDecl])
+      getFromID(ex, id)._2 :: abstractInheritance(getFromID(ex, id)._1.asInstanceOf[InterfaceDecl])
     }
   }
 
@@ -89,6 +96,15 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
                 Error.Type.MethodsPass, loc)
           }
         }
+        else if(concreteInheritance.exists( map =>
+          map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected]))) {
+            abstractInheritance.foreach { map =>
+              if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
+                throw Error.Error(sig + " => " + map(sig).name.lexeme,
+                  "A protected method must not replace a public method",
+                  Error.Type.MethodsPass, loc)
+            }
+        }
       }
       { // A method must not replace a final method
         if(myMethods.contains(sig))
@@ -129,8 +145,8 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
         for(inheritMap <- absInheritance; sig <- inheritMap.keys) {
           val inConInheritance = conInheritance.exists(map => map.contains(sig))
           if(!myMethods.contains(sig) && !inConInheritance)
-            throw Error.Error("class: " + cd.name.lexeme + " does not implement " + sig +
-              " as required by interface " + cd.implementationOf(absInheritance.indexOf(inheritMap)).id.lexeme,
+            throw Error.Error("class: " + cd.name.lexeme + " does not implement " + sig + " as required by interface"
+              /*+ cd.implementationOf(absInheritance.indexOf(inheritMap)).id.lexeme*/,
               "A class that contains (declares or inherits) any abstract methods must be abstract",
               Error.Type.MethodsPass, Some(Error.Location(cd.name.row, cd.name.col, ast.fileName)))
         }

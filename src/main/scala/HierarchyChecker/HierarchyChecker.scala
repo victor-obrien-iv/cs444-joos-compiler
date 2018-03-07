@@ -51,8 +51,8 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   /**
     * @return what this full qualified id, used in this ast, refers to in the hierarchy
     */
-  def resolve(fqid: FullyQualifiedID, ast: CompilationUnit): TypeDecl
-    = resolve(fqid, ast.typeDecl)
+  def resolve(fqid: FullyQualifiedID, ast: CompilationUnit): TypeDecl =
+    resolve(fqid, ast.typeDecl)
   def resolve(fqid: FullyQualifiedID, td: TypeDecl): TypeDecl = {
     def findInPack(name: String, types: List[TypeDecl]): TypeDecl = {
       for(t <- types)
