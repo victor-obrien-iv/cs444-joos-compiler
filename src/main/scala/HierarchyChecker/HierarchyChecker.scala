@@ -67,7 +67,9 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   def makeSig(typ: Type, ast: CompilationUnit): Signature = typ match {
     case ArrayType(arrayOf, _)    => ArraySig(makeSig(arrayOf, ast))
     case PrimitiveType(typeToken) => PrimitiveSig(typeToken.lexeme)
-    case ClassType(typeID)        => ClassSig(resolve(typeID, ast).hashCode())
+    case ClassType(typeID)        =>
+      val td = resolve(typeID, ast)
+      ClassSig(td.name.lexeme + "(id:" + td.hashCode() + ")")
   }
 
   /**
