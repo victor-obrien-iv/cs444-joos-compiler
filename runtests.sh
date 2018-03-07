@@ -55,7 +55,15 @@ done
 
 # if given a single test to run
 if [[ -n "$singletest" ]]; then
-	./joosc $files $libfiles
+	# is this a single file or a directory of them?
+        if [ -d $singletest ]; then
+                files=`find "$singletest" -type f -name '*.java'`
+                echo "./joosc" $files $libfiles
+                ./joosc $files $libfiles
+        else
+                echo "./joosc" $singletest $libfiles
+                ./joosc $singletest $libfiles
+        fi
 	exit
 fi
 
@@ -86,11 +94,11 @@ function runtest {
 	# is this a single file or a directory of them?
 	if [ -d $testpath ]; then
 		files=`find "$testpath" -type f -name '*.java'`
-		echo "./joosc" $testpath $libfiles > $tempfile
-		./joosc $files $libfiles >> $tempfile
+		echo "./joosc" $files $libfiles > $tempfile
+		./joosc $files $libfiles &>> $tempfile
 	else
 		echo "./joosc" $testpath $libfiles > $tempfile
-		./joosc $testpath $libfiles >> $tempfile
+		./joosc $testpath $libfiles &>> $tempfile
 	fi
 	retcode=${PIPESTATUS[0]}
 
