@@ -23,4 +23,8 @@ case class FullyQualifiedID(qualifiers: List[Token.Identifier], id: Token.Identi
     * @return The String representation of the Qualifier e.g. java.util.String
     */
   def name: String = (qualifiers.map(_.lexeme) :+ id.lexeme).mkString(".")
+  /**
+    * @return The String representation of the Qualifier excluding the id e.g. java.util
+    */
+  def pack: String = qualifiers.map(_.lexeme).mkString(".")
 }
