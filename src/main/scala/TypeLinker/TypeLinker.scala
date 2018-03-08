@@ -11,6 +11,7 @@ class TypeLinker(localContext: Map[String, List[TypeDecl]], typeContext: Map[Str
   private def checkType(typeName: FullyQualifiedID): Unit = {
     val packageName = typeName.qualifiers.map(_.lexeme).mkString(".")
 
+    //Simple Type
     if (typeName.qualifiers.isEmpty) {
       if (localContext.contains(typeName.id.lexeme)) {
         if (localContext(typeName.id.lexeme).lengthCompare(1) == 1) {
@@ -22,7 +23,13 @@ class TypeLinker(localContext: Map[String, List[TypeDecl]], typeContext: Map[Str
       } else typeNotFoundError(typeName)
     }
 
+    //Qualified type
     if (typeContext.contains(packageName)) {
+      val head = packageName.split('.').head
+      if (localContext.contains(head)) {
+        throw Error.Error(packageName,
+          s"package $packageName conflicts with class $head", Error.Type.TypeLinking)
+      }
       if (!typeContext(packageName).exists(_.name.lexeme == typeName.id.lexeme)) {
         typeNotFoundError(typeName)
       }
