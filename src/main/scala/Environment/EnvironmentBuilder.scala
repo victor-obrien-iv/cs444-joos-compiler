@@ -134,7 +134,26 @@ class EnvironmentBuilder {
       DeclStmtAugmented(declAugmented, assignmentAugmented, newEnvironment)
     case ExprStmt(expr) => ExprStmtAugmented(build(expr, environment), environment)
     case ReturnStmt(expr) => ReturnStmtAugmented(expr.map(build(_, environment)), environment)
-    case _ =>
+    case IfStmt(condition, thenStmt, elseStmt) =>
+      val conditionAugmented = build(condition, environment)
+      val thenStmtAugmented = build(thenStmt, environment)
+      val elseStmtAugmented = elseStmt.map(build(_, environment))
+      IfStmtAugmented(conditionAugmented, thenStmtAugmented, elseStmtAugmented, environment)
+    case WhileStmt(condition, bodyStmt) =>
+      val conditionAugmented = build(condition, environment)
+      val bodyStmtAugmented = build(bodyStmt, environment)
+      WhileStmtAugmented(conditionAugmented, bodyStmtAugmented, environment)
+    case ForStmt(init, condition, update, bodyStmt) =>
+      val initAugmented = init.map(build(_, environment))
+      val newEnvironment = initAugmented match {
+        case Some(value) => value.environment
+        case None => environment
+      }
+      val conditionAugmented = condition.map(build(_, newEnvironment))
+      val updateAugmented = update.map(build(_, newEnvironment))
+      val stmtAugmented = build(bodyStmt, newEnvironment)
+
+      ForStmtAugmented(initAugmented, conditionAugmented, updateAugmented, stmtAugmented, environment)
   }
 
   private def build(decl: VarDecl, environment: Environment): VarDeclAugmented = {
