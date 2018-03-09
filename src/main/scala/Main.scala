@@ -1,13 +1,13 @@
 
-import AST.{CompilationUnit, TypeDecl}
 import Driver.{CommandLine, Driver}
+import Environment.{Environment, EnvironmentBuilder}
 import Error.ErrorFormatter
-import TypeLinker.{TypeContextBuilder, TypeLinker}
 import HierarchyChecker.HierarchyChecker
+import TypeLinker.{TypeContextBuilder, TypeLinker}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -27,6 +27,7 @@ object Main extends App {
   val commandLine = new CommandLine(args, errorFormatter)
   val driver = new Driver()
   val typeLinker = new TypeContextBuilder
+  val environmentBuilder = new EnvironmentBuilder
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
   val asts = Future.sequence(astFutures.toList)
@@ -34,6 +35,15 @@ object Main extends App {
   val typeContextTry = asts map {
     astList =>
       typeLinker.buildContext(astList)
+  }
+
+  val augmentedAst = asts map { astList =>
+    val typeContext = environmentBuilder.buildContext(astList)
+    val augmentedNodes = astList.map { ast =>
+      environmentBuilder.build(ast, Environment(typeContext))
+    }
+    augmentedNodes foreach environmentBuilder.buildLocalContext
+    augmentedNodes
   }
 
   val linkedAndChecked = typeContextTry.flatMap {

@@ -6,16 +6,146 @@ import scala.collection.mutable
 
 class EnvironmentBuilder {
 
-  def build(unit: CompilationUnit): CompilationUnitAugmented = {
-    CompilationUnitAugmented(unit.fileName, unit.packageName, unit.imports, build(unit.typeDecl))
+  /**
+    * Provides a reference of all qualified types throughout all provided compilation units
+    *
+    * @param units All units found in the system
+    * @return A map of the package name -> all types and their ASTs found in that package
+    */
+  def buildContext(units: List[CompilationUnit]): mutable.Map[String, Option[TypeDeclAugmented]] = {
+    val map = units.groupBy {
+      unit => unit.packageName match {
+        case Some(value) => s"$value.${unit.typeDecl.name.lexeme}"
+        case None => unit.typeDecl.name.lexeme
+      }
+    }.mapValues(_ => None)
+    mutable.Map(map.toSeq: _*)
   }
 
-  private def build(decl: TypeDecl): TypeDeclAugmented = decl match {
-    case c: ClassDecl => build(c)
-    case i: InterfaceDecl => build(i)
+  private def buildLocalContextNames(unit: CompilationUnit,
+                                     environment: Environment): mutable.Map[String, Option[TypeDeclAugmented]] = {
+    val className = unit.typeDecl.name.lexeme
+
+    val defaultPackage = unit.packageName match {
+      case Some(value) => value.name
+      case None => ""
+    }
+
+    val typeCtx = environment.types
+
+    val fullClassName = s"$defaultPackage.$className"
+
+    val wildCards = unit.imports.filter(_.asterisk)
+    val onDemandImports = "java.lang" :: wildCards.map(_.name.name)
+
+    /**
+      * Creates a map of package names all of their member types
+      *
+      * @param packageName Root package
+      * @return
+      */
+    def packageMemberClasses(packageName: String): Map[String, Option[TypeDeclAugmented]] = {
+      typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName).toMap
+    }
+
+    val onDemand = onDemandImports flatMap packageMemberClasses
+
+    val declaredTypes = unit.imports.filterNot(_.asterisk).map {
+      importDecl =>
+        val qualifiedID = importDecl.name
+        (qualifiedID.id.lexeme, typeCtx(qualifiedID.name))
+    }
+
+    val uniqueSingleImportTypes = declaredTypes.toMap
+
+    val singleImportTypes: Map[String, Option[TypeDeclAugmented]] = if (uniqueSingleImportTypes.contains(fullClassName)) {
+      uniqueSingleImportTypes - fullClassName
+    } else {
+      uniqueSingleImportTypes
+    }
+
+    //Wraps default package in the same format as OnDemand and SingleType
+    val defaultPackageClasses: Map[String, Option[TypeDeclAugmented]] = packageMemberClasses(defaultPackage)
+
+    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
+    val allTypes = onDemand.toMap ++ defaultPackageClasses ++ singleImportTypes
+    mutable.Map(allTypes.mapValues(_ => None).toSeq: _*)
   }
 
-  private def build(classDecl: ClassDecl): ClassDeclAugmented = {
+  /**
+    * Provides a reference of simple identifers for types to their TypeDecl
+    *
+    * @param unit The CompilationUnit that we are building a context for
+    * @return An association list of simple types -> the type AST
+    */
+  def buildLocalContext(unit: CompilationUnitAugmented): Unit = {
+
+    val className = unit.typeDecl.name.lexeme
+
+    val defaultPackage = unit.packageName match {
+      case Some(value) => value.name
+      case None => ""
+    }
+
+    val environment = unit.environment
+    val typeCtx = environment.types
+
+    val fullClassName = s"$defaultPackage.$className"
+
+    val wildCards = unit.imports.filter(_.asterisk)
+    val onDemandImports = "java.lang" :: wildCards.map(_.name.name)
+
+    /**
+      * Creates a map of package names all of their member types
+      *
+      * @param packageName Root package
+      * @return
+      */
+    def packageMemberClasses(packageName: String): Map[String, Option[TypeDeclAugmented]] = {
+      typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName).toMap
+    }
+
+    val onDemand = onDemandImports flatMap packageMemberClasses
+
+    val declaredTypes = unit.imports.filterNot(_.asterisk).map {
+      importDecl =>
+        val qualifiedID = importDecl.name
+        (qualifiedID.id.lexeme, typeCtx(qualifiedID.name))
+    }
+
+    val uniqueSingleImportTypes = declaredTypes.toMap
+
+    val singleImportTypes: Map[String, Option[TypeDeclAugmented]] = if (uniqueSingleImportTypes.contains(fullClassName)) {
+      uniqueSingleImportTypes - fullClassName
+    } else {
+      uniqueSingleImportTypes
+    }
+
+    //Wraps default package in the same format as OnDemand and SingleType
+    val defaultPackageClasses: Map[String, Option[TypeDeclAugmented]] = packageMemberClasses(defaultPackage)
+
+    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
+    val allTypes = onDemand.toMap ++ defaultPackageClasses ++ singleImportTypes
+
+    allTypes foreach {
+      case (key, value) =>
+        environment.types(key) = value
+    }
+  }
+
+  def build(unit: CompilationUnit, environment: Environment): CompilationUnitAugmented = {
+    val localContext = buildLocalContextNames(unit, environment)
+    val newEnvironment = environment.copy(types = environment.types ++ localContext)
+    CompilationUnitAugmented(unit.fileName, unit.packageName,
+      unit.imports, build(unit.typeDecl, newEnvironment), newEnvironment)
+  }
+
+  private def build(decl: TypeDecl, environment: Environment): TypeDeclAugmented = decl match {
+    case c: ClassDecl => build(c, environment)
+    case i: InterfaceDecl => build(i, environment)
+  }
+
+  private def build(classDecl: ClassDecl, environment: Environment): ClassDeclAugmented = {
 
     val fieldsAugmented = classDecl.members.filter(_.isInstanceOf[FieldDecl]).map {
       case f: FieldDecl =>
@@ -50,7 +180,7 @@ class EnvironmentBuilder {
       case (header, _) => (header, BlockStmtAugmented(Nil, Environment.empty))
     }
 
-    val environment = Environment(decls, mutable.Map(methodNames: _*), mutable.Map(constructorParams: _*))
+    val environment = Environment(mutable.Map.empty, decls, mutable.Map(methodNames: _*), mutable.Map(constructorParams: _*))
 
     val methodsAugmented = methods.map {
       case (header, body) =>
@@ -72,22 +202,22 @@ class EnvironmentBuilder {
         ConstructorDeclAugmented(header.modifiers, header.identifier, header.parameters, bodyAugmented, environment)
     }
 
-    val members = fieldsAugmented.map(_._2) ++ methodsAugmented
+    val members = fieldsAugmented.map(_._2) ++ methodsAugmented ++ constructorAugmented
 
     ClassDeclAugmented(classDecl.modifiers, classDecl.name, classDecl.id,
       classDecl.extensionOf, classDecl.implementationOf, members, environment)
   }
 
-  private def build(decl: InterfaceDecl): InterfaceDeclAugmented = {
+  private def build(decl: InterfaceDecl, environment: Environment): InterfaceDeclAugmented = {
     val methods: List[(MethodHeader, Option[BlockStmtAugmented])] =
       decl.members.map {
-        case MethodDecl(modifiers, returnType, name, parameters, body) =>
+        case MethodDecl(modifiers, returnType, name, parameters, _) =>
           val returnTypeAugmented = returnType.map(build(_, Environment.empty))
           val parameterDeclAugmented = parameters.map(build(_, Environment.empty))
           (MethodHeader(modifiers, returnTypeAugmented, name, parameterDeclAugmented), None)
       }
 
-    val environment = Environment(Nil, mutable.Map(methods: _*), mutable.Map.empty)
+    val environment = Environment(mutable.Map.empty, Nil, mutable.Map(methods: _*), mutable.Map.empty)
 
     val methodsAugmented = methods.map {
       case (header, body) =>
@@ -100,18 +230,6 @@ class EnvironmentBuilder {
   private def build(parameterDecl: ParameterDecl, environment: Environment): ParameterDeclAugmented = {
     val typeAugmented = build(parameterDecl.typ, environment)
     ParameterDeclAugmented(typeAugmented, parameterDecl.name, environment)
-  }
-
-  private def build(methodDecl: MethodDecl, environment: Environment): MethodDeclAugmented = methodDecl match {
-    case MethodDecl(modifiers, returnType, name, parameters, body) =>
-      val typeAug = returnType.map(build(_, Environment.empty))
-      val parameterDeclAugmented = parameters.map {
-        case ParameterDecl(typ, paramName) =>
-          val parameterTypeAug = build(typ, Environment.empty)
-          ParameterDeclAugmented(parameterTypeAug, paramName, Environment.empty)
-      }
-      val bodyAugmented = body.map(build(_, Environment.empty))
-      MethodDeclAugmented(modifiers, typeAug, name, parameterDeclAugmented, bodyAugmented, Environment.empty)
   }
 
   private def build(blockStmt: BlockStmt, environment: Environment): BlockStmtAugmented = {

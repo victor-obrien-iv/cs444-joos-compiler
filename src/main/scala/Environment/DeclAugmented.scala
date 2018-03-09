@@ -19,7 +19,8 @@ trait DeclAugmented extends AugmentedNode
   * @param typeDecl the type declared in the compilation unit
   */
 case class CompilationUnitAugmented(fileName: String, packageName: Option[FullyQualifiedID],
-                                    imports: List[ImportDecl], typeDecl: TypeDeclAugmented) extends DeclAugmented
+                                    imports: List[ImportDecl], typeDecl: TypeDeclAugmented,
+                                    environment: Environment) extends DeclAugmented
 
 /**
   * Represents a Type
