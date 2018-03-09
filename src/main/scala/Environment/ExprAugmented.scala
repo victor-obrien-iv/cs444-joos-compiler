@@ -14,20 +14,23 @@ sealed trait ExprAugmented extends AugmentedNode
   * @param operatorTok The token denoting the operation
   * @param rhs The right hand side expression
   */
-case class BinaryExprAugmented(lhs: ExprAugmented, operatorTok: Token.Operator, rhs: ExprAugmented) extends ExprAugmented
+case class BinaryExprAugmented(lhs: ExprAugmented, operatorTok: Token.Operator, rhs: ExprAugmented,
+                               environment: Environment) extends ExprAugmented
 
 /**
   * UnaryExpr represents a single operator acting on a right hand side
   * @param operatorTok The token denoting the operation
   * @param rhs The right hand side
   */
-case class UnaryExprAugmented(operatorTok: Token.Operator, rhs: ExprAugmented) extends ExprAugmented
+case class UnaryExprAugmented(operatorTok: Token.Operator, rhs: ExprAugmented,
+                              environment: Environment) extends ExprAugmented
 
 /**
   * ParenExpr represents an expression enclosed in parentheses
   * @param expr The expression with the parentheses
   */
-case class ParenExprAugmented(expr: ExprAugmented) extends ExprAugmented
+case class ParenExprAugmented(expr: ExprAugmented,
+                              environment: Environment) extends ExprAugmented
 /**
   * CallExpr represents a function or method call
   * ex: myClass.myStaticFn(a)
@@ -39,7 +42,8 @@ case class ParenExprAugmented(expr: ExprAugmented) extends ExprAugmented
   * @param call The token that denotes the function to call
   * @param params The parameters for the function call
   */
-case class CallExprAugmented(obj: Option[ExprAugmented], call: Token.Identifier, params: List[ExprAugmented]) extends ExprAugmented
+case class CallExprAugmented(obj: Option[ExprAugmented], call: Token.Identifier, params: List[ExprAugmented],
+                             environment: Environment) extends ExprAugmented
 
 /**
   * ThisExpr represents "this" in the source code
@@ -52,7 +56,8 @@ case class ThisExprAugmented() extends ExprAugmented
   * @param castType The type the rhs is being cast to
   * @param rhs The expression that returns some value to cast
   */
-case class CastExprAugmented(castType: TypeAugmented, rhs: ExprAugmented) extends ExprAugmented
+case class CastExprAugmented(castType: TypeAugmented, rhs: ExprAugmented,
+                             environment: Environment) extends ExprAugmented
 
 /**
   * FieldAccessExpr represents the accessing of a member of some object. This will
@@ -64,7 +69,8 @@ case class CastExprAugmented(castType: TypeAugmented, rhs: ExprAugmented) extend
   * @param lhs An expression that refers an object/class to be accessed
   * @param field An identifier that denotes the name of the member
   */
-case class AccessExprAugmented(lhs: ExprAugmented, field: Token.Identifier) extends ExprAugmented
+case class AccessExprAugmented(lhs: ExprAugmented, field: Token.Identifier,
+                               environment: Environment) extends ExprAugmented
 
 /**
   * ArrayAccessExpr represents the accessing of an element in an array via an index
@@ -74,7 +80,8 @@ case class AccessExprAugmented(lhs: ExprAugmented, field: Token.Identifier) exte
   * @param index an expression that evaluates to a number that will access into
   *              the array produced by the lhs
   */
-case class ArrayAccessExprAugmented(lhs: ExprAugmented, index: ExprAugmented) extends ExprAugmented
+case class ArrayAccessExprAugmented(lhs: ExprAugmented, index: ExprAugmented,
+                                    environment: Environment) extends ExprAugmented
 
 /**
   * ValExpr represents a compile-time known value written in code
@@ -92,7 +99,7 @@ case class ValExprAugmented(value: Token.Literal) extends ExprAugmented
   * ex: myVar
   * @param reference The identifier of the variable being used
   */
-case class DeclRefExprAugmented(reference: Token.Identifier, environment: Environment) extends ExprAugmented
+case class DeclRefExprAugmented(reference: Token.Identifier) extends ExprAugmented
 
 /**
   * InstanceOfExpr represents a use of the 'instanceof' operator.

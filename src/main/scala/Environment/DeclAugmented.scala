@@ -1,7 +1,7 @@
 package Environment
 
-import AST.FullyQualifiedID
-import Token.Identifier
+import AST.{FullyQualifiedID, ImportDecl}
+import Token.{Identifier, Modifier}
 
 trait AugmentedNode
 /**
@@ -19,16 +19,7 @@ trait DeclAugmented extends AugmentedNode
   * @param typeDecl the type declared in the compilation unit
   */
 case class CompilationUnitAugmented(fileName: String, packageName: Option[FullyQualifiedID],
-                                    imports: List[ImportDeclAugmented], typeDecl: TypeDeclAugmented,
-                                    environment: Environment) extends DeclAugmented
-
-/**
-  * ImportDecl represents an 'import' usage in the source code
-  * @param name the identifier for the import
-  * @param asterisk if the import had the asterisk wildcard at the end of it
-  */
-case class ImportDeclAugmented(name: FullyQualifiedID, asterisk : Boolean,
-                               environment: Environment) extends DeclAugmented
+                                    imports: List[ImportDecl], typeDecl: TypeDeclAugmented) extends DeclAugmented
 
 /**
   * Represents a Type
@@ -75,6 +66,8 @@ case class ConstructorDeclAugmented(modifiers: List[Token.Modifier], identifier:
                                     parameters: List[ParameterDeclAugmented], body: BlockStmtAugmented,
                                     environment: Environment) extends DeclAugmented
 
+case class ConstructorHeader(modifiers: List[Modifier], identifier: Identifier,
+                             parameters: List[ParameterDeclAugmented])
 /**
   * FieldDecl represents a variable declaration within a class body
   * ex: class foo { int bar = 5; }
@@ -98,6 +91,9 @@ case class FieldDeclAugmented(modifiers: List[Token.Modifier], typ: TypeAugmente
 case class MethodDeclAugmented(modifiers: List[Token.Modifier], returnType: Option[TypeAugmented],
                                name: Token.Identifier, parameters: List[ParameterDeclAugmented],
                                body: Option[BlockStmtAugmented], environment: Environment) extends DeclAugmented
+
+case class MethodHeader(modifiers: List[Modifier], returnType: Option[TypeAugmented],
+                        name: Identifier, paramters: List[ParameterDeclAugmented])
 
 /**
   * ParameterDecl represents a parameter in a method or constructor

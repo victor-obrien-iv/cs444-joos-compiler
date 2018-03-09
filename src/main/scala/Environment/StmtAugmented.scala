@@ -3,33 +3,35 @@ package Environment
 /**
   * Stmt represents a code statement
   */
-trait StmtAugmented extends AugmentedNode
+trait StmtAugmented extends AugmentedNode {
+  def environment: Environment
+}
 
 /**
   * BlockStmt represents a sequence of statements
   * ex: { s1; s2; }
   * @param stmts The statements in this block
   */
-case class BlockStmtAugmented(stmts: List[StmtAugmented]) extends StmtAugmented
+case class BlockStmtAugmented(stmts: List[StmtAugmented], environment: Environment) extends StmtAugmented
 
 /**
   * DeclStmt represents the declaration of a variable
   * ex: int i;
   * @param decl the declaration
   */
-case class DeclStmtAugmented(decl: VarDeclAugmented, assignment: Option[ExprAugmented]) extends StmtAugmented
+case class DeclStmtAugmented(decl: VarDeclAugmented, assignment: Option[ExprAugmented], environment: Environment) extends StmtAugmented
 
 /**
   * ExprStmt represents the use of an expression as a statement
   * @param expr the expression
   */
-case class ExprStmtAugmented(expr: ExprAugmented) extends StmtAugmented
+case class ExprStmtAugmented(expr: ExprAugmented, environment: Environment) extends StmtAugmented
 
 /**
   * ReturnStmt represents a return statement
   * @param expr the expression to return or None for a void return
   */
-case class ReturnStmtAugmented(expr: Option[ExprAugmented]) extends StmtAugmented
+case class ReturnStmtAugmented(expr: Option[ExprAugmented], environment: Environment) extends StmtAugmented
 
 /**
   * CtrlFlowStmt qualifies statements that involve branching
