@@ -10,7 +10,7 @@ class EnvironmentBuilder {
     CompilationUnitAugmented(unit.fileName, unit.packageName, unit.imports, build(unit.typeDecl))
   }
 
-  private def build(decl: TypeDecl): TypeDeclAugmented = {
+  private def build(decl: TypeDecl): TypeDeclAugmented = decl match {
     case c: ClassDecl => build(c)
     case i: InterfaceDecl => build(i)
   }
@@ -102,7 +102,7 @@ class EnvironmentBuilder {
     ParameterDeclAugmented(typeAugmented, parameterDecl.name, environment)
   }
 
-  private def build(methodDecl: MethodDecl, environment: Environment): MethodDeclAugmented = {
+  private def build(methodDecl: MethodDecl, environment: Environment): MethodDeclAugmented = methodDecl match {
     case MethodDecl(modifiers, returnType, name, parameters, body) =>
       val typeAug = returnType.map(build(_, Environment.empty))
       val parameterDeclAugmented = parameters.map {
@@ -124,7 +124,7 @@ class EnvironmentBuilder {
     BlockStmtAugmented(seqStmts, environment)
   }
 
-  private def build(stmt: Stmt, environment: Environment): StmtAugmented = {
+  private def build(stmt: Stmt, environment: Environment): StmtAugmented = stmt match {
     case bs: BlockStmt => build(bs, environment)
     case DeclStmt(decl, assignment) =>
       val declAugmented = build(decl, environment)
@@ -156,13 +156,13 @@ class EnvironmentBuilder {
       ForStmtAugmented(initAugmented, conditionAugmented, updateAugmented, stmtAugmented, environment)
   }
 
-  private def build(decl: VarDecl, environment: Environment): VarDeclAugmented = {
+  private def build(decl: VarDecl, environment: Environment): VarDeclAugmented = decl match {
     case VarDecl(typ, name) =>
       val typeAugmented = build(typ, environment)
       VarDeclAugmented(typeAugmented, name, environment)
   }
 
-  private def build(expr: Expr, environment: Environment): ExprAugmented = {
+  private def build(expr: Expr, environment: Environment): ExprAugmented = expr match {
     case BinaryExpr(lhs, operatorTok, rhs) =>
       val lhsAug = build(lhs, environment)
       val rhsAug = build(rhs, environment)
@@ -178,7 +178,7 @@ class EnvironmentBuilder {
       val paramsAug = params.map(build(_, environment))
       CallExprAugmented(objAug, call, paramsAug, environment)
     case ThisExpr() =>
-      ThisExprAugmented
+      ThisExprAugmented()
     case CastExpr(castType, rhs) =>
       val rhsAug = build(rhs, environment)
       val castTypeAug = build(castType, environment)
@@ -195,6 +195,7 @@ class EnvironmentBuilder {
     case InstanceOfExpr(lhs, typ) =>
       val lhsAug = build(lhs, environment)
       val typeAug = build(typ, environment)
+      InstanceOfExprAugmented(lhsAug, typeAug, environment)
     case ObjNewExpr(ctor, params) =>
       val paramsAug = params.map(build(_, environment))
       ObjNewExprAugmented(ctor, paramsAug, environment)
@@ -204,7 +205,7 @@ class EnvironmentBuilder {
     case NamedExpr(name) => NamedExprAugmented(name, environment)
   }
 
-  private def build(typ: Type, environment: Environment): TypeAugmented = {
+  private def build(typ: Type, environment: Environment): TypeAugmented = typ match {
     case ArrayType(arrayOf, size) =>
       val expr = size.map(build(_, environment))
       val typ = build(arrayOf, environment)
