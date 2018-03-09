@@ -21,7 +21,7 @@ class EnvironmentBuilder {
       case f: FieldDecl =>
         val expr = f.assignment.map(build(_, Environment.empty))
         val typ = build(f.typ, Environment.empty)
-        (f.name.lexeme, FieldDeclAugmented(f.modifiers, typ, f.name, expr, Environment.empty))
+        ((typ, f.name.lexeme), FieldDeclAugmented(f.modifiers, typ, f.name, expr, Environment.empty))
     }
 
     val decls = fieldsAugmented.map {
@@ -54,9 +54,15 @@ class EnvironmentBuilder {
 
     val methodsAugmented = methods.map {
       case (header, body) =>
-        val bodyAugmented = body.map(build(_, environment))
+        val params = header.parameters.map {
+          parameter => ((parameter.typ, parameter.name.lexeme), None)
+        }
+        val newVars = params ++ environment.variables
+        val newEnvironment = environment.copy(variables = newVars)
+        val bodyAugmented = body.map(build(_, newEnvironment))
         environment.methods(header) = bodyAugmented
-        MethodDeclAugmented(header.modifiers, header.returnType, header.name, header.paramters, bodyAugmented, environment)
+        MethodDeclAugmented(header.modifiers, header.returnType,
+          header.name, header.parameters, bodyAugmented, newEnvironment)
     }
 
     val constructorAugmented = constructors.map {
@@ -85,7 +91,7 @@ class EnvironmentBuilder {
 
     val methodsAugmented = methods.map {
       case (header, body) =>
-        MethodDeclAugmented(header.modifiers, header.returnType, header.name, header.paramters, body, environment)
+        MethodDeclAugmented(header.modifiers, header.returnType, header.name, header.parameters, body, environment)
     }
 
     InterfaceDeclAugmented(decl.modifiers, decl.name, decl.id, decl.extensionOf, methodsAugmented, environment)
@@ -123,7 +129,7 @@ class EnvironmentBuilder {
     case DeclStmt(decl, assignment) =>
       val declAugmented = build(decl, environment)
       val assignmentAugmented = assignment.map(build(_, environment))
-      val newBindings = (decl.name.lexeme, assignmentAugmented) :: environment.variables
+      val newBindings = ((declAugmented.typ, decl.name.lexeme), assignmentAugmented) :: environment.variables
       val newEnvironment = environment.copy(variables = newBindings)
       DeclStmtAugmented(declAugmented, assignmentAugmented, newEnvironment)
     case ExprStmt(expr) => ExprStmtAugmented(build(expr, environment), environment)

@@ -93,7 +93,7 @@ case class MethodDeclAugmented(modifiers: List[Token.Modifier], returnType: Opti
                                body: Option[BlockStmtAugmented], environment: Environment) extends DeclAugmented
 
 case class MethodHeader(modifiers: List[Modifier], returnType: Option[TypeAugmented],
-                        name: Identifier, paramters: List[ParameterDeclAugmented])
+                        name: Identifier, parameters: List[ParameterDeclAugmented])
 
 /**
   * ParameterDecl represents a parameter in a method or constructor
