@@ -1,143 +1,17 @@
 package Environment
 
 import AST._
+import TypeLinker.TypeContextBuilder
 
 import scala.collection.mutable
 
 class EnvironmentBuilder {
 
-  /**
-    * Provides a reference of all qualified types throughout all provided compilation units
-    *
-    * @param units All units found in the system
-    * @return A map of the package name -> all types and their ASTs found in that package
-    */
-  def buildContext(units: List[CompilationUnit]): mutable.Map[String, Option[TypeDeclAugmented]] = {
-    val map = units.groupBy {
-      unit => unit.packageName match {
-        case Some(value) => s"$value.${unit.typeDecl.name.lexeme}"
-        case None => unit.typeDecl.name.lexeme
-      }
-    }.mapValues(_ => None)
-    mutable.Map(map.toSeq: _*)
-  }
-
-  private def buildLocalContextNames(unit: CompilationUnit,
-                                     environment: Environment): mutable.Map[String, Option[TypeDeclAugmented]] = {
-    val className = unit.typeDecl.name.lexeme
-
-    val defaultPackage = unit.packageName match {
-      case Some(value) => value.name
-      case None => ""
-    }
-
-    val typeCtx = environment.types
-
-    val fullClassName = s"$defaultPackage.$className"
-
-    val wildCards = unit.imports.filter(_.asterisk)
-    val onDemandImports = "java.lang" :: wildCards.map(_.name.name)
-
-    /**
-      * Creates a map of package names all of their member types
-      *
-      * @param packageName Root package
-      * @return
-      */
-    def packageMemberClasses(packageName: String): Map[String, Option[TypeDeclAugmented]] = {
-      typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName).toMap
-    }
-
-    val onDemand = onDemandImports flatMap packageMemberClasses
-
-    val declaredTypes = unit.imports.filterNot(_.asterisk).map {
-      importDecl =>
-        val qualifiedID = importDecl.name
-        (qualifiedID.id.lexeme, typeCtx(qualifiedID.name))
-    }
-
-    val uniqueSingleImportTypes = declaredTypes.toMap
-
-    val singleImportTypes: Map[String, Option[TypeDeclAugmented]] = if (uniqueSingleImportTypes.contains(fullClassName)) {
-      uniqueSingleImportTypes - fullClassName
-    } else {
-      uniqueSingleImportTypes
-    }
-
-    //Wraps default package in the same format as OnDemand and SingleType
-    val defaultPackageClasses: Map[String, Option[TypeDeclAugmented]] = packageMemberClasses(defaultPackage)
-
-    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
-    val allTypes = onDemand.toMap ++ defaultPackageClasses ++ singleImportTypes
-    mutable.Map(allTypes.mapValues(_ => None).toSeq: _*)
-  }
-
-  /**
-    * Provides a reference of simple identifers for types to their TypeDecl
-    *
-    * @param unit The CompilationUnit that we are building a context for
-    * @return An association list of simple types -> the type AST
-    */
-  def buildLocalContext(unit: CompilationUnitAugmented): Unit = {
-
-    val className = unit.typeDecl.name.lexeme
-
-    val defaultPackage = unit.packageName match {
-      case Some(value) => value.name
-      case None => ""
-    }
-
-    val environment = unit.environment
-    val typeCtx = environment.types
-
-    val fullClassName = s"$defaultPackage.$className"
-
-    val wildCards = unit.imports.filter(_.asterisk)
-    val onDemandImports = "java.lang" :: wildCards.map(_.name.name)
-
-    /**
-      * Creates a map of package names all of their member types
-      *
-      * @param packageName Root package
-      * @return
-      */
-    def packageMemberClasses(packageName: String): Map[String, Option[TypeDeclAugmented]] = {
-      typeCtx.filterKeys(p => p.startsWith(packageName + ".") || p == packageName).toMap
-    }
-
-    val onDemand = onDemandImports flatMap packageMemberClasses
-
-    val declaredTypes = unit.imports.filterNot(_.asterisk).map {
-      importDecl =>
-        val qualifiedID = importDecl.name
-        (qualifiedID.id.lexeme, typeCtx(qualifiedID.name))
-    }
-
-    val uniqueSingleImportTypes = declaredTypes.toMap
-
-    val singleImportTypes: Map[String, Option[TypeDeclAugmented]] = if (uniqueSingleImportTypes.contains(fullClassName)) {
-      uniqueSingleImportTypes - fullClassName
-    } else {
-      uniqueSingleImportTypes
-    }
-
-    //Wraps default package in the same format as OnDemand and SingleType
-    val defaultPackageClasses: Map[String, Option[TypeDeclAugmented]] = packageMemberClasses(defaultPackage)
-
-    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
-    val allTypes = onDemand.toMap ++ defaultPackageClasses ++ singleImportTypes
-
-    allTypes foreach {
-      case (key, value) =>
-        environment.types(key) = value
-    }
-  }
-
   def build(unit: CompilationUnit, environment: Environment): CompilationUnitAugmented = {
-    val localContext = buildLocalContextNames(unit, environment)
-    val newEnvironment = environment.copy(types = environment.types ++ localContext)
+    val typeAugmented = build(unit.typeDecl, environment)
+
     CompilationUnitAugmented(unit.fileName, unit.packageName,
-      unit.imports, build(unit.typeDecl, newEnvironment), newEnvironment)
+      unit.imports, typeAugmented, environment)
   }
 
   private def build(decl: TypeDecl, environment: Environment): TypeDeclAugmented = decl match {
@@ -180,7 +54,7 @@ class EnvironmentBuilder {
       case (header, _) => (header, BlockStmtAugmented(Nil, Environment.empty))
     }
 
-    val environment = Environment(mutable.Map.empty, decls, mutable.Map(methodNames: _*), mutable.Map(constructorParams: _*))
+    val environment = Environment(Map.empty, decls, mutable.Map(methodNames: _*), mutable.Map(constructorParams: _*))
 
     val methodsAugmented = methods.map {
       case (header, body) =>
@@ -217,7 +91,7 @@ class EnvironmentBuilder {
           (MethodHeader(modifiers, returnTypeAugmented, name, parameterDeclAugmented), None)
       }
 
-    val environment = Environment(mutable.Map.empty, Nil, mutable.Map(methods: _*), mutable.Map.empty)
+    val environment = Environment(Map.empty, Nil, mutable.Map(methods: _*), mutable.Map.empty)
 
     val methodsAugmented = methods.map {
       case (header, body) =>

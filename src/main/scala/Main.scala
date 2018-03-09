@@ -37,13 +37,15 @@ object Main extends App {
       typeLinker.buildContext(astList)
   }
 
-  val augmentedAst = asts map { astList =>
-    val typeContext = environmentBuilder.buildContext(astList)
-    val augmentedNodes = astList.map { ast =>
-      environmentBuilder.build(ast, Environment(typeContext))
+  val augmentedAst = for {
+    context <- typeContextTry
+    astList <- asts
+  } yield {
+    astList.map { ast =>
+      val localContext = typeLinker.buildLocalContext(ast, context)
+      val environment = Environment(context ++ localContext)
+      environmentBuilder.build(ast, environment)
     }
-    augmentedNodes foreach environmentBuilder.buildLocalContext
-    augmentedNodes
   }
 
   val linkedAndChecked = typeContextTry.flatMap {
@@ -74,7 +76,21 @@ object Main extends App {
       }
   }
 
-  val done = linkedAndChecked andThen {
+  val createdAst = for {
+    augmentedNode <- augmentedAst
+    checker <- linkedAndChecked
+  } yield {
+    augmentedNode.foreach {
+      ast =>
+        ast.environment.types.foreach {
+          case (key, value) =>
+            val typeAugmented = value.map(_.name.lexeme)
+            println(s"$key: $value")
+        }
+    }
+  }
+
+  val done = createdAst andThen {
     case Failure(exception) => exception match {
       case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
