@@ -47,11 +47,8 @@ object Main extends App {
           linker.run(ast)
         }
 
-        //     Map[CompilationUnit, Map[String, List[TypeDecl]]]
-        // ==> Map[CompilationUnit, Map[String, TypeDecl]]
         val localContextsTrimmed = localContexts.map { name => name._1 -> name._2.map { decl => decl._1 -> decl._2.head }}
         val checker = new HierarchyChecker(localContextsTrimmed, typeContext)
-
         val hierarchyCycles = checker.checkForCycles()
         val checkers = futures.flatMap {
           ast => checker.check(ast)
@@ -59,9 +56,10 @@ object Main extends App {
         val hierarchy = hierarchyCycles :: checkers
 
         val staticAnalysis = futures.flatMap { ast =>
-          val reachable = new ReturnsPass(ast.fileName).run(ast)
+          val returns = new ReturnsPass(ast.fileName).run(ast)
           val initialized = new InitializationPass(ast.fileName).run(ast)
-          List(reachable, initialized)
+          val folds = new ConditionFoldingPass(ast.fileName).run(ast)
+          List(returns, initialized, folds)
         }
 
         Future.sequence(linkers ++ hierarchy ++ staticAnalysis)
