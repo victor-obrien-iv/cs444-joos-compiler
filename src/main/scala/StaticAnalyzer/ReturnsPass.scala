@@ -2,7 +2,7 @@ package StaticAnalyzer
 
 import AST._
 
-class ReachabilityPass(fileName: String) extends Visitor {
+class ReturnsPass(fileName: String) extends Visitor {
   case class UnreachableCodeException() extends Exception
 
   override def visit(md: MethodDecl): Unit = md.body match {
@@ -63,7 +63,8 @@ class ReachabilityPass(fileName: String) extends Visitor {
 
   def returns(cfs: CtrlFlowStmt): Boolean = cfs match {
     case is: IfStmt => returns(is)
-    case ls: LoopStmt => returns(ls.bodyStmt)
+    case fs: ForStmt => returns(fs.bodyStmt)
+    case ws: WhileStmt => returns(ws.bodyStmt)
   }
 
   def returns(is: IfStmt): Boolean = {

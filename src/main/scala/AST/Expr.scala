@@ -1,5 +1,7 @@
 package AST
 
+import Token._
+
 /**
   * An Expr is an expression statement that returns
   * some value or is void
@@ -123,3 +125,149 @@ case class ArrayNewExpr(arrayType: ArrayType) extends NewExpr
   * @param name The name of the field
   */
 case class NamedExpr(name: FullyQualifiedID) extends Expr
+
+object Expr {
+  case class CouldNotFold(expr: Expr) extends Exception
+
+  /**
+    * @return true if e is a constant expression that evaluates to true,
+    *         false if e is a constant expression that evaluates to false,
+    *         None if e is not a constant expression that evaluates to a boolean
+    */
+  def tryFoldBoolean(expr: Expr): Option[Boolean] = {
+    try Some(getAsBoolean(expr))
+    catch {
+      case _: CouldNotFold => None
+      case _: ArithmeticException => None
+    }
+  }
+
+  def tryFoldInteger(expr: Expr): Option[Int] = {
+    try Some(getAsNumber(expr))
+    catch {
+      case _: CouldNotFold => None
+      case _: ArithmeticException => None
+    }
+  }
+
+  def getAsBoolean(expr: Expr): Boolean = expr match {
+    case BinaryExpr(lhs, operatorTok, rhs) => operatorTok match {
+      case _: GT =>
+        getAsNumber(lhs) > getAsNumber(rhs)
+      case _: LT =>
+        getAsNumber(lhs) < getAsNumber(rhs)
+      case _: EQ =>
+        try getAsNumber(lhs) == getAsNumber(rhs)
+        catch {
+          case _: CouldNotFold =>
+            getAsBoolean(lhs) == getAsBoolean(rhs)
+        }
+      case _: GE =>
+        getAsNumber(lhs) >= getAsNumber(rhs)
+      case _: LE =>
+        getAsNumber(lhs) <= getAsNumber(rhs)
+      case _: NE =>
+        try getAsNumber(lhs) != getAsNumber(rhs)
+        catch {
+          case _: CouldNotFold =>
+            getAsBoolean(lhs) != getAsBoolean(rhs)
+        }
+      case _: AmpAmp =>
+        getAsBoolean(lhs) && getAsBoolean(rhs)
+      case _: BarBar =>
+        getAsBoolean(lhs) || getAsBoolean(rhs)
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case UnaryExpr(operatorTok, rhs) => operatorTok match {
+      case _: Bang =>
+        !getAsBoolean(rhs)
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case ParenExpr(innerExpr) =>
+      getAsBoolean(innerExpr)
+    case CastExpr(castType, rhs) => castType match {
+      case PrimitiveType(typeToken) => typeToken match {
+        case _: JavaBoolean =>
+          getAsBoolean(rhs)
+        case _ =>
+          throw CouldNotFold(expr)
+      }
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case ValExpr(value) => value match {
+      case BooleanLiteral(_, _, boolean) =>
+        boolean
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case _ =>
+      throw CouldNotFold(expr)
+  }
+
+  def getAsNumber(expr: Expr): Int = expr match {
+    case BinaryExpr(lhs, operatorTok, rhs) =>
+      val leftNum = getAsNumber(lhs)
+      val rightNum = getAsNumber(rhs)
+      operatorTok match {
+        case _: Amp =>
+          leftNum & rightNum
+        case _: Bar =>
+          leftNum | rightNum
+        case _: Plus =>
+          leftNum + rightNum
+        case _: Minus =>
+          leftNum - rightNum
+        case _: Star =>
+          leftNum * rightNum
+        case _: Slash =>
+          leftNum / rightNum
+        case _: Percent =>
+          leftNum % rightNum
+        case _ =>
+          throw CouldNotFold(expr)
+      }
+    case UnaryExpr(operatorTok, rhs) => operatorTok match {
+      case _: Minus => rhs match {
+        case literal: IntegerLiteral if !literal.value.isValidInt =>
+          Integer.MIN_VALUE // handle -2,147,483,647 edge case
+        case _ =>
+          0 - getAsNumber(rhs)
+      }
+      case _ => throw CouldNotFold(expr)
+    }
+    case ParenExpr(innerExpr) =>
+      getAsNumber(innerExpr)
+    case CastExpr(castType, rhs) => castType match {
+      case PrimitiveType(typeToken) =>
+        val rightNum = getAsNumber(rhs)
+        typeToken match {
+          case _: JavaByte =>
+            rightNum.toByte
+          case _: JavaChar =>
+            rightNum.toChar
+          case _: JavaShort =>
+            rightNum.toShort
+          case _: JavaInt =>
+            rightNum
+          case _ =>
+            throw CouldNotFold(expr)
+        }
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case ValExpr(value) => value match {
+      case IntegerLiteral(_, _, _, int) =>
+        assert(int.isValidInt, "Integer literal too big")
+        int.toInt
+      case CharacterLiteral(_, _, _, char) =>
+        char.toInt
+      case _ =>
+        throw CouldNotFold(expr)
+    }
+    case _ =>
+      throw CouldNotFold(expr)
+  }
+}

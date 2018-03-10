@@ -59,7 +59,7 @@ object Main extends App {
         val hierarchy = hierarchyCycles :: checkers
 
         val staticAnalysis = futures.flatMap { ast =>
-          val reachable = new ReachabilityPass(ast.fileName).run(ast)
+          val reachable = new ReturnsPass(ast.fileName).run(ast)
           val initialized = new InitializationPass(ast.fileName).run(ast)
           List(reachable, initialized)
         }
