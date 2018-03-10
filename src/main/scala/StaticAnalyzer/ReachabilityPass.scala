@@ -9,7 +9,7 @@ class ReachabilityPass(fileName: String) extends Visitor {
     case Some(body) =>
       def err(msg: String) =
         throw Error.Error(md.name.lexeme, msg,
-          Error.Type.ReachabilityPass, Some(Error.Location(md.name.row, md.name.col, fileName)))
+          Error.Type.StaticAnalysis, Some(Error.Location(md.name.row, md.name.col, fileName)))
 
       try
         if(!returns(body) && md.returnType.isDefined)
@@ -27,7 +27,7 @@ class ReachabilityPass(fileName: String) extends Visitor {
     catch {
       case _: UnreachableCodeException =>
         throw Error.Error(cd.identifier.lexeme, "Unreachable code found in constructor declaration",
-          Error.Type.ReachabilityPass, Some(Error.Location(cd.identifier.row, cd.identifier.col, fileName)))
+          Error.Type.StaticAnalysis, Some(Error.Location(cd.identifier.row, cd.identifier.col, fileName)))
     }
   }
 
