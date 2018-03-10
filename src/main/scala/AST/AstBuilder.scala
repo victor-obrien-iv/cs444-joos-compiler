@@ -239,7 +239,6 @@ class AstBuilder(filename: String) {
   }
 
   private def buildExpr(node: TreeNode): Expr = {
-//    println(node)
     node match {
       case TreeNode(Left(value), _) if value.isInstanceOf[Identifier] =>
         DeclRefExpr(value.asInstanceOf[Identifier])
@@ -269,10 +268,11 @@ class AstBuilder(filename: String) {
             } else {
               children(1).children.head.state.left.get.asInstanceOf[Operator]
             }
-            BinaryExpr(buildExpr(children.head),
-              operator,
-              buildExpr(children(2))
-            )
+            operator match {
+              case io: JavaInstanceof => InstanceOfExpr(buildExpr(children.head), buildType(children(2)))
+              case _ => BinaryExpr(buildExpr(children.head), operator, buildExpr(children(2)))
+            }
+
           case 4 =>
             CastExpr(buildCastType(node.children(1)), buildExpr(node.children(3)))
           case _ => throw AstError(node)

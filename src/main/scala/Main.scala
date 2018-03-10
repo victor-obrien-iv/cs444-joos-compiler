@@ -80,14 +80,7 @@ object Main extends App {
     augmentedNode <- augmentedAst
     checker <- linkedAndChecked
   } yield {
-    augmentedNode.foreach {
-      ast =>
-        ast.environment.types.foreach {
-          case (key, value) =>
-            val typeAugmented = value.map(_.name.lexeme)
-            println(s"$key: $value")
-        }
-    }
+    augmentedNode
   }
 
   val done = createdAst andThen {
