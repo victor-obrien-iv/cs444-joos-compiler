@@ -29,7 +29,7 @@ class EnvironmentBuilder {
     }
 
     val decls = fieldsAugmented.map {
-      case (key, value) => (key, value.assignment)
+      case (key, value) => (key._2, (key._1, value.assignment))
     }
 
     val methods: List[(MethodHeader, Option[BlockStmt])] =
@@ -54,32 +54,39 @@ class EnvironmentBuilder {
       case (header, _) => (header, BlockStmtAugmented(Nil, Environment.empty))
     }
 
-    val environment = Environment(Map.empty, decls, mutable.Map(methodNames: _*), mutable.Map(constructorParams: _*))
+    val fromTypesEnvironment = environment.copy(variables = decls.toMap,
+      methods = mutable.Map(methodNames: _*),
+      constructors = mutable.Map(constructorParams: _*))
 
     val methodsAugmented = methods.map {
       case (header, body) =>
         val params = header.parameters.map {
-          parameter => ((parameter.typ, parameter.name.lexeme), None)
+          parameter => (parameter.name.lexeme, (parameter.typ, None))
         }
-        val newVars = params ++ environment.variables
-        val newEnvironment = environment.copy(variables = newVars)
+        val newVars = fromTypesEnvironment.variables ++ params.toMap
+        val newEnvironment = fromTypesEnvironment.copy(variables = newVars)
         val bodyAugmented = body.map(build(_, newEnvironment))
-        environment.methods(header) = bodyAugmented
+        fromTypesEnvironment.methods(header) = bodyAugmented
         MethodDeclAugmented(header.modifiers, header.returnType,
           header.name, header.parameters, bodyAugmented, newEnvironment)
     }
 
     val constructorAugmented = constructors.map {
       case (header, body) =>
-        val bodyAugmented = build(body, environment)
-        environment.constructors(header) = bodyAugmented
-        ConstructorDeclAugmented(header.modifiers, header.identifier, header.parameters, bodyAugmented, environment)
+        val params = header.parameters.map {
+          parameter => (parameter.name.lexeme, (parameter.typ, None))
+        }
+        val newVars = fromTypesEnvironment.variables ++ params.toMap
+        val newEnvironment = fromTypesEnvironment.copy(variables = newVars)
+        val bodyAugmented = build(body, newEnvironment)
+        fromTypesEnvironment.constructors(header) = bodyAugmented
+        ConstructorDeclAugmented(header.modifiers, header.identifier, header.parameters, bodyAugmented, newEnvironment)
     }
 
     val members = fieldsAugmented.map(_._2) ++ methodsAugmented ++ constructorAugmented
 
     ClassDeclAugmented(classDecl.modifiers, classDecl.name, classDecl.id,
-      classDecl.extensionOf, classDecl.implementationOf, members, environment)
+      classDecl.extensionOf, classDecl.implementationOf, members, fromTypesEnvironment)
   }
 
   private def build(decl: InterfaceDecl, environment: Environment): InterfaceDeclAugmented = {
@@ -91,7 +98,7 @@ class EnvironmentBuilder {
           (MethodHeader(modifiers, returnTypeAugmented, name, parameterDeclAugmented), None)
       }
 
-    val environment = Environment(Map.empty, Nil, mutable.Map(methods: _*), mutable.Map.empty)
+    val environment = Environment(Map.empty, Map.empty, mutable.Map(methods: _*), mutable.Map.empty)
 
     val methodsAugmented = methods.map {
       case (header, body) =>
@@ -121,7 +128,7 @@ class EnvironmentBuilder {
     case DeclStmt(decl, assignment) =>
       val declAugmented = build(decl, environment)
       val assignmentAugmented = assignment.map(build(_, environment))
-      val newBindings = ((declAugmented.typ, decl.name.lexeme), assignmentAugmented) :: environment.variables
+      val newBindings = environment.variables + (decl.name.lexeme -> (declAugmented.typ, assignmentAugmented))
       val newEnvironment = environment.copy(variables = newBindings)
       DeclStmtAugmented(declAugmented, assignmentAugmented, newEnvironment)
     case ExprStmt(expr) => ExprStmtAugmented(build(expr, environment), environment)

@@ -1,4 +1,5 @@
 
+import Disambiguator.Disambiguator
 import Driver.{CommandLine, Driver}
 import Environment.{Environment, EnvironmentBuilder}
 import Error.ErrorFormatter
@@ -28,6 +29,7 @@ object Main extends App {
   val driver = new Driver()
   val typeLinker = new TypeContextBuilder
   val environmentBuilder = new EnvironmentBuilder
+  val disambiguator = new Disambiguator
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
   val asts = Future.sequence(astFutures.toList)
@@ -37,7 +39,7 @@ object Main extends App {
       typeLinker.buildContext(astList)
   }
 
-  val augmentedAst = for {
+  val augmentedAsts = for {
     context <- typeContextTry
     astList <- asts
   } yield {
@@ -76,14 +78,20 @@ object Main extends App {
       }
   }
 
-  val createdAst = for {
-    augmentedNode <- augmentedAst
+  val createdAsts = for {
+    augmentedNode <- augmentedAsts
     checker <- linkedAndChecked
   } yield {
     augmentedNode
   }
 
-  val done = createdAst andThen {
+  val nameCheck = createdAsts map {
+    asts =>
+      val checkers = asts map disambiguator.visit
+      checkers
+  }
+
+  val done = nameCheck andThen {
     case Failure(exception) => exception match {
       case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()

@@ -1,5 +1,7 @@
 package AST
 
+import Token.Identifier
+
 /**
   * AstNode represents a node in the abstract syntax tree.
   * This is the base class for Stmt, Decl and Type, and it
@@ -27,4 +29,17 @@ case class FullyQualifiedID(qualifiers: List[Token.Identifier], id: Token.Identi
     * @return The String representation of the Qualifier excluding the id e.g. java.util
     */
   def pack: String = qualifiers.map(_.lexeme).mkString(".")
+}
+
+object FullyQualifiedID {
+  def apply(qualifiers: List[Identifier], id: Identifier): FullyQualifiedID = new FullyQualifiedID(qualifiers, id)
+
+  /**
+    * Builds a new FullyQualifedId from the list of qualifiers
+    *
+    * @param qualifiers Previous list in a FullyQualifiedId
+    * @return A new FullyQualifiedId
+    */
+  def apply(qualifiers: List[Identifier]): FullyQualifiedID =
+    new FullyQualifiedID(qualifiers.dropRight(1), qualifiers.last)
 }
