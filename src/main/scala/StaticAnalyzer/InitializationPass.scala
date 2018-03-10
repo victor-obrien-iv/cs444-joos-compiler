@@ -5,7 +5,7 @@ import AST._
 
 import scala.collection.mutable
 
-class InitializationBeforeUsePass(fileName: String) extends Visitor {
+class InitializationPass(fileName: String) extends Visitor {
 
   val declaredButNotInitialized: mutable.Set[String] = mutable.Set()
 

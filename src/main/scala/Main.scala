@@ -2,7 +2,7 @@ import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
 import HierarchyChecker.HierarchyChecker
-import StaticAnalyzer.ReachabilityPass
+import StaticAnalyzer._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -60,7 +60,8 @@ object Main extends App {
 
         val staticAnalysis = futures.flatMap { ast =>
           val reachable = new ReachabilityPass(ast.fileName).run(ast)
-          List(reachable)
+          val initialized = new InitializationPass(ast.fileName).run(ast)
+          List(reachable, initialized)
         }
 
         Future.sequence(linkers ++ hierarchy ++ staticAnalysis)
