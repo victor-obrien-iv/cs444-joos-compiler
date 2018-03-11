@@ -1,9 +1,10 @@
 package Environment
 
 import AST._
+import Token.JavaStatic
 import TypeLinker.TypeContextBuilder
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 
 class EnvironmentBuilder {
 
@@ -21,44 +22,63 @@ class EnvironmentBuilder {
 
   private def build(classDecl: ClassDecl, environment: Environment): ClassDeclAugmented = {
 
-    val fieldsAugmented = classDecl.members.filter(_.isInstanceOf[FieldDecl]).map {
-      case f: FieldDecl =>
-        val expr = f.assignment.map(build(_, Environment.empty))
-        val typ = build(f.typ, Environment.empty)
-        ((typ, f.name.lexeme), FieldDeclAugmented(f.modifiers, typ, f.name, expr, Environment.empty))
+    val (fields, methods, constructors) = (
+      classDecl.members.collect{case field: FieldDecl => field},
+      classDecl.members.collect{case method: MethodDecl => method},
+      classDecl.members.collect{case ctor: ConstructorDecl => ctor}
+    )
+
+    val (staticFields, nonStaticFields) = fields.partition {
+      field =>
+        field.modifiers.exists(_.isInstanceOf[JavaStatic])
     }
 
-    val decls = fieldsAugmented.map {
-      case (key, value) => (key._2, (key._1, value.assignment))
+    val staticFieldsAugmented = build(staticFields, environment)
+    val staticEnv = staticFieldsAugmented match {
+      case Nil => environment
+      case _ => staticFieldsAugmented.last.environment
     }
 
-    val methods: List[(MethodHeader, Option[BlockStmt])] =
-      classDecl.members.filter(_.isInstanceOf[MethodDecl]).map {
+    val staticEnvWithThis = staticEnv.copy(types = staticEnv.types + ("this" -> List(classDecl)))
+    val nonStaticFieldsAugmented = build(nonStaticFields, staticEnv)
+
+    val fieldsAugmented = staticFieldsAugmented ++ nonStaticFieldsAugmented
+
+    val fieldBindings = fieldsAugmented.map {
+      field =>
+        (field.name.lexeme, (field.typ, field.assignment))
+    }
+
+    val methodBindings: List[(MethodHeader, Option[BlockStmt])] =
+      methods.map {
         case MethodDecl(modifiers, returnType, name, parameters, body) =>
           val returnTypeAugmented = returnType.map(build(_, Environment.empty))
           val parameterDeclAugmented = parameters.map(build(_, Environment.empty))
           (MethodHeader(modifiers, returnTypeAugmented, name, parameterDeclAugmented), body)
       }
 
-    val methodNames = methods.map {
+    val methodNames = methodBindings.map {
       case (header, _) => (header, None)
     }
 
-    val constructors = classDecl.members.filter(_.isInstanceOf[ConstructorDecl]).map {
+    val constructorSplit = constructors.map {
       case ConstructorDecl(modifiers, identifier, parameters, body) =>
         val parameterDeclAugmented = parameters.map(build(_, Environment.empty))
         (ConstructorHeader(modifiers, identifier, parameterDeclAugmented), body)
     }
 
-    val constructorParams: List[(ConstructorHeader, BlockStmtAugmented)] = constructors.map {
+    val constructorParams: List[(ConstructorHeader, BlockStmtAugmented)] = constructorSplit.map {
       case (header, _) => (header, BlockStmtAugmented(Nil, Environment.empty))
     }
 
-    val fromTypesEnvironment = environment.copy(variables = decls.toMap,
-      methods = mutable.Map(methodNames: _*),
-      constructors = mutable.Map(constructorParams: _*))
+    val fromTypesEnvironment = Environment(
+      environment.types,
+      fieldBindings.toMap,
+      mutable.Map(methodNames: _*),
+      mutable.Map(constructorParams: _*)
+    )
 
-    val methodsAugmented = methods.map {
+    val methodsAugmented = methodBindings.map {
       case (header, body) =>
         val params = header.parameters.map {
           parameter => (parameter.name.lexeme, (parameter.typ, None))
@@ -71,7 +91,7 @@ class EnvironmentBuilder {
           header.name, header.parameters, bodyAugmented, newEnvironment)
     }
 
-    val constructorAugmented = constructors.map {
+    val constructorAugmented = constructorSplit.map {
       case (header, body) =>
         val params = header.parameters.map {
           parameter => (parameter.name.lexeme, (parameter.typ, None))
@@ -83,10 +103,28 @@ class EnvironmentBuilder {
         ConstructorDeclAugmented(header.modifiers, header.identifier, header.parameters, bodyAugmented, newEnvironment)
     }
 
-    val members = fieldsAugmented.map(_._2) ++ methodsAugmented ++ constructorAugmented
+    val members = fieldsAugmented ++ methodsAugmented ++ constructorAugmented
 
     ClassDeclAugmented(classDecl.modifiers, classDecl.name, classDecl.id,
       classDecl.extensionOf, classDecl.implementationOf, members, fromTypesEnvironment)
+  }
+
+  private def build(staticFields: List[FieldDecl], environment: Environment): List[FieldDeclAugmented] = {
+    staticFields.foldLeft(List.empty[FieldDeclAugmented]) {
+      case (list, field) =>
+        val oldEnv = list match {
+          case Nil => environment
+          case _ => list.last.environment
+        }
+        val exprAugmented = field.assignment map {
+          build(_, oldEnv)
+        }
+        val newType = build(field.typ, oldEnv)
+        val binding = field.name.lexeme -> (newType, exprAugmented)
+        val newEnv = environment.copy(variables = oldEnv.variables + binding)
+        val fieldAugmented = FieldDeclAugmented(field.modifiers, newType, field.name, exprAugmented, newEnv)
+        list :+ fieldAugmented
+    }
   }
 
   private def build(decl: InterfaceDecl, environment: Environment): InterfaceDeclAugmented = {

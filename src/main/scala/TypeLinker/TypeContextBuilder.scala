@@ -144,7 +144,7 @@ class TypeContextBuilder {
       case (name, decls) => (name.split('.').last, decls.map(_._2))
     }
 
-    typeNames + ("this" -> List(unit.typeDecl))
+    typeNames
   }
 
   /**
