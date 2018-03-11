@@ -16,6 +16,10 @@ class InitializationPass(fileName: String) extends Visitor {
       declaredButNotInitialized -= ds.decl.name.lexeme
   }
 
+  override def visit(t: Type): Unit = {
+    // stop types from being visited as type names may overlap with variable names
+  }
+
   override def visit(dre: DeclRefExpr): Unit = {
     if(declaredButNotInitialized.contains(dre.reference.lexeme))
       throw Error.Error(dre.reference.lexeme, "Local variable used before assignment",
