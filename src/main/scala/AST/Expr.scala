@@ -130,9 +130,9 @@ object Expr {
   case class CouldNotFold(expr: Expr) extends Exception
 
   /**
-    * @return true if e is a constant expression that evaluates to true,
-    *         false if e is a constant expression that evaluates to false,
-    *         None if e is not a constant expression that evaluates to a boolean
+    * @return true if expr is a constant expression that evaluates to true,
+    *         false if expr is a constant expression that evaluates to false,
+    *         None if expr is not a constant expression that evaluates to a boolean
     */
   def tryFoldBoolean(expr: Expr): Option[Boolean] = {
     try Some(getAsBoolean(expr))
@@ -142,6 +142,10 @@ object Expr {
     }
   }
 
+  /**
+    * @return the integer value that the expression evaluates to or None if the
+    *         expression can not be folded into an integer
+    */
   def tryFoldInteger(expr: Expr): Option[Int] = {
     try Some(getAsNumber(expr))
     catch {

@@ -56,10 +56,10 @@ object Main extends App {
         val hierarchy = hierarchyCycles :: checkers
 
         val staticAnalysis = futures.flatMap { ast =>
-          val returns = new ReturnsPass(ast.fileName).run(ast)
-          val initialized = new InitializationPass(ast.fileName).run(ast)
-          val folds = new ConditionFoldingPass(ast.fileName).run(ast)
-          List(returns, initialized, folds)
+          List(
+            new ReturnsPass(ast.fileName).run(ast),
+            new InitializationPass(ast.fileName).run(ast)
+          )
         }
 
         Future.sequence(linkers ++ hierarchy ++ staticAnalysis)

@@ -63,8 +63,7 @@ class ReturnsPass(fileName: String) extends Visitor {
 
   def returns(cfs: CtrlFlowStmt): Boolean = cfs match {
     case is: IfStmt => returns(is)
-    case fs: ForStmt => returns(fs.bodyStmt)
-    case ws: WhileStmt => returns(ws.bodyStmt)
+    case ls: LoopStmt => returns(ls)
   }
 
   def returns(is: IfStmt): Boolean = {
@@ -74,6 +73,24 @@ class ReturnsPass(fileName: String) extends Visitor {
       case None => false
     }
     thenReturns && elseReturns
+  }
+
+  def returns(ls: LoopStmt): Boolean = {
+    val hasConstCondition = ls match {
+      case ForStmt(_, condition, _, _) => condition match {
+        case Some(expr) => Expr.tryFoldBoolean(expr)
+        case None => Some(true) // if a for loop has an empty condition, it always evaluates to true
+      }
+      case WhileStmt(condition, _) => Expr.tryFoldBoolean(condition)
+    }
+
+    hasConstCondition match {
+      case Some(evaluatesTo) =>
+        if(!evaluatesTo) throw UnreachableCodeException()
+        true
+      case None =>
+        false
+    }
   }
 
 }
