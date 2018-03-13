@@ -1,7 +1,7 @@
 package AST
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 abstract class Visitor {
   def visit(n: AstNode): Unit = n match {
@@ -235,7 +235,7 @@ abstract class Visitor {
   def visit(fqid: FullyQualifiedID): Unit = {
   }
 
-  def run(cu: CompilationUnit)(implicit executionContext: ExecutionContext): Future[Unit] = {
+  def run(cu: CompilationUnit): Future[Unit] = {
     Future(visit(cu))
   }
 }

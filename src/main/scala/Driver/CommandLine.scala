@@ -8,11 +8,6 @@ class CommandLine(line: Array[String], errorFormatter: ErrorFormatter){
   val flags: Set[String] = line.filter(validFlags.contains).toSet
 
   try {
-    for( str <- line )
-      if ( !(flags ++ files.toSet).contains(str) )
-        throw Error.Error( str,
-          "Unrecognized command line input", Error.Type.CommandLine )
-
     if ( files.isEmpty )
       throw Error.Error( "", "No .java file specified", Error.Type.CommandLine )
   }
