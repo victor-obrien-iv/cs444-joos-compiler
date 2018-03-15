@@ -1,7 +1,7 @@
 
 import Disambiguator.Disambiguator
 import Driver.{CommandLine, Driver}
-import Environment.{Environment, EnvironmentBuilder}
+import Environment.Environment
 import Error.ErrorFormatter
 import HierarchyChecker.HierarchyChecker
 import TypeLinker.{TypeContextBuilder, TypeLinker}
@@ -28,7 +28,6 @@ object Main extends App {
   val commandLine = new CommandLine(args, errorFormatter)
   val driver = new Driver()
   val typeLinker = new TypeContextBuilder
-  val environmentBuilder = new EnvironmentBuilder
   val disambiguator = new Disambiguator
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
@@ -39,16 +38,6 @@ object Main extends App {
       typeLinker.buildContext(astList)
   }
 
-  val augmentedAsts = for {
-    context <- typeContextTry
-    astList <- asts
-  } yield {
-    astList.map { ast =>
-      val localContext = typeLinker.buildLocalContext(ast, context)
-      val environment = Environment(context ++ localContext)
-      environmentBuilder.build(ast, environment)
-    }
-  }
 
   val linkedAndChecked = typeContextTry.flatMap {
     typeContext =>
@@ -78,17 +67,17 @@ object Main extends App {
       }
   }
 
-  val createdAsts = for {
-    augmentedNode <- augmentedAsts
-    checker <- linkedAndChecked
-  } yield {
-    augmentedNode
-  }
 
-  val nameCheck = createdAsts map {
-    asts =>
-      val checkers = asts map disambiguator.visit
-      checkers
+  val nameCheck = for {
+    typeContext <- typeContextTry
+    checked <- linkedAndChecked
+    astList <- asts
+  } yield {
+    astList.map { ast =>
+      val localContext = typeLinker.buildLocalContext(ast, typeContext)
+      val environment = Environment(typeContext, localContext)
+      disambiguator.visit(ast, environment)
+    }
   }
 
   val done = nameCheck andThen {

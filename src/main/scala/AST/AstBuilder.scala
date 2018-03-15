@@ -109,7 +109,7 @@ class AstBuilder(filename: String) {
     InterfaceDecl(modifiers, identifier, filename.hashCode, superInterfaces, bodyDecls)
   }
 
-  private def buildInterfaceBody(node: TreeNode): List[Decl] = {
+  private def buildInterfaceBody(node: TreeNode): List[MemberDecl] = {
     if (node.children.nonEmpty) {
       //InterfaceBodyDeclarations InterfaceBodyDeclarations InterfaceBodyDeclaration
       if (node.children(1).children.lengthCompare(2) == 0) {
@@ -170,7 +170,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildClassBody(node: TreeNode): List[Decl] = {
+  private def buildClassBody(node: TreeNode): List[MemberDecl] = {
     if (node.children.nonEmpty) {
       buildClassBody(node.children.head) :+ buildBodyDeclaration(node.children(1))
     } else {
@@ -178,7 +178,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildBodyDeclaration(node: TreeNode): Decl = {
+  private def buildBodyDeclaration(node: TreeNode): MemberDecl = {
     val head = node.children.head
     head match {
       case TreeNode(Right("ConstructorDeclaration"), _) =>

@@ -1,6 +1,7 @@
 package AST
 
 import Token.Identifier
+import scala.language.implicitConversions
 
 /**
   * AstNode represents a node in the abstract syntax tree.
@@ -42,4 +43,6 @@ object FullyQualifiedID {
     */
   def apply(qualifiers: List[Identifier]): FullyQualifiedID =
     new FullyQualifiedID(qualifiers.dropRight(1), qualifiers.last)
+
+  implicit def toName(id: FullyQualifiedID): String = id.name
 }

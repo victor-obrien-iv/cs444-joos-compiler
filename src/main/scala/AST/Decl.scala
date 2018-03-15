@@ -1,6 +1,6 @@
 package AST
 
-import Token.Identifier
+import Token.{Identifier, Modifier}
 
 /**
   * Decl represents a declaration
@@ -43,8 +43,7 @@ sealed trait TypeDecl extends Decl {
   * @param extensionOf the identifiers of the interfaces this interface extends
   * @param members the field and method declarations in this interface's body
   */
-case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier, id: Int,
-                         extensionOf: List[FullyQualifiedID], members: List[Decl]) extends TypeDecl
+case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl
 
 /**
   * ClassDecl represents a class declaration
@@ -55,9 +54,13 @@ case class InterfaceDecl(modifiers: List[Token.Modifier], name: Token.Identifier
   * @param implementationOf the identifiers of the interfaces this class implements
   * @param members the field, method and constructor declarations in this class' body
   */
-case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, id: Int,
-                     extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID],
-                     members: List[Decl]) extends TypeDecl
+case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl
+
+sealed trait MemberDecl extends Decl {
+
+  def modifiers: List[Modifier]
+
+}
 
 /**
   * ConstructorDecl represents a class constructor method in a class or interface body
@@ -66,7 +69,15 @@ case class ClassDecl(modifiers: List[Token.Modifier], name: Token.Identifier, id
   * @param body the code body of this constructor that contains statements
   */
 case class ConstructorDecl(modifiers: List[Token.Modifier], identifier: Identifier,
-                           parameters: List[ParameterDecl], body: BlockStmt) extends Decl
+                           parameters: List[ParameterDecl], body: BlockStmt) extends MemberDecl
+
+/**
+  * Provides a key to find the constructor for overloading
+  *
+  * @param identifier The identifier of the contructor i.e. the class
+  * @param parameters The parameters the constructor takes
+  */
+case class ConstructorHeader(identifier: Identifier, parameters: List[ParameterDecl])
 
 /**
   * FieldDecl represents a variable declaration within a class body
@@ -77,7 +88,7 @@ case class ConstructorDecl(modifiers: List[Token.Modifier], identifier: Identifi
   * @param assignment an assignment expression to assign to
   */
 case class FieldDecl(modifiers: List[Token.Modifier], typ: Type, name: Token.Identifier,
-                     assignment: Option[Expr]) extends Decl
+                     assignment: Option[Expr]) extends MemberDecl
 
 /**
   * MethodDecl represents a method declaration
@@ -89,7 +100,15 @@ case class FieldDecl(modifiers: List[Token.Modifier], typ: Type, name: Token.Ide
   * @param body the statements in this method
   */
 case class MethodDecl(modifiers: List[Token.Modifier], returnType: Option[Type],
-                      name: Token.Identifier, parameters: List[ParameterDecl], body: Option[BlockStmt]) extends Decl
+                      name: Token.Identifier, parameters: List[ParameterDecl], body: Option[BlockStmt]) extends MemberDecl
+
+/**
+  * Provides a key to compare methods for overloading
+  *
+  * @param name The name of the method
+  * @param parameters The paramters of the method
+  */
+case class MethodHeader(name: Identifier, parameters: List[ParameterDecl])
 
 /**
   * ParameterDecl represents a parameter in a method or constructor

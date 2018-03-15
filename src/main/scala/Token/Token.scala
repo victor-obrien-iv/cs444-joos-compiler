@@ -17,6 +17,9 @@ sealed trait Token {
     case _: StringLiteral => "StringLiteral"
     case _: Token => this.lexeme
   }
+
+  override def equals(obj: scala.Any): Boolean = super.equals(obj)
+  def equals(token: Token): Boolean = lexeme.equals(token.lexeme)
 }
 
 case class Bof(lexeme: String = "BOF", row: Int = 0, col: Int = 0) extends Token
