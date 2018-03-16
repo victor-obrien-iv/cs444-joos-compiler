@@ -32,7 +32,7 @@ case class ImportDecl(name: FullyQualifiedID, asterisk : Boolean) extends Decl
 sealed trait TypeDecl extends Decl {
   def modifiers: List[Token.Modifier]
   def name: Token.Identifier
-  def members: List[Decl]
+  def members: List[MemberDecl]
   def id: Int
 }
 /**
@@ -59,6 +59,7 @@ case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, exten
 sealed trait MemberDecl extends Decl {
 
   def modifiers: List[Modifier]
+  def name: Identifier
 
 }
 
@@ -69,7 +70,9 @@ sealed trait MemberDecl extends Decl {
   * @param body the code body of this constructor that contains statements
   */
 case class ConstructorDecl(modifiers: List[Token.Modifier], identifier: Identifier,
-                           parameters: List[ParameterDecl], body: BlockStmt) extends MemberDecl
+                           parameters: List[ParameterDecl], body: BlockStmt) extends MemberDecl {
+  def name: Identifier = identifier
+}
 
 /**
   * Provides a key to find the constructor for overloading

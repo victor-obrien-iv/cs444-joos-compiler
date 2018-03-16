@@ -15,6 +15,7 @@ case class Environment(qualifiedTypes: Map[String, List[TypeDecl]] = Map.empty,
                        types: Map[String, List[TypeDecl]] = Map.empty,
                        variables: Map[String, (Type, Option[Expr])] = Map.empty,
                        staticVars: Map[String, (Type, Option[Expr])] = Map.empty,
+                       seenFields: Map[String, (Type, Option[Expr])] = Map.empty,
                        methods: Map[MethodHeader, (Option[Type], Option[BlockStmt])] = Map.empty,
                        constructors: Map[ConstructorHeader, BlockStmt] = Map.empty) {
 
@@ -56,6 +57,19 @@ case class Environment(qualifiedTypes: Map[String, List[TypeDecl]] = Map.empty,
 
   def findVar(str: String): (Type, Option[Expr]) = {
     variables(str)
+  }
+
+  def ++(environment: Environment): Environment = {
+
+    Environment(
+      qualifiedTypes ++ environment.qualifiedTypes,
+      types ++ environment.types,
+      variables ++ environment.variables,
+      staticVars ++ environment.staticVars,
+      seenFields ++ environment.seenFields,
+      methods ++ environment.methods,
+      constructors ++ environment.constructors
+    )
   }
 }
 

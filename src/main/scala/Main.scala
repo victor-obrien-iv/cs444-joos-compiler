@@ -73,7 +73,7 @@ object Main extends App {
     checked <- linkedAndChecked
     astList <- asts
   } yield {
-    astList.map { ast =>
+    astList.foreach { ast =>
       val localContext = typeLinker.buildLocalContext(ast, typeContext)
       val environment = Environment(typeContext, localContext)
       disambiguator.visit(ast, environment)

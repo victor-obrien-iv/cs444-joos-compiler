@@ -7,10 +7,11 @@ import Token.JavaStatic
 abstract class AugmentedVisitor {
 
   def visit(decl: Decl, environment: Environment): Environment = decl match {
-    case CompilationUnit(fileName, packageName, imports, typeDecl) =>
-      val typeEnv = visit(typeDecl, environment)
-      typeDecl.members map (visit(_, typeEnv))
-      typeEnv
+//    case CompilationUnit(fileName, packageName, imports, typeDecl) =>
+//      val thisEnv = environment.copy(types = environment.types + ("this" -> List(typeDecl)))
+//      val typeEnv = visit(typeDecl, thisEnv)
+//      typeDecl.members map (visit(_, typeEnv))
+//      typeEnv
 
     case ConstructorDecl(modifiers, identifier, parameters, body) =>
       val header = ConstructorHeader(identifier, parameters)
@@ -18,11 +19,11 @@ abstract class AugmentedVisitor {
       environment.copy(constructors = newConstructors)
 
     case FieldDecl(modifiers, typ, name, assignment) =>
-//      assignment.map(visit(_, environment))
-      val newVariables = environment.variables + (name.lexeme -> (typ, assignment))
       if (modifiers.exists(_.isInstanceOf[JavaStatic])) {
+        val newVariables = environment.staticVars + (name.lexeme -> (typ, assignment))
         environment.copy(staticVars = newVariables)
       } else {
+        val newVariables = environment.variables + (name.lexeme -> (typ, assignment))
         environment.copy(variables = newVariables)
       }
 
@@ -32,7 +33,6 @@ abstract class AugmentedVisitor {
         case (oldEnv, parameter) =>
           visit(parameter, oldEnv)
       }
-      val bodyEnv = body.map(visit(_, parametersEnv))
       val newMethods = environment.methods + (header -> (returnType, body))
       environment.copy(methods = newMethods)
 
@@ -44,16 +44,49 @@ abstract class AugmentedVisitor {
     case _ => environment
   }
 
+  def visit(compilationUnit: CompilationUnit, environment: Environment): Unit = compilationUnit match {
+    case CompilationUnit(fileName, packageName, imports, typeDecl) =>
+      val thisEnv = environment.copy(types = environment.types + ("this" -> List(typeDecl)))
+      val typeEnv = visit(typeDecl, thisEnv)
+      visitInner(typeDecl.members, typeEnv)
+  }
+
+  private def visitInner(memberDecls: List[MemberDecl], environment: Environment): Unit = {
+    memberDecls.foldLeft(environment){
+      case (oldEnv, decl) =>
+        decl match {
+          case FieldDecl(modifiers, typ, name, assignment) =>
+            assignment.map(visit(_, oldEnv))
+            if (modifiers.exists(_.isInstanceOf[JavaStatic])) {
+              val newVariables = oldEnv.staticVars + (name.lexeme -> (typ, assignment))
+              oldEnv.copy(seenFields = oldEnv.seenFields ++ newVariables)
+            } else {
+              val newVariables = oldEnv.variables + (name.lexeme -> (typ, assignment))
+              oldEnv.copy(seenFields = oldEnv.seenFields ++ newVariables)
+            }
+
+          case MethodDecl(modifiers, returnType, name, parameters, body) =>
+            val header = MethodHeader(name, parameters)
+            val parametersEnv = parameters.foldLeft(oldEnv) {
+              case (parEnv, parameter) =>
+                visit(parameter, parEnv)
+            }
+            body.map(visit(_, parametersEnv))
+            oldEnv
+
+          case _ => oldEnv
+        }
+    }
+  }
+
   protected def visit(typeDecl: TypeDecl, environment: Environment): Environment = typeDecl match {
     case InterfaceDecl(modifiers, name, id, extensionOf, members) =>
-      val superClassEnv = extensionOf.foldLeft(environment) {
-        case (superEnvs, interface) =>
-          visit(superEnvs.types(interface.name).head, superEnvs)
-      }
+      val superClassEnv = visitInterfaces(extensionOf, environment)
 
       val methods = typeDecl.members map {
         case MethodDecl(_, returnType, methodName, parameters, body) =>
           MethodHeader(methodName, parameters) -> (returnType, body)
+        case _ => throw Error.Error.undefinedMatch
       }
 
       environment.copy(methods = methods.toMap)
@@ -67,18 +100,37 @@ abstract class AugmentedVisitor {
         visit(superClass, environment)
       }
 
-      visit(members, typeDecl, superClassEnv)
+      val interfaceEnv = visitInterfaces(implementationOf, environment)
+
+      visit(members, interfaceEnv ++ superClassEnv)
   }
 
-  protected def visit(members: List[MemberDecl], classDecl: TypeDecl, environment: Environment): Environment = {
-    val (fields, methods) = members.partition(_.isInstanceOf[FieldDecl])
-    val (staticFields, nonStaticFields) = fields.partition(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-
-    val methodEnv = visitMethods(methods, environment)
-
-    val staticEnv = visit(staticFields, methodEnv)
-    visit(nonStaticFields, staticEnv)
+  protected def visitInterfaces(extensionOf: List[FullyQualifiedID], environment: Environment): Environment = {
+    if (extensionOf.isEmpty) {
+      environment
+    } else {
+      extensionOf.foldLeft(environment) {
+        case (superEnvs, interface) =>
+          visit(superEnvs.types(interface.name).head, superEnvs)
+      }
+    }
   }
+
+//  protected def visitOuter(typeDecl: TypeDecl, environment: Environment): Environment = typeDecl match {
+//    case i: InterfaceDecl => visit(i, environment)
+//    case ClassDecl(_, name, _, extensionOf, implementationOf, members) =>
+//      val superClassEnv = if (name.lexeme == "Object") environment else {
+//        val superClass = extensionOf match {
+//          case Some(value) => environment.findType(value)
+//          case None => environment.findType("Object")
+//        }
+//        visitOuter(superClass, environment)
+//      }
+//
+//      val interfaceEnv = visitInterfaces(implementationOf, environment)
+//
+//      visit(members, superClassEnv ++ interfaceEnv)
+//  }
 
   protected def visit(decls: List[Decl], environment: Environment): Environment = {
     decls.foldLeft(environment) {
@@ -92,11 +144,13 @@ abstract class AugmentedVisitor {
     val methodMap = memberMethods map {
       case MethodDecl(_, returnType, methodName, parameters, body) =>
         MethodHeader(methodName, parameters) -> (returnType, body)
+      case _ => throw Error.Error.undefinedMatch
     }
     
     val constructorMap = constructorDecls map {
       case ConstructorDecl(modifiers, className, parameters, body) =>
         ConstructorHeader(className, parameters) -> body
+      case _ => throw Error.Error.undefinedMatch
     }
 
     environment.copy(methods = methodMap.toMap, constructors = constructorMap.toMap)
