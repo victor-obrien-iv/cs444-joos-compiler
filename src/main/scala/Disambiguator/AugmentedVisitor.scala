@@ -7,11 +7,6 @@ import Token.JavaStatic
 abstract class AugmentedVisitor {
 
   def visit(decl: Decl, environment: Environment): Environment = decl match {
-//    case CompilationUnit(fileName, packageName, imports, typeDecl) =>
-//      val thisEnv = environment.copy(types = environment.types + ("this" -> List(typeDecl)))
-//      val typeEnv = visit(typeDecl, thisEnv)
-//      typeDecl.members map (visit(_, typeEnv))
-//      typeEnv
 
     case ConstructorDecl(modifiers, identifier, parameters, body) =>
       val header = ConstructorHeader(identifier, parameters)
@@ -23,7 +18,7 @@ abstract class AugmentedVisitor {
         val newVariables = environment.staticFields + (name.lexeme -> (typ, assignment))
         environment.copy(staticFields = newVariables)
       } else {
-        val newVariables = environment.variables + (name.lexeme -> (typ, assignment))
+        val newVariables = environment.fields + (name.lexeme -> (typ, assignment))
         environment.copy(fields = newVariables)
       }
 
@@ -126,22 +121,6 @@ abstract class AugmentedVisitor {
       }
     }
   }
-
-//  protected def visitOuter(typeDecl: TypeDecl, environment: Environment): Environment = typeDecl match {
-//    case i: InterfaceDecl => visit(i, environment)
-//    case ClassDecl(_, name, _, extensionOf, implementationOf, members) =>
-//      val superClassEnv = if (name.lexeme == "Object") environment else {
-//        val superClass = extensionOf match {
-//          case Some(value) => environment.findType(value)
-//          case None => environment.findType("Object")
-//        }
-//        visitOuter(superClass, environment)
-//      }
-//
-//      val interfaceEnv = visitInterfaces(implementationOf, environment)
-//
-//      visit(members, superClassEnv ++ interfaceEnv)
-//  }
 
   protected def visit(decls: List[Decl], environment: Environment): Environment = {
     decls.foldLeft(environment) {
