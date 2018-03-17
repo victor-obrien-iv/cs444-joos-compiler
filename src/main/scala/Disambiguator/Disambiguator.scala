@@ -2,11 +2,14 @@ package Disambiguator
 import AST._
 import Environment._
 import Error.Error
-import Token.JavaStatic
+import Token.{Becomes, JavaStatic}
 
 class Disambiguator extends AugmentedVisitor {
 
   protected override def visit(expr: Expr, environment: Environment): Environment = expr match {
+    case BinaryExpr(lhs, operatorTok, rhs) if operatorTok.isInstanceOf[Becomes] =>
+      visit(lhs, environment.copy(variables = environment.variables ++ environment.allFields))
+      visit(rhs, environment)
     case NamedExpr(name) =>
       findName(name, environment)
       environment
@@ -18,7 +21,7 @@ class Disambiguator extends AugmentedVisitor {
     if (id.qualifiers.isEmpty) {
       if (environment.variables.contains(id.id.lexeme)) {
         ExprName(id)
-      } else if (environment.staticVars.contains(id.id.lexeme)) {
+      } else if (environment.staticFields.contains(id.id.lexeme)) {
         ExprName(id)
       } else if (environment.types.contains(id.id.lexeme)) {
         if (environment.types(id.id.lexeme).lengthCompare(1) != 0) {
@@ -51,7 +54,7 @@ class Disambiguator extends AugmentedVisitor {
         case TypeName(typeId, typeDecl) =>
           val typeEnv = visit(typeDecl, environment)
 
-          if (typeEnv.staticVars.contains(id.id.lexeme)) {
+          if (typeEnv.staticFields.contains(id.id.lexeme)) {
             ExprName(id)
           } else {
             throw Error.memberNotFound(typeId, id.id)

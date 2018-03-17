@@ -20,11 +20,11 @@ abstract class AugmentedVisitor {
 
     case FieldDecl(modifiers, typ, name, assignment) =>
       if (modifiers.exists(_.isInstanceOf[JavaStatic])) {
-        val newVariables = environment.staticVars + (name.lexeme -> (typ, assignment))
-        environment.copy(staticVars = newVariables)
+        val newVariables = environment.staticFields + (name.lexeme -> (typ, assignment))
+        environment.copy(staticFields = newVariables)
       } else {
         val newVariables = environment.variables + (name.lexeme -> (typ, assignment))
-        environment.copy(variables = newVariables)
+        environment.copy(fields = newVariables)
       }
 
     case MethodDecl(modifiers, returnType, name, parameters, body) =>
@@ -51,27 +51,38 @@ abstract class AugmentedVisitor {
       visitInner(typeDecl.members, typeEnv)
   }
 
-  private def visitInner(memberDecls: List[MemberDecl], environment: Environment): Unit = {
+  protected def visitInner(memberDecls: List[MemberDecl], environment: Environment): Unit = {
+
+    val (staticMembers, nonStaticMembers) = memberDecls.partition(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
+
+    val staticEnv = visitMembers(staticMembers, environment)
+    val nonStaticEnv = visitMembers(nonStaticMembers, staticEnv)
+  }
+
+  protected def visitMembers(memberDecls: List[MemberDecl], environment: Environment): Environment = {
     memberDecls.foldLeft(environment){
       case (oldEnv, decl) =>
         decl match {
-          case FieldDecl(modifiers, typ, name, assignment) =>
-            assignment.map(visit(_, oldEnv))
-            if (modifiers.exists(_.isInstanceOf[JavaStatic])) {
-              val newVariables = oldEnv.staticVars + (name.lexeme -> (typ, assignment))
-              oldEnv.copy(seenFields = oldEnv.seenFields ++ newVariables)
-            } else {
-              val newVariables = oldEnv.variables + (name.lexeme -> (typ, assignment))
-              oldEnv.copy(seenFields = oldEnv.seenFields ++ newVariables)
-            }
-
-          case MethodDecl(modifiers, returnType, name, parameters, body) =>
-            val header = MethodHeader(name, parameters)
-            val parametersEnv = parameters.foldLeft(oldEnv) {
+          case ConstructorDecl(modifiers, name, parameters, body) =>
+            val parametersEnv = parameters.foldLeft(environment) {
               case (parEnv, parameter) =>
                 visit(parameter, parEnv)
             }
-            body.map(visit(_, parametersEnv))
+            visit(body, parametersEnv.copy(variables = environment.fields ++ parametersEnv.variables))
+            oldEnv
+
+          case FieldDecl(modifiers, typ, name, assignment) =>
+            assignment.map(visit(_, oldEnv))
+
+            val newVariables = oldEnv.variables + (name.lexeme -> (typ, assignment))
+            oldEnv.copy(variables = oldEnv.variables ++ newVariables)
+
+          case MethodDecl(modifiers, returnType, name, parameters, body) =>
+            val parametersEnv = parameters.foldLeft(environment) {
+              case (parEnv, parameter) =>
+                visit(parameter, parEnv)
+            }
+            body.map(visit(_, parametersEnv.copy(variables = environment.fields ++ parametersEnv.variables)))
             oldEnv
 
           case _ => oldEnv

@@ -76,13 +76,14 @@ object Main extends App {
     astList.foreach { ast =>
       val localContext = typeLinker.buildLocalContext(ast, typeContext)
       val environment = Environment(typeContext, localContext)
+      println(ast.fileName)
       disambiguator.visit(ast, environment)
     }
   }
 
   val done = nameCheck andThen {
     case Failure(exception) => exception match {
-      case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+      case e: Error.Error => println(errorFormatter.format(e)); e.printStackTrace(); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
     }
     case Success(_) => CleanExit()
