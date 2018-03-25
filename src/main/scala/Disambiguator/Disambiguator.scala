@@ -4,18 +4,54 @@ import Environment._
 import Error.Error
 import Token.{Becomes, JavaStatic}
 
-class Disambiguator extends AugmentedVisitor {
+class Disambiguator(environment: Environment) extends EnvironmentBuilder[Unit](environment) {
 
-  protected override def visit(expr: Expr, environment: Environment): Environment = expr match {
-    case BinaryExpr(lhs, operatorTok, rhs) if operatorTok.isInstanceOf[Becomes] =>
-      visit(lhs, environment.copy(variables = environment.variables ++ environment.allFields))
-      visit(rhs, environment)
-    case NamedExpr(name) =>
-      findName(name, environment)
-      environment
-    case CallExpr(obj, call, params) => environment
-    case e => super.visit(e, environment)
+  override def build(typeDecl: TypeDecl, environment: Environment): Unit = typeDecl match {
+    case InterfaceDecl(modifiers, name, id, extensionOf, members) =>
+    case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members) =>
+      val (fields, methods, ctors) = partitionMembers(members)
+      val (staticFields, nonStaticFields) = fields.partition(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
   }
+
+  private def partitionMembers(decls: List[MemberDecl]): (List[FieldDecl], List[MethodDecl], List[ConstructorDecl]) =
+    decls.foldRight((List.empty[FieldDecl], List.empty[MethodDecl], List.empty[ConstructorDecl])) {
+      case (fieldDecl: FieldDecl, (fields, methods, ctors)) => (fieldDecl :: fields, methods, ctors)
+      case (methodDecl: MethodDecl, (fields, methods, ctors)) => (fields, methodDecl :: methods, ctors)
+      case (ctorDecl: ConstructorDecl, (fields, methods, ctors)) => (fields, methods, ctorDecl :: ctors)
+  }
+
+  private def buildFields(fields: List[FieldDecl], typeDecl: TypeDecl, scope: List[VarDecl]): List[VarDecl] = {
+    fields.foldLeft(scope) {
+      case (vars, field) =>
+        field.assignment.map(build(_, typeDecl, vars))
+        VarDecl(field.typ, field.name)::vars
+    }
+  }
+
+  private def buildField(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl]): Unit = expr match {
+    case BinaryExpr(lhs, operatorTok, rhs) if operatorTok.isInstanceOf[Becomes] =>
+      val (fields, _, _) = partitionMembers(typeDecl.members)
+      build(lhs, )
+      build(rhs, typeDecl, scope)
+    case _ => build(expr, typeDecl, scope)
+  }
+
+  protected override def build(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl]): Environment = expr match {
+    case BinaryExpr(lhs, operatorTok, rhs) =>
+    case UnaryExpr(operatorTok, rhs) =>
+    case ParenExpr(expr) =>
+    case CallExpr(obj, call, params) =>
+    case ThisExpr() =>
+    case CastExpr(castType, rhs) =>
+    case AccessExpr(lhs, field) =>
+    case ArrayAccessExpr(lhs, index) =>
+    case ValExpr(value) =>
+    case DeclRefExpr(reference) =>
+    case InstanceOfExpr(lhs, typ) =>
+    case _: NewExpr =>
+    case NamedExpr(name) =>
+  }
+
 
   private def findName(id: FullyQualifiedID, environment: Environment): Name = {
     if (id.qualifiers.isEmpty) {
@@ -52,7 +88,7 @@ class Disambiguator extends AugmentedVisitor {
         case ExprName(exprId) =>
           ExprName(exprId)
         case TypeName(typeId, typeDecl) =>
-          val typeEnv = visit(typeDecl, environment)
+          val typeEnv = build(typeDecl, environment)
 
           if (typeEnv.staticFields.contains(id.id.lexeme)) {
             ExprName(id)

@@ -33,8 +33,6 @@ case class FullyQualifiedID(qualifiers: List[Token.Identifier], id: Token.Identi
 }
 
 object FullyQualifiedID {
-  def apply(qualifiers: List[Identifier], id: Identifier): FullyQualifiedID = new FullyQualifiedID(qualifiers, id)
-
   /**
     * Builds a new FullyQualifedId from the list of qualifiers
     *
@@ -42,7 +40,25 @@ object FullyQualifiedID {
     * @return A new FullyQualifiedId
     */
   def apply(qualifiers: List[Identifier]): FullyQualifiedID =
-    new FullyQualifiedID(qualifiers.dropRight(1), qualifiers.last)
+    FullyQualifiedID(qualifiers.dropRight(1), qualifiers.last)
+
+  /**
+    * Builds a FullyQualifiedId from a single identifier
+    * @param id the identifier
+    * @return A new FullyQualifiedId
+    */
+  def apply(id: Identifier): FullyQualifiedID = FullyQualifiedID(Nil, id)
+
+  /**
+    * Builds a FullyQualifiedId from a string
+    * @param id the string representation of the id
+    * @return A new FullyQualifiedID
+    */
+  def apply(id: String): FullyQualifiedID = {
+    val idNames = id.split(".").toList
+    val ids = idNames.map(Identifier(_, 0, 0))
+    FullyQualifiedID(ids)
+  }
 
   implicit def toName(id: FullyQualifiedID): String = id.name
 }

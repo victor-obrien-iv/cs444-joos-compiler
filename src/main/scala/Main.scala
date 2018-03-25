@@ -76,7 +76,7 @@ object Main extends App {
     astList.foreach { ast =>
       val localContext = typeLinker.buildLocalContext(ast, typeContext)
       val environment = Environment(typeContext, localContext)
-      disambiguator.visit(ast, environment)
+      disambiguator.build(ast, environment)
     }
   }
 

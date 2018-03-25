@@ -1,6 +1,6 @@
 package AST
 
-import Token.{Identifier, Modifier}
+import Token.{Identifier, JavaStatic, Modifier}
 
 /**
   * Decl represents a declaration
@@ -34,6 +34,8 @@ sealed trait TypeDecl extends Decl {
   def name: Token.Identifier
   def members: List[MemberDecl]
   def id: Int
+  def superClass: Option[FullyQualifiedID]
+  def superInterfaces: List[FullyQualifiedID]
 }
 /**
   * InterfaceDecl represents an interface declaration
@@ -43,7 +45,12 @@ sealed trait TypeDecl extends Decl {
   * @param extensionOf the identifiers of the interfaces this interface extends
   * @param members the field and method declarations in this interface's body
   */
-case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl
+case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl {
+
+  override def superClass: Option[FullyQualifiedID] = None
+
+  override def superInterfaces: List[FullyQualifiedID] = extensionOf
+}
 
 /**
   * ClassDecl represents a class declaration
@@ -54,7 +61,12 @@ case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, e
   * @param implementationOf the identifiers of the interfaces this class implements
   * @param members the field, method and constructor declarations in this class' body
   */
-case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl
+case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl {
+
+  override def superClass: Option[FullyQualifiedID] = extensionOf
+
+  override def superInterfaces: List[FullyQualifiedID] = implementationOf
+}
 
 sealed trait MemberDecl extends Decl {
 

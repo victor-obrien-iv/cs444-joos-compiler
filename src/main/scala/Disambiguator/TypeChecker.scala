@@ -2,9 +2,10 @@ package Disambiguator
 
 import AST._
 import Environment._
-import Token.JavaStatic
+import Token._
+import Error.Error
 
-abstract class AugmentedVisitor {
+class TypeChecker {
 
   def visit(decl: Decl, environment: Environment): Environment = decl match {
 
@@ -134,13 +135,13 @@ abstract class AugmentedVisitor {
     val methodMap = memberMethods map {
       case MethodDecl(_, returnType, methodName, parameters, body) =>
         MethodHeader(methodName, parameters) -> (returnType, body)
-      case _ => throw Error.Error.undefinedMatch
+      case _ => throw Error.undefinedMatch
     }
     
     val constructorMap = constructorDecls map {
       case ConstructorDecl(modifiers, className, parameters, body) =>
         ConstructorHeader(className, parameters) -> body
-      case _ => throw Error.Error.undefinedMatch
+      case _ => throw Error.undefinedMatch
     }
 
     environment.copy(methods = methodMap.toMap, constructors = constructorMap.toMap)
@@ -153,22 +154,26 @@ abstract class AugmentedVisitor {
     case DeclStmt(decl, assignment) =>
       val newVariables = environment.variables + (decl.name.lexeme -> (decl.typ, assignment))
       environment.copy(variables = newVariables)
-    case ExprStmt(expr) => visit(expr, environment)
-    case ReturnStmt(expr) => expr.map(visit(_, environment)).getOrElse(environment)
+    case ExprStmt(expr) =>
+      visit(expr, environment)
+      environment
+    case ReturnStmt(expr) =>
+      expr.map(visit(_, environment))
+      environment
     case _ => environment
   }
 
   protected def visit(typeOf: Type, environment: Environment): Environment = typeOf match {
     case ArrayType(arrayOf, size) =>
+      size.map(visit(_, environment))
       visit(arrayOf, environment)
-      size.map(visit(_, environment)).getOrElse(environment)
     case PrimitiveType(typeToken) => environment
     case ClassType(typeID) => visit(environment.types(typeID.name).head, environment)
   }
 
-  protected def visit(expr: Expr, environment: Environment): Environment = expr match {
+  protected def visit(expr: Expr, environment: Environment): Type = expr match {
     case BinaryExpr(lhs, operatorTok, rhs) =>
-      visit(lhs, environment)
+      visit(lhs, environment.copy(variables = environment.variables ++ environment.allFields))
       visit(rhs, environment)
     case UnaryExpr(operatorTok, rhs) =>
       visit(rhs, environment)
@@ -176,21 +181,83 @@ abstract class AugmentedVisitor {
       visit(innerExpr, environment)
     case CallExpr(obj, call, params) =>
       obj.map(visit(_, environment)).getOrElse(environment)
-    case ThisExpr() => environment
+    case ThisExpr() =>
+      val thisClass = environment.findType("this")
+      ClassType(FullyQualifiedID(thisClass.name))
     case CastExpr(castType, rhs) => visit(rhs, environment)
     case AccessExpr(lhs, field) => visit(lhs, environment)
     case ArrayAccessExpr(lhs, index) =>
       visit(lhs, environment)
       visit(index, environment)
-    case ValExpr(value) => environment
+    case ValExpr(value) =>
+      value match {
+        case _: IntegerLiteral => PrimitiveType(JavaInt(row = 0, col = 0))
+        case _: BooleanLiteral => PrimitiveType(JavaBoolean(row = 0, col = 0))
+        case _: CharacterLiteral =>  PrimitiveType(JavaChar(row = 0, col = 0))
+        case _: StringLiteral => ClassType(FullyQualifiedID("java.lang.String"))
+        case _: NullLiteral =>
+      }
     case DeclRefExpr(reference) => visit(environment.types(reference.lexeme).head, environment)
     case InstanceOfExpr(lhs, typ) =>
-      visit(lhs, environment)
       visit(typ, environment)
-    case ObjNewExpr(ctor, params) => environment
+      visit(lhs, environment)
+    case ObjNewExpr(ctor, params) =>
+      ClassType(ctor)
     case ArrayNewExpr(arrayType) =>
       visit(arrayType, environment)
-    case NamedExpr(name) => environment
+      arrayType
+    case NamedExpr(name) => findType(name, environment)
   }
 
+  private def findType(id: FullyQualifiedID, environment: Environment): Type = {
+    val name = findName(id, environment)
+  }
+
+  private def findName(id: FullyQualifiedID, environment: Environment): Name = {
+    if (id.qualifiers.isEmpty) {
+      if (environment.variables.contains(id.id.lexeme)) {
+        ExprName(id)
+      } else if (environment.staticFields.contains(id.id.lexeme)) {
+        ExprName(id)
+      } else if (environment.types.contains(id.id.lexeme)) {
+        if (environment.types(id.id.lexeme).lengthCompare(1) != 0) {
+          throw Error.multipleTypes(id)
+        }
+        TypeName(id, environment.types(id.id.lexeme).head)
+      } else {
+        if (environment.qualifiedTypes.keys.exists(_.startsWith(id.id.lexeme))) {
+          PackageName(id)
+        } else {
+          throw Error.noTopLevelPackage(id)
+        }
+      }
+    } else {
+      findName(FullyQualifiedID(id.qualifiers), environment) match {
+        case PackageName(packageId) =>
+          if (environment.qualifiedTypes.contains(packageId.name)) {
+            val types = environment.qualifiedTypes(packageId.name)
+            val matchingTypes = types.filter(t => t.name.lexeme == id.id.lexeme)
+            if (matchingTypes.lengthCompare(1) == 0) {
+              TypeName(id, matchingTypes.head)
+            } else {
+              PackageName(id)
+            }
+          } else {
+            PackageName(id)
+          }
+        case ExprName(exprId) =>
+          ExprName(exprId)
+        case TypeName(typeId, typeDecl) =>
+          val typeEnv = visit(typeDecl, environment)
+
+          if (typeEnv.staticFields.contains(id.id.lexeme)) {
+            ExprName(id)
+          } else {
+            throw Error.memberNotFound(typeId, id.id)
+          }
+
+        case AmbiguousName(ambiId) => throw Error.ambiguousName(ambiId)
+      }
+    }
+  }
 }
