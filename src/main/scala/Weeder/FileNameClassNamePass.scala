@@ -1,6 +1,7 @@
 package Weeder
 
 import AST._
+import Driver.FileOperations._
 
 
 /**
@@ -13,14 +14,8 @@ import AST._
   *   InterfaceDecl
   */
 class FileNameClassNamePass(val fileName: String) extends Visitor {
-  def getFileBaseName: String = {
-    val lastSlash = fileName.lastIndexWhere((c: Char) => c == '/' || c == '\\')
-    val str = fileName.substring(
-      if( lastSlash > 0 ) lastSlash + 1 else 0,   // remove the path ahead of the file
-      fileName.length - 5)                        // remove the .java from the end
-    str
-  }
-  private val fileBaseName = getFileBaseName
+
+  private val fileBaseName = getFileBaseName(fileName)
 
   override def visit(cu: CompilationUnit): Unit = {
     if (cu.typeDecl.name.lexeme != fileBaseName) {
