@@ -20,6 +20,7 @@ sealed trait Token {
 
   override def equals(obj: scala.Any): Boolean = super.equals(obj)
   def equals(token: Token): Boolean = lexeme.equals(token.lexeme)
+  def ==(token: Token): Boolean = equals(token)
 }
 
 case class Bof(lexeme: String = "BOF", row: Int = 0, col: Int = 0) extends Token
@@ -31,7 +32,10 @@ case class Eof(lexeme: String = "EOF", row: Int = 0, col: Int = 0) extends Token
   * @param row The row in the source that the token appeared
   * @param col The column in the source that token appeared
   */
-case class Identifier(lexeme: String, row: Int, col: Int) extends Token
+case class Identifier(lexeme: String, row: Int, col: Int) extends Token {
+  def equals(identifier: Identifier): Boolean = lexeme == identifier.lexeme
+  def ==(identifier: Identifier): Boolean = equals(identifier)
+}
 
 
 /**
@@ -139,21 +143,36 @@ case class Dot(lexeme:String = ".", row: Int, col: Int) extends Separator
   */
 sealed trait Operator extends Token
 
-case class Becomes(lexeme:String = "=", row: Int, col: Int) extends Operator
-case class GT(lexeme:String = ">", row: Int, col: Int) extends Operator
-case class LT(lexeme:String = "<", row: Int, col: Int) extends Operator
-case class EQ(lexeme:String = "==", row: Int, col: Int) extends Operator
-case class GE(lexeme:String = ">=", row: Int, col: Int) extends Operator
-case class LE(lexeme:String = "<=", row: Int, col: Int) extends Operator
-case class NE(lexeme:String = "!=", row: Int, col: Int) extends Operator
-case class Bang(lexeme:String = "!", row: Int, col: Int) extends Operator
-case class AmpAmp(lexeme:String = "&&", row: Int, col: Int) extends Operator
-case class BarBar(lexeme:String = "||", row: Int, col: Int) extends Operator
-case class Amp(lexeme:String = "&", row: Int, col: Int) extends Operator
-case class Bar(lexeme:String = "|", row: Int, col: Int) extends Operator
-case class Plus(lexeme:String = "+", row: Int, col: Int) extends Operator
-case class Minus(lexeme:String ="-", row: Int, col: Int) extends Operator
-case class Star(lexeme:String = "*", row: Int, col: Int) extends Operator
-case class Slash(lexeme:String = "/", row: Int, col: Int) extends Operator
-case class Percent(lexeme:String = "%", row: Int, col: Int) extends Operator
-case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Operator
+sealed trait BinaryOperator extends Operator
+sealed trait UnaryOperator extends Operator
+sealed trait NumericOperator extends Operator
+sealed trait StringOperator extends Operator
+
+case class Plus(lexeme:String = "+", row: Int, col: Int) extends NumericOperator with StringOperator with BinaryOperator
+case class Minus(lexeme:String ="-", row: Int, col: Int) extends NumericOperator with UnaryOperator with BinaryOperator
+case class Star(lexeme:String = "*", row: Int, col: Int) extends NumericOperator with BinaryOperator
+case class Slash(lexeme:String = "/", row: Int, col: Int) extends NumericOperator with BinaryOperator
+case class Percent(lexeme:String = "%", row: Int, col: Int) extends NumericOperator with BinaryOperator
+
+sealed trait CompareOperator extends Operator
+
+case class GT(lexeme:String = ">", row: Int, col: Int) extends CompareOperator with BinaryOperator
+case class LT(lexeme:String = "<", row: Int, col: Int) extends CompareOperator with BinaryOperator
+case class GE(lexeme:String = ">=", row: Int, col: Int) extends CompareOperator with BinaryOperator
+case class LE(lexeme:String = "<=", row: Int, col: Int) extends CompareOperator with BinaryOperator
+
+sealed trait EqualityOperator extends Operator
+case class EQ(lexeme:String = "==", row: Int, col: Int) extends EqualityOperator with BinaryOperator
+case class NE(lexeme:String = "!=", row: Int, col: Int) extends EqualityOperator with BinaryOperator
+
+sealed trait BooleanOperator extends Operator
+
+case class Bang(lexeme:String = "!", row: Int, col: Int) extends BooleanOperator with UnaryOperator
+case class AmpAmp(lexeme:String = "&&", row: Int, col: Int) extends BooleanOperator with BinaryOperator
+case class BarBar(lexeme:String = "||", row: Int, col: Int) extends BooleanOperator with BinaryOperator
+case class Amp(lexeme:String = "&", row: Int, col: Int) extends BooleanOperator with BinaryOperator
+case class Bar(lexeme:String = "|", row: Int, col: Int) extends BooleanOperator with BinaryOperator
+
+case class Becomes(lexeme:String = "=", row: Int, col: Int) extends Operator with BinaryOperator
+
+case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends BinaryOperator

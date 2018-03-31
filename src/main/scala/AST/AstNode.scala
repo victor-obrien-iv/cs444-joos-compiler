@@ -55,7 +55,7 @@ object FullyQualifiedID {
     * @return A new FullyQualifiedID
     */
   def apply(id: String): FullyQualifiedID = {
-    val idNames = id.split(".").toList
+    val idNames = id.split('.').toList
     val ids = idNames.map(Identifier(_, 0, 0))
     FullyQualifiedID(ids)
   }

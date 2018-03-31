@@ -1,5 +1,5 @@
 
-import Disambiguator.Disambiguator
+import Disambiguator.TypeChecker
 import Driver.{CommandLine, Driver}
 import Environment.Environment
 import Error.ErrorFormatter
@@ -28,7 +28,6 @@ object Main extends App {
   val commandLine = new CommandLine(args, errorFormatter)
   val driver = new Driver()
   val typeLinker = new TypeContextBuilder
-  val disambiguator = new Disambiguator
 
   val astFutures = for (file <- commandLine.files) yield driver.produceAST(file)
   val asts = Future.sequence(astFutures.toList)
@@ -73,10 +72,24 @@ object Main extends App {
     checked <- linkedAndChecked
     astList <- asts
   } yield {
+    val mapLink = astList.map{
+      ast =>
+        (ast.typeDecl, typeLinker.buildSimpleTypeLink(ast, typeContext))
+    }
+    typeContext.foreach {
+      case (pack, types) =>
+        println("PACKAGE:" + pack)
+        types.foreach {
+          typeDecl => println(typeDecl.name.lexeme)
+        }
+    }
     astList.foreach { ast =>
-      val localContext = typeLinker.buildLocalContext(ast, typeContext)
-      val environment = Environment(typeContext, localContext)
-      disambiguator.build(ast, environment)
+      val localTypeLink = typeLinker.buildSimpleTypeLink(ast, typeContext)
+      val environment = Environment(typeContext, localTypeLink, mapLink.toMap)
+      val typeChecker = new TypeChecker(environment)
+      println(ast.fileName)
+      println(localTypeLink)
+      typeChecker.build(ast)
     }
   }
 

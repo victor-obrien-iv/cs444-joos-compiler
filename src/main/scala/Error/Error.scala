@@ -1,10 +1,10 @@
 package Error
 
-import Token.Identifier
+import Token.{Identifier, Primitive}
 
 case object Type extends Enumeration {
   val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder, TypeLinking, Disambiguation,
-  Implementation, EnvironmentPass, ExtendsPass, HierarchyCheck, MethodsPass = Value
+  Implementation, TypeChecker, EnvironmentPass, ExtendsPass, HierarchyCheck, MethodsPass = Value
 }
 
 case class Location ( lineNum: Integer, col: Integer, file: String )
@@ -46,5 +46,33 @@ object Error {
 
   def undefinedMatch: Error = {
     Error("Compiler error", "This case should not have been matched", Type.Implementation)
+  }
+
+  def typeMismatch(actual: AST.Type, expected: AST.Type): Error = {
+    Error(actual.toString, s"$actual is not type assignable to expected type $expected", Type.TypeChecker)
+  }
+
+  def expectedBoolean(actual: AST.Type): Error = {
+    Error(actual.toString, s"$actual is not type assignable to expected type boolean", Type.TypeChecker)
+  }
+
+  def expectedNumeric(actual: AST.Type): Error = {
+    Error(actual.toString, s"$actual is not numeric", Type.TypeChecker)
+  }
+
+  def notArray(actual: AST.Type): Error = {
+    Error(actual.toString, s"$actual is not of type []", Type.TypeChecker)
+  }
+
+  def primitiveDoesNotContainField(primitive: Primitive, field: Identifier): Error = {
+    Error(primitive.lexeme, s"$primitive cannot be called with $field", Type.TypeChecker)
+  }
+
+  def accessPrimitiveType(primitive: Primitive, method: Identifier): Error = {
+    Error(primitive.lexeme, s"$primitive cannot be called with $method", Type.TypeChecker)
+  }
+
+  def nullPointerException: Error = {
+    Error("null", "null cannot be called with accessor", Type.TypeChecker)
   }
 }

@@ -9,38 +9,53 @@ import AST._
   * @param types Local type context
   */
 case class Environment(qualifiedTypes: Map[String, List[TypeDecl]] = Map.empty,
-                       types: Map[String, List[TypeDecl]] = Map.empty,
+                       types: Map[String, String] = Map.empty,
+                       typeContexts: Map[TypeDecl, Map[String, String]] = Map.empty
                       ) {
 
-  def findType(id: FullyQualifiedID): TypeDecl = {
-    if (id.qualifiers.isEmpty) {
-      //Finds a simple name in the local type context
-      findType(id.name)
+  def findType(id: FullyQualifiedID): Option[TypeDecl] = findType(id.name)
+
+  def findType(id: String): Option[TypeDecl] = {
+    val fullId = id.split('.')
+    val pack = fullId.dropRight(1).mkString(".")
+    val name = fullId.last
+
+    if (pack == "") {
+      types.get(id).flatMap(findQualifiedTypeDecl)
     } else {
       //Finds type based on full qualified name
-      if (!qualifiedTypes.contains(id.pack)) {
-        throw Error.Error.classNotFound(id)
-      }
-
-      val packageTypes = qualifiedTypes(id.pack)
-
-      val typeDecl = packageTypes.find(_.name.lexeme == id.id.lexeme)
-
-      typeDecl match {
-        case Some(value) => value
-        case None => throw Error.Error.classNotFound(id)
-      }
+      qualifiedTypes.get(pack).flatMap(_.find(_.name.lexeme == name))
     }
   }
 
-  def findType(id: String): TypeDecl = {
-    if (!types.contains(id)) {
-      throw Error.Error.classNotFound(id)
+  def findQualifiedTypeDecl(id: String): Option[TypeDecl] = {
+    val fullId = id.split('.')
+    val pack = fullId.dropRight(1).mkString(".")
+    val name = fullId.last
+
+    //Finds type based on full qualified name
+    qualifiedTypes.get(pack).flatMap(_.find(_.name.lexeme == name))
+
+  }
+
+  def findQualifiedType(id: String): Option[String] = {
+    if (id.contains('.')) {
+      Some(id)
+    } else {
+      types.get(id)
     }
-    if (types(id).lengthCompare(1) > 0) {
-      throw Error.Error.multipleTypes(id)
+  }
+
+  def findExternType(id: String, typeDecl: TypeDecl): Option[String] = {
+    findQualifiedType(id) match {
+      case Some(value) => Some(value)
+      case None => typeContexts.get(typeDecl).flatMap(_.get(id))
     }
-    types(id).head
+  }
+
+
+  def containsPackage(id: String): Boolean = {
+    qualifiedTypes.keys.exists(_.startsWith(id))
   }
 
 }

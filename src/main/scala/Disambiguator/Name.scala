@@ -1,6 +1,6 @@
 package Disambiguator
 
-import AST.{FullyQualifiedID, TypeDecl}
+import AST.{FullyQualifiedID, Type, TypeDecl}
 
 sealed trait Name {
   def id: FullyQualifiedID
@@ -8,7 +8,7 @@ sealed trait Name {
 
 case class PackageName(id: FullyQualifiedID) extends Name
 
-case class ExprName(id: FullyQualifiedID) extends Name
+case class ExprName(id: FullyQualifiedID, typ: Type) extends Name
 
 case class TypeName(id: FullyQualifiedID, typeDecl: TypeDecl) extends Name
 

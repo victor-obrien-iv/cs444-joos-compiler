@@ -259,14 +259,14 @@ class AstBuilder(filename: String) {
       case TreeNode(_, children) =>
         children.length match {
           case 1 => buildExpr(children.head)
-          case 2 => UnaryExpr(children.head.state.left.get.asInstanceOf[Operator], buildExpr(node.children(1)))
+          case 2 => UnaryExpr(children.head.state.left.get.asInstanceOf[UnaryOperator], buildExpr(node.children(1)))
           case 3 =>
             //Casts the token as operator if it is an operator, else the operator is only one level deeper
             // for all grammar rules of binary operators
             val operator = if (children(1).state.isLeft) {
-              children(1).state.left.get.asInstanceOf[Operator]
+              children(1).state.left.get.asInstanceOf[BinaryOperator]
             } else {
-              children(1).children.head.state.left.get.asInstanceOf[Operator]
+              children(1).children.head.state.left.get.asInstanceOf[BinaryOperator]
             }
             operator match {
               case io: JavaInstanceof => InstanceOfExpr(buildExpr(children.head), buildType(children(2)))
