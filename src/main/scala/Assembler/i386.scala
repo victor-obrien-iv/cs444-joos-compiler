@@ -1,8 +1,7 @@
 package Assembler
 
-import AST.DeclRefExpr
-
 object i386 {
+  val wordSize = 4
 
   // operands
   case class Operand(op: String)
@@ -10,25 +9,25 @@ object i386 {
   val eax = Operand("eax")
   val ebx = Operand("ebx")
   val edx = Operand("edx")
+  val ebp = Operand("ebp")
+  val esp = Operand("esp")
   def constant(c: Int): Operand = Operand(c.toString)
-  private def label(l: String): Operand = Operand(l)
-  def variableStackLocation(dre: DeclRefExpr): Operand = {
-    assert(assertion = false, "Unimplemented")
-    val offset = 0
-    Operand(s"dword [ebp+${offset}H]")
+  def stackAddress(offset: Int): Operand = {
+    assert(offset % 4 == 0, "stack location is not word aligned")
+    if(offset >= 0) Operand(s"dword [ebp+$offset]")
+    else Operand(s"dword [ebp$offset]") // scala toString will put in the minus
   }
 
   private def instr(instr: String, op1: Operand, op2: Operand) = s"\t$instr\t${op1.op}, ${op2.op}"
   private def instr(instr: String, op1: Operand) = s"\t$instr\t${op1.op}"
+  private def instr(instr: String, label: Label) = s"\t$instr\t${label.name}"
   private def instr(instr: String) = s"\t$instr"
 
   // labels
-  private def placeLabel(label: String): String = s"$label: "
-  def placeLabel(label: String, comment: String): String = s"${placeLabel(label)}\t;$comment"
-  def prependLabel(label: String, instrs: List[String]): List[String] = {
-    val newHead = placeLabel(label) + instrs.head
-    newHead :: instrs.drop(1)
-  }
+  def placeLabel(label: Label): String = s"${label.name}:"
+
+  // comments
+  def comment(message: String): String = s"\t; $message"
 
   // movement instrs
   def move(op1: Operand, op2: Operand): String = instr("mov", op1, op2)
@@ -55,22 +54,41 @@ object i386 {
   def add(op1: Operand, op2: Operand): String = instr("add", op1, op2)
   def subtract(op1: Operand, op2: Operand): String = instr("sub", op1, op2)
   def signedMultiply(op1: Operand, op2: Operand): String = instr("imul", op1, op2)
-  def signedDivide(op1: Operand): String = instr("idiv", op1)
-  def eaxToQuadWord(): String = instr("cdq")
+  private def eaxToQuadWord(): String = instr("cdq")
+  def signedDivide(op1: Operand): List[String] =
+    instr("cdq") ::
+    instr("idiv", op1) :: Nil
+  def signedModulo(op1: Operand): List[String] =
+    signedDivide(op1) :::
+    move(eax, edx) :: Nil
 
   // control flow instrs
-  def enter(numBytes: Int): String = instr("enter", constant(numBytes))
-  def leave(): String = instr("leave")
-  def jump(destinationLabel: String): String = instr("jmp", label(destinationLabel))
-  private def jumpIfZero(destinationLabel: String): String = instr("jz", label(destinationLabel))
-  private def jumpIfNotZero(destinationLabel: String): String = instr("jnz", label(destinationLabel))
-  def jumpIfRegIsTrue(op1: Operand, destinationLabel: String): List[String] = {
+  private def leave(): String = instr("leave")
+  def jump(destination: Label): String = instr("jmp", destination)
+  private def jumpIfZero(destination: Label): String = instr("jz", destination)
+  private def jumpIfNotZero(destination: Label): String = instr("jnz", destination)
+  def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] = {
     compare(op1, constant(0)) ::
-    jumpIfNotZero(destinationLabel) :: Nil
+    jumpIfNotZero(destination) :: Nil
   }
-  def jumpIfRegIsFalse(op1: Operand, destinationLabel: String): List[String] = {
+  def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] = {
     compare(op1, constant(0)) ::
-    jumpIfZero(destinationLabel) :: Nil
+    jumpIfZero(destination) :: Nil
   }
-  def return_(): String = instr("ret")
+  def call(destination: Label): String = instr("call", destination)
+  def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
+    placeLabel(enter) ::
+    push(ebp) ::
+    move(ebp, esp) ::
+    subtract(esp, constant(paramTotalBytes)) :: Nil
+  private def return_(): String = instr("ret")
+  def functionExit(): List[String] =
+    leave() ::
+    return_() :: Nil
+
+  // runtime calls
+  def allocate(numBytes: Int): List[String] =
+    move(eax, constant(numBytes)) ::
+    call(Label("__malloc")) :: Nil
+
 }

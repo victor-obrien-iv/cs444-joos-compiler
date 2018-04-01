@@ -1,4 +1,6 @@
 import Disambiguator.TypeChecker
+import AST.PrettyPrinter
+import Assembler.AsmVisitor
 import Driver.{CommandLine, Driver}
 import Environment.Environment
 import Error.ErrorFormatter
@@ -64,7 +66,17 @@ object Main extends App {
           )
         }
 
-        Future.sequence(linkers ++ hierarchy ++ staticAnalysis)
+        var count = 0
+        val asm = futures.map { ast =>
+          count = count + 1
+          new AsmVisitor(ast).run(ast)
+        }
+
+        val print = futures.map { ast =>
+          new PrettyPrinter(ast.fileName).run(ast)
+        }
+
+        Future.sequence(linkers ++ hierarchy ++ staticAnalysis ++ asm ++ print)
       }
   }
 

@@ -3,10 +3,8 @@ package Driver
 object FileOperations {
   def getPath(filename: String): String = {
     val lastSlash = filename.lastIndexWhere((c: Char) => c == '/' || c == '\\')
-    filename.substring(
-      0,
-      if( lastSlash > 0 ) lastSlash + 1 else 0
-    )
+    if( lastSlash > 0 ) filename.substring(0, lastSlash + 1)
+    else "./"
   }
 
   def getFileBaseName(filename: String): String = {
