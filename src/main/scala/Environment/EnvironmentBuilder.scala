@@ -26,7 +26,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       case (typeList1, typeList2) if typeList1.lengthCompare(typeList2.length) != 0 => false
       case (typeList1, typeList2) =>
         val paramPairs = typeList1.map(_.typ).zip(typeList2)
-        val matches = paramPairs.map{
+        val matches = paramPairs.map {
           case (type1, type2) => typeEquals(type1, type2)
         }
         matches.reduce(_ && _)
@@ -51,7 +51,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
         case _: ReferenceType =>
           (type1, type2) match {
             case (_, NullType()) => true
-            case (ClassType(iD), _:ArrayType) =>
+            case (ClassType(iD), _: ArrayType) =>
               val classTypeDecl = environment.findType(iD)
               classTypeDecl match {
                 case Some(value) =>
@@ -72,9 +72,9 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
         case p: PrimitiveType if p.isNumeric =>
           (type1, type2) match {
             case (PrimitiveType(_: JavaShort), PrimitiveType(_: JavaByte))
-                 | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaShort))
-                 | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaChar))
-                 | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaByte)) => true
+                 | (PrimitiveType(_: JavaInt), PrimitiveType(_: JavaShort))
+                 | (PrimitiveType(_: JavaInt), PrimitiveType(_: JavaChar))
+                 | (PrimitiveType(_: JavaInt), PrimitiveType(_: JavaByte)) => true
             case _ => false
           }
         case _ => false
@@ -99,7 +99,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       true
     } else if (subTypeDecl.name.lexeme == "Object") {
       false
-    }else {
+    } else {
       val superClass = getSuperClass(subTypeDecl)
       val subTypeSuper = superClass.exists(isSubTypeOf(superTypeDecl, _))
       val interfaces = subTypeDecl.superInterfaces.foldRight(false) {
@@ -168,7 +168,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     * Finds the method based on the parameter types and the identifier. Searches
     * through super classes as well
     *
-    * @param id Identifier of the method
+    * @param id         Identifier of the method
     * @param parameters The types of the parameters
     * @return The Class the field belongs to (if inherited) and the declaration fo the method
     */
@@ -186,12 +186,23 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       case None =>
         val superClass = getSuperClass(typeDecl)
 
-        superClass flatMap {
+        val superMethod = superClass flatMap {
           value =>
             if (typeDecl == value) {
               None
             } else {
               findMethod(id, parameters, value)
+            }
+        }
+
+        superMethod match {
+          case Some(value) => Some(value)
+          case None =>
+            val interfaces = typeDecl.superInterfaces.map(interfaceId =>
+              environment.findType(interfaceId).getOrElse(throw Error.classNotFound(interfaceId)))
+            interfaces.map(findMethod(id, parameters, _)).find(_.isDefined) match {
+              case Some(value) => value
+              case None => None
             }
         }
     }
@@ -205,13 +216,9 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
           case None => throw Error.classNotFound(value.name)
         }
       case None =>
-        if (typeDecl.isInstanceOf[ClassDecl]) {
-          environment.findType("Object") match {
-            case Some(value) => Some(value)
-            case None => throw Error.langLibraryNotLoaded
-          }
-        } else {
-          None
+        environment.findType("Object") match {
+          case Some(value) => Some(value)
+          case None => throw Error.langLibraryNotLoaded
         }
     }
   }
@@ -219,7 +226,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
   /**
     * Finds the static method based on the parameters types and the identifier.
     *
-    * @param id Identifier of the method
+    * @param id         Identifier of the method
     * @param parameters The types of the parameters
     * @return The declaration of the method
     */
@@ -246,7 +253,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     * @return The declaration of the constructor
     */
   def findConstructor(parameters: List[Type], typeDecl: TypeDecl): Option[ConstructorDecl] = {
-    val (_, _ , ctors) = partitionMembers(typeDecl.members)
+    val (_, _, ctors) = partitionMembers(typeDecl.members)
     ctors.find {
       case ConstructorDecl(modifiers, _, parameterDecls, _) =>
         parametersMatch(parameters, parameterDecls)

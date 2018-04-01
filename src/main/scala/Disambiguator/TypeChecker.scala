@@ -261,6 +261,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case NullType() => throw Error.nullPointerException
         case ClassType(typeID) =>
           val typeOf = environment.findType(typeID)
+          println(typeOf.map(_.members.map(_.name)))
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
               findFieldType(value, typeDecl, typeID)
@@ -269,6 +270,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
       }
     case ArrayAccessExpr(lhs, index) =>
+      println(lhs)
       val arrayType = build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
         case a: ArrayType => a
         case e => throw Error.notArray(e)
@@ -353,6 +355,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
               if (isStatic) throw Error.cannotInvokeThisInStaticContext
+              println(value._2.typ)
               ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
             case None =>
               environment.findType(id.id.lexeme) match {
@@ -417,9 +420,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           case Some(fieldTypeId) => ClassType(FullyQualifiedID(fieldTypeId))
           case None => throw Error.classNotFound(externType)
         }
-      case ArrayType(ClassType(externType), _) =>
+      case ArrayType(ClassType(externType), length) =>
         environment.findExternType(externType, typeDecl) match {
-          case Some(fieldTypeId) => ClassType(FullyQualifiedID(fieldTypeId))
+          case Some(fieldTypeId) => ArrayType(ClassType(FullyQualifiedID(fieldTypeId)), length)
           case None => throw Error.classNotFound(externType)
         }
       case NullType() => throw Error.nullPointerException

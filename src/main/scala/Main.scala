@@ -95,6 +95,7 @@ object Main extends App {
       val packageName = ast.packageName.map(_.name)
       val environment = Environment(typeContext, localTypeLink, mapLink.toMap, packageName.getOrElse(""))
       val typeChecker = new TypeChecker(environment)
+      println(ast.fileName)
       typeChecker.build(ast)
     }
   }
