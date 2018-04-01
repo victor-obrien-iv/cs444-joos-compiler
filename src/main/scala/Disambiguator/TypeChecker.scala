@@ -127,7 +127,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     case BinaryExpr(lhs, _: Becomes, rhs) =>
       val leftType = build(lhs, typeDecl, scope, parameters, isField = false)
       val rightType = build(rhs, typeDecl, scope, parameters, isField)
-      if (typeAssignable(leftType, rightType) || typeAssignable(rightType, leftType)) {
+      if (typeAssignable(leftType, rightType)) {
         leftType
       } else {
         throw Error.typeMismatch(rightType, leftType)
