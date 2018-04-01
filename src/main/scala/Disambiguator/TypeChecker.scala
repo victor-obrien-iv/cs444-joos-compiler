@@ -242,10 +242,12 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
     case CastExpr(castType, rhs) =>
       val rightType = build(rhs, typeDecl, scope, parameters, isField)
-      if (typeAssignable(castType, rightType) || typeAssignable(rightType, castType)) {
-        castType
-      } else {
-        throw Error.typeMismatch(rightType, castType)
+      (castType, rightType) match {
+        case (p1: PrimitiveType, p2: PrimitiveType) if p1.isNumeric && p2.isNumeric =>
+          castType
+        case (t1, t2) if typeAssignable(t2, t1) || typeAssignable(t1, t2) =>
+          castType
+        case _ => throw Error.typeMismatch(rightType, castType)
       }
     case AccessExpr(lhs, field) =>
       build(lhs, typeDecl, scope, parameters, isField) match {
