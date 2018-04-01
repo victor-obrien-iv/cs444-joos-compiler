@@ -149,27 +149,20 @@ class Assembler(cu: CompilationUnit) {
         assemble(ue)
       case pe: ParenExpr =>
         assemble(pe.expr)
-      /* TODO:
-      case ce: CallExpr =>
-      case te: ThisExpr =>
-      case ce: CastExpr =>
-      case ae: AccessExpr =>
-      case aae: ArrayAccessExpr =>
-      */
-      case _: ThisExpr =>
+      case ce: CallExpr => ???
+      case _: ThisExpr => ???
         val thisStackLoc = st.lookUpThis()
         move(eax, stackAddress(thisStackLoc)) :: Nil
-      case ve: ValExpr =>
+      case ce: CastExpr => ???
+      case ae: AccessExpr => ???
+      case aae: ArrayAccessExpr => ???
+      case ve: ValExpr => ???
         assemble(ve)
 
       case DeclRefExpr(identifier) =>
         val stackLoc = st.lookUpLocation(identifier)
         move(eax, stackAddress(stackLoc)) :: Nil
-      /* TODO:
-    case ioe: InstanceOfExpr =>
-    case ne: NewExpr =>
-    case ne: NamedExpr =>
-    */
+      case ioe: InstanceOfExpr => ???
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
@@ -183,6 +176,7 @@ class Assembler(cu: CompilationUnit) {
             //TODO: not sure what this will look like atm
             ???
         }
+      case ne: NamedExpr => ???
     }
   }
 
