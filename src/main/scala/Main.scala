@@ -1,3 +1,4 @@
+import AST.{CompilationUnit, TypeDecl}
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
