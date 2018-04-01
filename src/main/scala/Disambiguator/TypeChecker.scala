@@ -18,8 +18,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       methods.map{
         method =>
           val parameters = method.parameters.map(parameter => VarDecl(parameter.typ, parameter.name))
-          method.body.map((body: BlockStmt) =>
-            build(body, typeDecl, Nil, parameters, method.returnType))
+          method.body.map { (body: BlockStmt) =>
+            build(body, typeDecl, Nil, parameters, method.returnType)
+          }
       }
       ctors.map {
         ctor =>
@@ -38,8 +39,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
   private def buildFields(fields: List[FieldDecl], typeDecl: TypeDecl, scope: List[VarDecl]): Unit = {
     fields.foldRight(scope) {
       case (field, vars) =>
-        field.assignment.foreach(build(_, typeDecl, vars, Nil, isField = true))
-        VarDecl(field.typ, field.name)::vars
+        val newScope = VarDecl(field.typ, field.name)::vars
+        field.assignment.foreach(build(_, typeDecl, newScope, Nil, isField = true))
+        newScope
     }
   }
 
@@ -50,7 +52,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         build(currentStmt, typeDecl, currentScope, parameters, returnType)
     }
     case DeclStmt(decl, assignment) =>
-      val typeOf = assignment.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField =  false))
+      val typeOf = assignment.map((expr: Expr) => build(expr, typeDecl, decl :: scope, parameters, isField =  false))
       typeOf match {
         case Some(value) =>
           if (!typeAssignable(decl.typ, value))
@@ -84,10 +86,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           val initDecl = init.map(build(_, typeDecl, scope, parameters, returnType))
           val newScope = initDecl.getOrElse(scope)
 
-          condition.map((expr: Expr) => build(expr, typeDecl, newScope, parameters, isField = false)) match {
+          condition.map(build(_, typeDecl, newScope, parameters, isField = false)) match {
             case Some(value) => tryBoolean(value)
             case None =>
           }
+
+          update.map(build(_, typeDecl, newScope, parameters, returnType))
+
           build(bodyStmt, typeDecl, newScope, parameters, returnType)
         case WhileStmt(condition, bodyStmt) =>
           val condType = build(condition, typeDecl, scope, parameters, isField = false)
@@ -179,15 +184,19 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
     case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField)
     case CallExpr(obj, call, params) =>
-      var isClass = false //flag to consider finding a static member or nah
+      var isClass = false //flag to consider finding a static member or nah//
+      var typeId = FullyQualifiedID("java.lang.Object")
       val objTypeDecl = obj.flatMap{(expr: Expr) =>
         build(expr, typeDecl, scope, parameters, isField) match {
           case ClassType(id) =>
+            typeId = id
             environment.findType(id)
           case Class(id) =>
+            typeId = id
             isClass = true
             environment.findType(id)
-          case _ : ArrayType => environment.findType("java.lang.Object")
+          case _ : ArrayType =>
+            environment.findType("java.lang.Object")
           case PrimitiveType(primitive) => throw Error.accessPrimitiveType(primitive, call)
           case NullType() => throw Error.nullPointerException
         }
@@ -205,7 +214,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
 
       }
       val returnType = methodType match {
-        case Some(value) => findMethodType(value, typeDecl)
+        case Some(value) => findMethodType(value, typeDecl, typeId)
         case None =>
           throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
       }
@@ -235,7 +244,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           val typeOf = environment.findType(typeID)
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
-              findFieldType(value, typeDecl)
+              findFieldType(value, typeDecl, typeID)
             case None => throw Error.classNotFound(typeID)
           }
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
@@ -283,7 +292,15 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
             ClassType(ctor)
           case None => throw Error.classNotFound(ctor)
         }
-      case ArrayNewExpr(arrayType) => arrayType
+      case ArrayNewExpr(arrayType) =>
+        arrayType.size.foreach {
+          expr =>
+            build(expr, typeDecl, scope, parameters, isField) match {
+              case p: PrimitiveType if p.isNumeric =>
+              case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
+            }
+        }
+        arrayType
     }
 
     case NamedExpr(name) =>
@@ -302,7 +319,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
 
   private def findName(id: FullyQualifiedID, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean): Name = {
     if (id.qualifiers.isEmpty) {
-      if (isField && scope.exists(_.name == id.id)) {
+      if (isField && scope.exists(_.name.lexeme == id.id.lexeme)) {
         throw Error.identifierNotInScope(id)
       }
       val expr = (scope ++ parameters).find(_.name.lexeme == id.id.lexeme)
@@ -312,7 +329,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case None =>
           findField(id.id, typeDecl) match {
             case Some(value) =>
-              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl))
+              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
             case None =>
               environment.findType(id.id.lexeme) match {
                 case Some(value) => TypeName(id, value)
@@ -350,7 +367,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
               val typeOf = environment.findType(typeID)
               typeOf.flatMap(findNonStaticField(field, _)) match {
                 case Some(value) =>
-                  findFieldType(value, typeDecl)
+                  findFieldType(value, typeDecl, typeID)
                 case None => throw Error.classNotFound(typeID)
               }
             case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
@@ -359,7 +376,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case TypeName(typeId, typeOf) =>
           findStaticField(id.id, typeOf) match {
             case Some(value) =>
-              val fieldType = findFieldType(value, typeDecl)
+              val fieldType = findFieldType(value, typeDecl, typeId)
               ExprName(id, fieldType)
             case None => throw Error.memberNotFound(typeId, id.id)
           }
@@ -387,15 +404,15 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     }
   }
 
-  private def findFieldType(value: (TypeDecl, FieldDecl), typeDecl: TypeDecl): Type = {
-    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(value._1, typeDecl)) {
+  private def findFieldType(value: (TypeDecl, FieldDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Type = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
       throw Error.protectedAccess(value._1, value._2.name)
     }
     findMemberType(value._1, value._2.typ)
   }
 
-  private def findMethodType(value: (TypeDecl, MethodDecl), typeDecl: TypeDecl): Option[Type] = {
-    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(value._1, typeDecl)) {
+  private def findMethodType(value: (TypeDecl, MethodDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Option[Type] = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
       throw Error.protectedAccess(value._1, value._2.name)
     }
     value._2.returnType.map(findMemberType(value._1, _))

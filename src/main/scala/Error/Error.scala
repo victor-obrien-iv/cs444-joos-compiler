@@ -78,6 +78,6 @@ object Error {
   }
 
   def protectedAccess(typeId: TypeDecl, member: Identifier): Error = {
-    Error(member.lexeme, s"${member.lexeme} is protected in $typeId", Type.Disambiguation)
+    Error(member.lexeme, s"${member.lexeme} is protected in ${typeId.name.lexeme}", Type.Disambiguation)
   }
 }

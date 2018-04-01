@@ -10,7 +10,8 @@ import AST._
   */
 case class Environment(qualifiedTypes: Map[String, List[TypeDecl]] = Map.empty,
                        types: Map[String, String] = Map.empty,
-                       typeContexts: Map[TypeDecl, Map[String, String]] = Map.empty
+                       typeContexts: Map[TypeDecl, Map[String, String]] = Map.empty,
+                       packageName: String = ""
                       ) {
 
   def findType(id: FullyQualifiedID): Option[TypeDecl] = findType(id.name)

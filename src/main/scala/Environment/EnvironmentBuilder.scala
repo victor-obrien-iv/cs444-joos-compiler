@@ -107,10 +107,16 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  def hasProtectedAccess(owner: FullyQualifiedID, ownerDecl: TypeDecl, accessorDecl: TypeDecl): Boolean = {
+    if (owner.pack == environment.packageName) {
+      true
+    } else isSubTypeOf(ownerDecl, accessorDecl)
+  }
+
   /**
     * Finds a field in a Class by the given id. Searches through super classes as well
     *
-    * @param id The identifier of a field
+    * @param id The identifier of a fields
     * @return The Class the field was found in and the declaration of the field
     */
   def findField(id: Identifier, typeDecl: TypeDecl): Option[(TypeDecl, FieldDecl)] = {
