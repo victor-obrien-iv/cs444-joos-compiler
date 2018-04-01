@@ -224,6 +224,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case None =>
           if (isClass)
             throw Error.memberNotFound(typeDecl.name.lexeme, call)
+          else if (isStatic)
+            throw Error.cannotInvokeThisInStaticContext
           else findNonStaticMethod(call, paramTypes, typeDecl)
 
       }
@@ -286,7 +288,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case _:NullLiteral => NullType()
       }
     case DeclRefExpr(reference) =>
-      findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField) match {
+      findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField, isStatic) match {
         case ExprName(id, typ) => typ
         case _ => throw Error.classNotFound(reference.lexeme)
       }
@@ -324,7 +326,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     }
 
     case NamedExpr(name) =>
-      findName(name, typeDecl, scope, parameters, isField) match {
+      findName(name, typeDecl, scope, parameters, isField, isStatic) match {
         case ExprName(id, typ) => typ
         case TypeName(id, typ) =>
           environment.findQualifiedType(id.name) match {
@@ -337,7 +339,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
   }
 
 
-  private def findName(id: FullyQualifiedID, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean): Name = {
+  private def findName(id: FullyQualifiedID, typeDecl: TypeDecl, scope: List[VarDecl],
+                       parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Name = {
     if (id.qualifiers.isEmpty) {
       if (isField && scope.exists(_.name.lexeme == id.id.lexeme)) {
         throw Error.identifierNotInScope(id)
@@ -349,6 +352,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case None =>
           findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
+              if (isStatic) throw Error.cannotInvokeThisInStaticContext
               ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
             case None =>
               environment.findType(id.id.lexeme) match {
@@ -363,7 +367,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           }
       }
     } else {
-      findName(FullyQualifiedID(id.qualifiers), typeDecl, scope, parameters, isField) match {
+      findName(FullyQualifiedID(id.qualifiers), typeDecl, scope, parameters, isField, isStatic) match {
         case PackageName(packageId) =>
           if (environment.qualifiedTypes.contains(packageId.name)) {
             val types = environment.qualifiedTypes(packageId.name)
