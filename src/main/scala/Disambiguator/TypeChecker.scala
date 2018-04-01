@@ -261,6 +261,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case NullType() => throw Error.nullPointerException
         case ClassType(typeID) =>
           val typeOf = environment.findType(typeID)
+          println(typeOf.map(_.members.map(_.name)))
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
               findFieldType(value, typeDecl, typeID)

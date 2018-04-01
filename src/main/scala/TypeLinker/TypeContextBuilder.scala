@@ -120,12 +120,12 @@ class TypeContextBuilder {
         (decl, decl)
     }
 
-    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
-    val allTypes = onDemandUniqueListTypes ++ packageMemberClasses(defaultPackage) ++ singleImportTypesWithoutCurClass
+    def swap[A,B](map: Map[A, B]) = map.map{case (a,b) => (b,a)}
 
-    allTypes.map {
-      case (a,b) => (b,a)
-    }
+    //Order matters: updates facilitates shadowing, so each map will overwrite bindings to the left
+    val allTypes = swap(onDemandUniqueListTypes) ++ swap(packageMemberClasses(defaultPackage)) ++ swap(singleImportTypesWithoutCurClass)
+
+    allTypes
   }
 
   /**
