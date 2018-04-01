@@ -40,7 +40,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     fields.foldRight(scope) {
       case (field, vars) =>
         val newScope = VarDecl(field.typ, field.name)::vars
-        field.assignment.foreach(build(_, typeDecl, newScope, Nil, isField = true))
+        field.assignment.foreach{
+          ass =>
+            val typeAss = build(ass, typeDecl, newScope, Nil, isField = true)
+            if (!typeAssignable(field.typ, typeAss)) {
+              throw Error.typeMismatch(typeAss, field.typ)
+            }
+        }
         newScope
     }
   }
