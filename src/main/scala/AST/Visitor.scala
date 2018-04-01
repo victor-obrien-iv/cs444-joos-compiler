@@ -216,10 +216,15 @@ abstract class Visitor {
       //  TYPE VISITS
       //
   def visit(t: Type): Unit = t match {
-    case at: ArrayType => visit(at: ArrayType)
+    case rt: ReferenceType => rt match {
+      case at: ArrayType => visit(at: ArrayType)
+      case ct: ClassType => visit(ct: ClassType)
+      case c: Class => visit(c: Class)
+      case NullType() =>
+    }
     case pt: PrimitiveType => visit(pt: PrimitiveType)
-    case ct: ClassType => visit(ct: ClassType)
   }
+
   def visit(at: ArrayType): Unit = {
     visit(at.arrayOf: Type)
     at.size match {
@@ -231,6 +236,9 @@ abstract class Visitor {
   }
   def visit(ct: ClassType): Unit = {
     visit(ct.typeID: FullyQualifiedID)
+  }
+  def visit(c: Class): Unit = {
+    visit(c.typeId: FullyQualifiedID)
   }
 
       //

@@ -181,7 +181,7 @@ class Assembler(cu: CompilationUnit) {
             call(Label("foobar" /*TODO: actually get the right label*/)) :: Nil
           case ArrayNewExpr(arrayType) =>
             //TODO: not sure what this will look like atm
-            assert(assertion = false, "implement arrays"); List("error")
+            ???
         }
     }
   }
@@ -198,56 +198,6 @@ class Assembler(cu: CompilationUnit) {
       compare(eax, ebx) :: Nil
 
     be.operatorTok match {
-      case Becomes(_, _, _) =>
-        //TODO: environment look up to see what the lhs actually refers to
-        // for now just assume its on the stack
-        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
-        assemble(be.rhs) :::
-        move(stackAddress(stackLoc), eax) :: Nil
-      case GT(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnGreater(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case LT(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnLess(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case EQ(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnEqual(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case GE(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnGreaterOrEqual(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case LE(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnLessOrEqual(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case NE(_, _, _) =>
-        evaluateAndCompare() :::
-        setOnNotEqual(al) ::
-        moveZeroExtended(eax, al) :: Nil
-      case Bang(_, _, _) =>
-        assert(assertion = false, "Bininary bang is not a thing"); List("error")
-      case AmpAmp(_, _, _) =>
-        val endLabel = makeLocalLabel("and")
-        assemble(be.lhs) :::
-        jumpIfRegIsFalse(eax, endLabel) :::
-        assemble(be.rhs) :::
-        placeLabel(endLabel) :: Nil
-      case Amp(_, _, _) =>
-        evaluate() :::
-        binaryAnd(eax, ebx) :: Nil
-      case BarBar(_, _, _) =>
-        val endLabel = makeLocalLabel("or")
-        assemble(be.lhs) :::
-        jumpIfRegIsTrue(eax, endLabel) :::
-        assemble(be.rhs) :::
-        placeLabel(endLabel) :: Nil
-      case Bar(_, _, _) =>
-        evaluate() :::
-        binaryOr(eax, ebx) :: Nil
       case Plus(_, _, _) =>
         //TODO do type checking for (Str + Str)
         evaluate() :::
@@ -264,20 +214,62 @@ class Assembler(cu: CompilationUnit) {
       case Percent(_, _, _) =>
         evaluate() :::
         signedModulo(ebx)
+      case GT(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnGreater(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case LT(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnLess(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case GE(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnGreaterOrEqual(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case LE(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnLessOrEqual(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case EQ(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnEqual(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case NE(_, _, _) =>
+        evaluateAndCompare() :::
+        setOnNotEqual(al) ::
+        moveZeroExtended(eax, al) :: Nil
+      case AmpAmp(_, _, _) =>
+        val endLabel = makeLocalLabel("and")
+        assemble(be.lhs) :::
+        jumpIfRegIsFalse(eax, endLabel) :::
+        assemble(be.rhs) :::
+        placeLabel(endLabel) :: Nil
+      case BarBar(_, _, _) =>
+        val endLabel = makeLocalLabel("or")
+        assemble(be.lhs) :::
+        jumpIfRegIsTrue(eax, endLabel) :::
+        assemble(be.rhs) :::
+        placeLabel(endLabel) :: Nil
+      case Amp(_, _, _) =>
+        evaluate() :::
+        binaryAnd(eax, ebx) :: Nil
+      case Bar(_, _, _) =>
+        evaluate() :::
+        binaryOr(eax, ebx) :: Nil
+      case Becomes(_, _, _) =>
+        //TODO: environment look up to see what the lhs actually refers to
+        // for now just assume its on the stack
+        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
+        assemble(be.rhs) :::
+        move(stackAddress(stackLoc), eax) :: Nil
       case JavaInstanceof(_, _, _) =>
         //TODO: implement instanceof
-        assert(assertion = false, "unimplemented"); List("error")
+        ???
     }
   }
 
   case class IntMin() extends Exception
   def assemble(ue: UnaryExpr)(implicit st: StackTracker): List[String] = ue.operatorTok match {
-    case Bang(_, _, _) =>
-      assemble(ue.rhs) :::
-      compare(eax, constant(0)) ::
-      setOnEqual(al) ::
-      moveZeroExtended(eax, al) :: Nil
-
     case Minus(_, _ ,_) =>
       try
         assemble(ue.rhs) :::
@@ -286,9 +278,11 @@ class Assembler(cu: CompilationUnit) {
         case IntMin() =>
           move(eax, constant(Int.MinValue)) :: Nil
       }
-
-    case _ =>
-      assert(assertion = false, "unexpected unary operator"); List("error")
+    case Bang(_, _, _) =>
+      assemble(ue.rhs) :::
+      compare(eax, constant(0)) ::
+      setOnEqual(al) ::
+      moveZeroExtended(eax, al) :: Nil
   }
 
   def assemble(ve: ValExpr): List[String] = ve.value match {
@@ -311,7 +305,7 @@ class Assembler(cu: CompilationUnit) {
 
     case StringLiteral(_, _, _, value) =>
       //TODO: handle strings in expressions
-      assert(assertion = false, "strings in expressions not implemented"); List("error")
+      ???
 
     case NullLiteral(_, _, _, _) =>
       move(eax, constant(0)) :: Nil

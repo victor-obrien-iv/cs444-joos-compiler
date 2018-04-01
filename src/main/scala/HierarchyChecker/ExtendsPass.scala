@@ -24,7 +24,7 @@ class ExtendsPass(localContext: Map[String, TypeDecl], typeContext: Map[String, 
     for(t <- types)
       if(t.name.lexeme == name)
         return t
-    assert(assertion = false, s"Type $name does not exist in hierarchy"); types.head
+    assert(assertion = false, s"Type $name does not exist in hierarchy"); ???
   }
 
   // A class must not extend an interface

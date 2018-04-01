@@ -31,12 +31,12 @@ class LabelFactory(cu: CompilationUnit) {
   def getExternLabels: List[Label] = externLabels
 
   private def typeName(t: Type): String = t match {
-    case ArrayType(arrayOf, _) =>
-      s"ARRAY_${typeName(arrayOf)}"
-    case PrimitiveType(typeToken) =>
-      typeToken.lexeme
-    case ClassType(typeID) =>
-      s"CLASS_${typeID.name}"
+    case rt: ReferenceType => rt match {
+      case ArrayType(arrayOf, _) => s"ARRAY_${typeName(arrayOf)}"
+      case ClassType(typeID) => s"CLASS_${typeID.name}"
+      case NullType() | Class(_)=> assert(assertion = false, "Invalid parameter type"); ???
+    }
+    case PrimitiveType(typeToken) => typeToken.lexeme
   }
 
   def makeMethodLabel(md: MethodDecl): Label = {

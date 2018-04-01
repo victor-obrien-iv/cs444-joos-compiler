@@ -60,7 +60,7 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
       for(t <- types)
         if(t.name.lexeme == name)
           return t
-      assert(assertion = false, s"Type $name does not exist in hierarchy"); types.head
+      assert(assertion = false, s"Type $name does not exist in hierarchy"); ???
     }
     if ( fqid.qualifiers.nonEmpty )
       findInPack(fqid.id.lexeme, typeContext(fqid.pack))
@@ -69,12 +69,19 @@ class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeD
   }
 
   def makeSig(typ: Type, ast: CompilationUnit): Signature = typ match {
-    case ArrayType(arrayOf, _)    => ArraySig(makeSig(arrayOf, ast))
+    case rt: ReferenceType => rt match {
+      case ArrayType(arrayOf, _) =>
+        ArraySig(makeSig(arrayOf, ast))
+      case ClassType(typeID) =>
+        val td = resolve(typeID, ast.typeDecl)
+        ClassSig(td.name.lexeme + "(id:" + td.hashCode() + ")")
+      case NullType() | Class(_) =>
+        assert(assertion = false, "Invalid parameter type"); ???
+    }
     case PrimitiveType(typeToken) => PrimitiveSig(typeToken.lexeme)
-    case ClassType(typeID)        =>
-      val td = resolve(typeID, ast.typeDecl)
-      ClassSig(td.name.lexeme + "(id:" + td.hashCode() + ")")
   }
+
+
 
   /**
     * Maps each type to a map of each method signature and declaration
