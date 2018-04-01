@@ -345,7 +345,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case Some(value) =>
           ExprName(id, value.typ)
         case None =>
-          findField(id.id, typeDecl) match {
+          findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
               ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
             case None =>
