@@ -59,7 +59,11 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
                 case None => throw Error.langLibraryNotLoaded
               }
             case (ArrayType(arrayOf1, _), ArrayType(arrayOf2, _)) =>
-              typeAssignable(arrayOf1, arrayOf2)
+              (arrayOf1, arrayOf2) match {
+                case (ClassType(iD1), ClassType(iD2)) =>
+                  isSubTypeOf(iD1, iD2)
+                case (t1, t2) => t1 == t2
+              }
             case (ClassType(iD1), ClassType(iD2)) =>
               isSubTypeOf(iD1, iD2)
             case _ => false
@@ -67,7 +71,6 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
         case p: PrimitiveType if p.isNumeric =>
           (type1, type2) match {
             case (PrimitiveType(_: JavaShort), PrimitiveType(_: JavaByte))
-                 | (PrimitiveType(_: JavaChar), PrimitiveType(_: JavaByte))
                  | (PrimitiveType(_: JavaChar), PrimitiveType(_: JavaShort))
                  | (PrimitiveType(_: JavaShort), PrimitiveType(_: JavaChar))
                  | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaShort))
