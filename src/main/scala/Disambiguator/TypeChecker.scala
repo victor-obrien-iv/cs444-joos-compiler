@@ -205,7 +205,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
 
       }
       val returnType = methodType match {
-        case Some(value) => findMethodType(value)
+        case Some(value) => findMethodType(value, typeDecl)
         case None =>
           throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
       }
@@ -276,7 +276,11 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         val newType = environment.findType(ctor).getOrElse(throw Error.classNotFound(ctor))
         val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField))
         findConstructor(paramTypes, newType) match {
-          case Some(value) => ClassType(ctor)
+          case Some(value) =>
+            if (value.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(newType, typeDecl)) {
+              throw Error.protectedAccess(newType, ctor.id)
+            }
+            ClassType(ctor)
           case None => throw Error.classNotFound(ctor)
         }
       case ArrayNewExpr(arrayType) => arrayType
@@ -390,7 +394,10 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     findMemberType(value._1, value._2.typ)
   }
 
-  private def findMethodType(value: (TypeDecl, MethodDecl)): Option[Type] = {
+  private def findMethodType(value: (TypeDecl, MethodDecl), typeDecl: TypeDecl): Option[Type] = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(value._1, typeDecl)) {
+      throw Error.protectedAccess(value._1, value._2.name)
+    }
     value._2.returnType.map(findMemberType(value._1, _))
   }
 }
