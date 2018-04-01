@@ -93,14 +93,15 @@ class MethodsPass(checker: HierarchyChecker, ast: CompilationUnit) extends Visit
                 Error.Type.MethodsPass, loc)
           }
         }
-        else if(concreteInheritance.exists( map =>
-          map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected]))) {
-            abstractInheritance.foreach { map =>
-              if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
-                throw Error.Error(sig + " => " + map(sig).name.lexeme,
-                  "A protected method must not replace a public method",
-                  Error.Type.MethodsPass, loc)
-            }
+        else if(concreteInheritance.exists( map => map.contains(sig)
+                && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaProtected]
+                && !map(sig).modifiers.exists(_.isInstanceOf[Token.JavaAbstract])))) {
+          abstractInheritance.foreach { map =>
+            if (map.contains(sig) && map(sig).modifiers.exists(_.isInstanceOf[Token.JavaPublic]))
+              throw Error.Error(sig + " => " + map(sig).name.lexeme,
+                "A protected method must not replace a public method",
+                Error.Type.MethodsPass, loc)
+          }
         }
       }
       { // A method must not replace a final method

@@ -109,7 +109,7 @@ class AstBuilder(filename: String) {
     InterfaceDecl(modifiers, identifier, filename.hashCode, superInterfaces, bodyDecls)
   }
 
-  private def buildInterfaceBody(node: TreeNode): List[Decl] = {
+  private def buildInterfaceBody(node: TreeNode): List[MemberDecl] = {
     if (node.children.nonEmpty) {
       //InterfaceBodyDeclarations InterfaceBodyDeclarations InterfaceBodyDeclaration
       if (node.children(1).children.lengthCompare(2) == 0) {
@@ -170,7 +170,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildClassBody(node: TreeNode): List[Decl] = {
+  private def buildClassBody(node: TreeNode): List[MemberDecl] = {
     if (node.children.nonEmpty) {
       buildClassBody(node.children.head) :+ buildBodyDeclaration(node.children(1))
     } else {
@@ -178,7 +178,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildBodyDeclaration(node: TreeNode): Decl = {
+  private def buildBodyDeclaration(node: TreeNode): MemberDecl = {
     val head = node.children.head
     head match {
       case TreeNode(Right("ConstructorDeclaration"), _) =>
@@ -239,7 +239,6 @@ class AstBuilder(filename: String) {
   }
 
   private def buildExpr(node: TreeNode): Expr = {
-//    println(node)
     node match {
       case TreeNode(Left(value), _) if value.isInstanceOf[Identifier] =>
         DeclRefExpr(value.asInstanceOf[Identifier])
@@ -260,19 +259,20 @@ class AstBuilder(filename: String) {
       case TreeNode(_, children) =>
         children.length match {
           case 1 => buildExpr(children.head)
-          case 2 => UnaryExpr(children.head.state.left.get.asInstanceOf[Operator], buildExpr(node.children(1)))
+          case 2 => UnaryExpr(children.head.state.left.get.asInstanceOf[UnaryOperator], buildExpr(node.children(1)))
           case 3 =>
             //Casts the token as operator if it is an operator, else the operator is only one level deeper
             // for all grammar rules of binary operators
             val operator = if (children(1).state.isLeft) {
-              children(1).state.left.get.asInstanceOf[Operator]
+              children(1).state.left.get.asInstanceOf[BinaryOperator]
             } else {
-              children(1).children.head.state.left.get.asInstanceOf[Operator]
+              children(1).children.head.state.left.get.asInstanceOf[BinaryOperator]
             }
-            BinaryExpr(buildExpr(children.head),
-              operator,
-              buildExpr(children(2))
-            )
+            operator match {
+              case io: JavaInstanceof => InstanceOfExpr(buildExpr(children.head), buildType(children(2)))
+              case _ => BinaryExpr(buildExpr(children.head), operator, buildExpr(children(2)))
+            }
+
           case 4 =>
             CastExpr(buildCastType(node.children(1)), buildExpr(node.children(3)))
           case _ => throw AstError(node)

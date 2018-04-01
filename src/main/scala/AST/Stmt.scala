@@ -3,7 +3,7 @@ package AST
 /**
   * Stmt represents a code statement
   */
-trait Stmt extends AstNode
+sealed trait Stmt extends AstNode
 
 /**
   * BlockStmt represents a sequence of statements

@@ -1,13 +1,14 @@
-import AST.{CompilationUnit, TypeDecl}
+import Disambiguator.TypeChecker
 import Driver.{CommandLine, Driver}
+import Environment.Environment
 import Error.ErrorFormatter
-import TypeLinker.{TypeContextBuilder, TypeLinker}
 import HierarchyChecker.HierarchyChecker
+import TypeLinker.{TypeContextBuilder, TypeLinker}
 import StaticAnalyzer._
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -67,9 +68,28 @@ object Main extends App {
       }
   }
 
-  val done = linkedAndChecked andThen {
+
+  val typeCheck = for {
+    typeContext <- typeContextTry
+    checked <- linkedAndChecked
+    astList <- asts
+  } yield {
+    val mapLink = astList.map{
+      ast =>
+        (ast.typeDecl, typeLinker.buildSimpleTypeLink(ast, typeContext))
+    }
+    astList.foreach { ast =>
+      val localTypeLink = typeLinker.buildSimpleTypeLink(ast, typeContext)
+      val packageName = ast.packageName.map(_.name)
+      val environment = Environment(typeContext, localTypeLink, mapLink.toMap, packageName.getOrElse(""))
+      val typeChecker = new TypeChecker(environment)
+      typeChecker.build(ast)
+    }
+  }
+
+  val done = typeCheck andThen {
     case Failure(exception) => exception match {
-      case e: Error.Error => println(errorFormatter.format(e)); ErrorExit()
+      case e: Error.Error => println(errorFormatter.format(e)); e.printStackTrace(); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
     }
     case Success(_) => CleanExit()

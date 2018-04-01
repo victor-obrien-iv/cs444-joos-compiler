@@ -14,14 +14,14 @@ sealed trait Expr extends AstNode
   * @param operatorTok The token denoting the operation
   * @param rhs The right hand side expression
   */
-case class BinaryExpr(lhs: Expr, operatorTok: Token.Operator, rhs: Expr) extends Expr
+case class BinaryExpr(lhs: Expr, operatorTok: Token.BinaryOperator, rhs: Expr) extends Expr
 
 /**
   * UnaryExpr represents a single operator acting on a right hand side
   * @param operatorTok The token denoting the operation
   * @param rhs The right hand side
   */
-case class UnaryExpr(operatorTok: Token.Operator, rhs: Expr) extends Expr
+case class UnaryExpr(operatorTok: Token.UnaryOperator, rhs: Expr) extends Expr
 
 /**
   * ParenExpr represents an expression enclosed in parentheses
