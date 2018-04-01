@@ -88,7 +88,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     } else {
       val superTypeDecl = environment.findType(superType).getOrElse(throw Error.classNotFound(superType))
       val subTypeDecl = environment.findType(subType).getOrElse(throw Error.classNotFound(subType))
-      isSubTypeOf(subTypeDecl, subTypeDecl)
+      isSubTypeOf(superTypeDecl, subTypeDecl)
     }
   }
 
