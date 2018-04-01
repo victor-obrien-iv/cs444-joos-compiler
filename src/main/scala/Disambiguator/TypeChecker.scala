@@ -13,13 +13,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members) =>
       val (fields, methods, ctors) = partitionMembers(members)
       val (staticFields, nonStaticFields) = fields.partition(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-      buildFields(staticFields, typeDecl, fields.map(field => VarDecl(field.typ, field.name)))
-      buildFields(fields, typeDecl, Nil)
+      buildFields(staticFields, typeDecl, fields.map(field => VarDecl(field.typ, field.name)), isStatic = true)
+      buildFields(fields, typeDecl, Nil, isStatic = false)
       methods.map{
         method =>
           val parameters = method.parameters.map(parameter => VarDecl(parameter.typ, parameter.name))
           method.body.map { (body: BlockStmt) =>
-            build(body, typeDecl, Nil, parameters, method.returnType)
+            build(body, typeDecl, Nil, parameters, method.returnType, method.modifiers.exists(_.isInstanceOf[JavaStatic]))
           }
       }
       ctors.map {
@@ -30,7 +30,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
             case None => throw Error.memberNotFound(superClass.name.lexeme, superClass.name)
           }
           val parameters = ctor.parameters.map(parameter => VarDecl(parameter.typ, parameter.name))
-          build(ctor.body, typeDecl, Nil, parameters, None)
+          build(ctor.body, typeDecl, Nil, parameters, None, isStatic = false)
       }
   }
 
@@ -41,13 +41,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     * @param fields The list of fields being built
     * @param typeDecl The type the field is building
     */
-  private def buildFields(fields: List[FieldDecl], typeDecl: TypeDecl, scope: List[VarDecl]): Unit = {
+  private def buildFields(fields: List[FieldDecl], typeDecl: TypeDecl, scope: List[VarDecl], isStatic: Boolean): Unit = {
     fields.foldRight(scope) {
       case (field, vars) =>
         val newScope = VarDecl(field.typ, field.name)::vars
         field.assignment.foreach{
           ass =>
-            val typeAss = build(ass, typeDecl, newScope, Nil, isField = true)
+            val typeAss = build(ass, typeDecl, newScope, Nil, isField = true, isStatic)
             if (!typeAssignable(field.typ, typeAss)) {
               throw Error.typeMismatch(typeAss, field.typ)
             }
@@ -56,14 +56,15 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     }
   }
 
-  private def build(stmt: Stmt, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], returnType: Option[Type]): List[VarDecl] = stmt match {
+  private def build(stmt: Stmt, typeDecl: TypeDecl, scope: List[VarDecl],
+                    parameters: List[VarDecl], returnType: Option[Type], isStatic: Boolean): List[VarDecl] = stmt match {
     case BlockStmt(stmts) =>
       stmts.foldLeft(scope) {
       case (currentScope, currentStmt) =>
-        build(currentStmt, typeDecl, currentScope, parameters, returnType)
+        build(currentStmt, typeDecl, currentScope, parameters, returnType, isStatic)
     }
     case DeclStmt(decl, assignment) =>
-      val typeOf = assignment.map((expr: Expr) => build(expr, typeDecl, decl :: scope, parameters, isField =  false))
+      val typeOf = assignment.map((expr: Expr) => build(expr, typeDecl, decl :: scope, parameters, isField =  false, isStatic))
       typeOf match {
         case Some(value) =>
           if (!typeAssignable(decl.typ, value))
@@ -72,10 +73,10 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
       decl :: scope
     case ExprStmt(expr) =>
-      build(expr, typeDecl, scope, parameters, isField = false)
+      build(expr, typeDecl, scope, parameters, isField = false, isStatic)
       scope
     case ReturnStmt(expr) =>
-      val exprType = expr.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField = false))
+      val exprType = expr.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField = false, isStatic))
       (returnType, exprType) match {
         case (Some(type1), Some(type2)) =>
           if (!typeAssignable(type1, type2)) {
@@ -87,28 +88,28 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       scope
     case c: CtrlFlowStmt => c match {
       case IfStmt(condition, thenStmt, elseStmt) =>
-        val testType = build(condition, typeDecl, scope, parameters, isField = false)
+        val testType = build(condition, typeDecl, scope, parameters, isField = false, isStatic)
         tryBoolean(testType)
-        build(thenStmt, typeDecl, scope, parameters, returnType)
-        elseStmt.map(build(_, typeDecl, scope, parameters, returnType))
+        build(thenStmt, typeDecl, scope, parameters, returnType, isStatic)
+        elseStmt.map(build(_, typeDecl, scope, parameters, returnType, isStatic))
         scope
       case l: LoopStmt => l match {
         case ForStmt(init, condition, update, bodyStmt) =>
-          val initDecl = init.map(build(_, typeDecl, scope, parameters, returnType))
+          val initDecl = init.map(build(_, typeDecl, scope, parameters, returnType, isStatic))
           val newScope = initDecl.getOrElse(scope)
 
-          condition.map(build(_, typeDecl, newScope, parameters, isField = false)) match {
+          condition.map(build(_, typeDecl, newScope, parameters, isField = false, isStatic)) match {
             case Some(value) => tryBoolean(value)
             case None =>
           }
 
-          update.map(build(_, typeDecl, newScope, parameters, returnType))
+          update.map(build(_, typeDecl, newScope, parameters, returnType, isStatic))
 
-          build(bodyStmt, typeDecl, newScope, parameters, returnType)
+          build(bodyStmt, typeDecl, newScope, parameters, returnType, isStatic)
         case WhileStmt(condition, bodyStmt) =>
-          val condType = build(condition, typeDecl, scope, parameters, isField = false)
+          val condType = build(condition, typeDecl, scope, parameters, isField = false, isStatic)
           tryBoolean(condType)
-          build(bodyStmt, typeDecl, scope, parameters, returnType)
+          build(bodyStmt, typeDecl, scope, parameters, returnType, isStatic)
       }
     }
   }
@@ -128,18 +129,18 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     * @param typeDecl The type this field belongs to
     * @param scope The variables that it could potentially forward reference
     */
-  protected def build(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean): Type = expr match {
+  protected def build(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Type = expr match {
     case BinaryExpr(lhs, _: Becomes, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField = false)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField = false, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       if (typeAssignable(leftType, rightType)) {
         leftType
       } else {
         throw Error.typeMismatch(rightType, leftType)
       }
     case BinaryExpr(lhs, operatorTok: Plus, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       (leftType, rightType) match {
         case (_, PrimitiveType(v: JavaVoid)) => throw Error.expectedNumeric(PrimitiveType(v))
         case (PrimitiveType(v: JavaVoid), _) => throw Error.expectedNumeric(PrimitiveType(v))
@@ -151,8 +152,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case (t, _) => throw Error.expectedNumeric(t)
       }
     case BinaryExpr(lhs, operatorTok: CompareOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       (leftType, rightType) match {
         case (p1:PrimitiveType, p2:PrimitiveType) if p1.isNumeric && p2.isNumeric =>
           PrimitiveType(JavaBoolean(row = 0, col = 0))
@@ -160,8 +161,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case (t, _) => throw Error.expectedBoolean(t)
       }
     case BinaryExpr(lhs, operatorTok: BooleanOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       (leftType, rightType) match {
         case (PrimitiveType(_: JavaBoolean), PrimitiveType(_: JavaBoolean)) =>
           PrimitiveType(JavaBoolean(row = 0, col = 0))
@@ -169,8 +170,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case (t, _) => throw Error.expectedBoolean(t)
       }
     case BinaryExpr(lhs, operatorTok: NumericOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       (leftType, rightType) match {
         case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
           PrimitiveType(JavaInt(row = 0, col = 0))
@@ -178,29 +179,29 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case (t, _) => throw Error.expectedNumeric(t)
       }
     case BinaryExpr(lhs, operatorTok: EqualityOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       if (typeAssignable(leftType, rightType) || typeAssignable(rightType, leftType)) {
         PrimitiveType(JavaBoolean(row = 0, col = 0))
       } else {
         throw Error.typeMismatch(leftType, rightType)
       }
     case UnaryExpr(operatorTok: Bang, rhs) =>
-      build(rhs, typeDecl, scope, parameters, isField) match {
+      build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
         case PrimitiveType(b: JavaBoolean) => PrimitiveType(b)
         case t => throw Error.expectedBoolean(t)
       }
     case UnaryExpr(operatorTok: Minus, rhs) =>
-      build(rhs, typeDecl, scope, parameters, isField) match {
+      build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
         case p: PrimitiveType if p.isNumeric => p
         case t => throw Error.expectedNumeric(t)
       }
-    case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField)
+    case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField, isStatic)
     case CallExpr(obj, call, params) =>
       var isClass = false //flag to consider finding a static member or nah//
       var typeId = FullyQualifiedID("java.lang.Object")
       val objTypeDecl = obj.flatMap{(expr: Expr) =>
-        build(expr, typeDecl, scope, parameters, isField) match {
+        build(expr, typeDecl, scope, parameters, isField, isStatic) match {
           case ClassType(id) =>
             typeId = id
             environment.findType(id)
@@ -214,7 +215,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           case NullType() => throw Error.nullPointerException
         }
       }
-      val paramTypes = params.map(build(_, typeDecl, scope, parameters, isField))
+      val paramTypes = params.map(build(_, typeDecl, scope, parameters, isField, isStatic))
       val methodType = objTypeDecl match {
         case Some(value) =>
           if (isClass)
@@ -236,12 +237,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case None => PrimitiveType(JavaVoid(row = 0, col = 0))
       }
     case ThisExpr() =>
+      if (isStatic) throw Error.cannotInvokeThisInStaticContext
       environment.findQualifiedType(typeDecl.name.lexeme) match {
         case Some(value) => ClassType(FullyQualifiedID(value))
         case None => throw Error.classNotFound(typeDecl.name.lexeme)
       }
     case CastExpr(castType, rhs) =>
-      val rightType = build(rhs, typeDecl, scope, parameters, isField)
+      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
       (castType, rightType) match {
         case (p1: PrimitiveType, p2: PrimitiveType) if p1.isNumeric && p2.isNumeric =>
           castType
@@ -250,7 +252,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case _ => throw Error.typeMismatch(rightType, castType)
       }
     case AccessExpr(lhs, field) =>
-      build(lhs, typeDecl, scope, parameters, isField) match {
+      build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
         case ArrayType(arrayOf, size) =>
           if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
           else throw Error.memberNotFound(s"$arrayOf[]", field)
@@ -265,11 +267,11 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
       }
     case ArrayAccessExpr(lhs, index) =>
-      val arrayType = build(lhs, typeDecl, scope, parameters, isField) match {
+      val arrayType = build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
         case a: ArrayType => a
         case e => throw Error.notArray(e)
       }
-      build(index, typeDecl, scope, parameters, isField) match {
+      build(index, typeDecl, scope, parameters, isField, isStatic) match {
         case p: PrimitiveType if p.isNumeric =>
         case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
       }
@@ -289,7 +291,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case _ => throw Error.classNotFound(reference.lexeme)
       }
     case InstanceOfExpr(lhs, typ) =>
-      val typeOfLValue = build(lhs, typeDecl, scope, parameters, isField)
+      val typeOfLValue = build(lhs, typeDecl, scope, parameters, isField, isStatic)
       if (typeAssignable(typeOfLValue, typ) || typeAssignable(typ, typeOfLValue)) {
         PrimitiveType(JavaBoolean(row = 0, col = 0))
       } else {
@@ -301,7 +303,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         if (newType.modifiers.exists(_.isInstanceOf[JavaAbstract])) {
           throw Error.cannotInstantiateAbstract(newType)
         }
-        val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField))
+        val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField, isStatic))
         findConstructor(paramTypes, newType) match {
           case Some(value) =>
             if (value.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
@@ -313,7 +315,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       case ArrayNewExpr(arrayType) =>
         arrayType.size.foreach {
           expr =>
-            build(expr, typeDecl, scope, parameters, isField) match {
+            build(expr, typeDecl, scope, parameters, isField, isStatic) match {
               case p: PrimitiveType if p.isNumeric =>
               case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
             }

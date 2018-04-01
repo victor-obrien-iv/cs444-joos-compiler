@@ -84,4 +84,8 @@ object Error {
   def cannotInstantiateAbstract(typeDecl: TypeDecl): Error = {
     Error(typeDecl.name.lexeme, s"${typeDecl.name.lexeme} is an abstract class and cannot be instantiated", Type.TypeChecker)
   }
+
+  def cannotInvokeThisInStaticContext: Error = {
+    Error("this", s"this cannot be called in static context", Type.TypeChecker)
+  }
 }
