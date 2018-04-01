@@ -35,6 +35,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
 
   def typeEquals(type1: Type, type2: Type): Boolean = {
     (type1, type2) match {
+      case (PrimitiveType(_: JavaVoid), _) => false
       case (PrimitiveType(p1), PrimitiveType(p2)) => p1.lexeme == p2.lexeme
       case (ClassType(c1), ClassType(c2)) => environment.findType(c1) == environment.findType(c2)
       case (ArrayType(a1, _), ArrayType(a2, _)) => typeEquals(a1, a2)
@@ -76,6 +77,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
                  | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaByte)) => true
             case _ => false
           }
+        case _ => false
       }
     }
   }
