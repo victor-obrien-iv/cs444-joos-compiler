@@ -5,7 +5,7 @@ import Token.{Identifier, Primitive}
 
 case object Type extends Enumeration {
   val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder, TypeLinking, Disambiguation,
-  Implementation, TypeChecker, EnvironmentPass, ExtendsPass, HierarchyCheck, MethodsPass = Value
+  Implementation, TypeChecker, EnvironmentPass, ExtendsPass, HierarchyCheck, StaticAnalysis = Value
 }
 
 case class Location ( lineNum: Integer, col: Integer, file: String )
