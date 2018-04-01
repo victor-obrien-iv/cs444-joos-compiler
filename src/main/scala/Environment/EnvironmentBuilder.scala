@@ -116,7 +116,9 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     } else isSubTypeOf(ownerDecl, accessorDecl)
   }
 
-  def samePackage(owner: FullyQualifiedID): Boolean = owner.pack == environment.packageName
+  def samePackage(owner: FullyQualifiedID): Boolean = {
+    environment.findQualifiedType(owner.pack).contains(environment.packageName)
+  }
 
   /**
     * Finds a field in a Class by the given id. Searches through super classes as well
