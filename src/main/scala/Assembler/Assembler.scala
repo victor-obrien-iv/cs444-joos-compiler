@@ -7,11 +7,10 @@ import i386._
 
 class Assembler(cu: CompilationUnit) {
   import LabelFactory._
-  private val labelFactory = new LabelFactory(cu)
 
   def assemble(cd: ConstructorDecl): List[String] = {
 
-    val label = labelFactory.makeCtorLabel(cd)
+    val label = LabelFactory.makeCtorLabel(cd, cu.typeDecl)
     val paramTotalBytes = (cd.parameters.size + 1) * wordSize
     implicit val st: StackTracker = new StackTracker(cd.parameters, true)
 
@@ -24,7 +23,7 @@ class Assembler(cu: CompilationUnit) {
 
   def assemble(md: MethodDecl): List[String] = md.body match {
     case Some(blockStmt) =>
-      val label = labelFactory.makeMethodLabel(md)
+      val label = LabelFactory.makeMethodLabel(md, cu.typeDecl)
       val paramTotalBytes = md.parameters.size * wordSize
       implicit val st: StackTracker = new StackTracker(md.parameters, false)
       functionEntrance(label, paramTotalBytes) :::
@@ -150,7 +149,7 @@ class Assembler(cu: CompilationUnit) {
       case pe: ParenExpr =>
         assemble(pe.expr)
       case ce: CallExpr => ???
-      case _: ThisExpr => ???
+      case _: ThisExpr =>
         val thisStackLoc = st.lookUpThis()
         move(eax, stackAddress(thisStackLoc)) :: Nil
       case ce: CastExpr => ???
@@ -256,9 +255,6 @@ class Assembler(cu: CompilationUnit) {
         val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
         assemble(be.rhs) :::
         move(stackAddress(stackLoc), eax) :: Nil
-      case JavaInstanceof(_, _, _) =>
-        //TODO: implement instanceof
-        ???
     }
   }
 

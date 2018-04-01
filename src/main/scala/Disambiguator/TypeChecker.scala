@@ -1,5 +1,4 @@
 package Disambiguator
-import javax.xml.ws.handler.MessageContext.Scope
 
 import AST._
 import Environment._
@@ -8,9 +7,14 @@ import Token._
 
 class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](environment) {
 
-  override def build(typeDecl: TypeDecl, environment: Environment): Unit = typeDecl match {
-    case InterfaceDecl(modifiers, name, id, extensionOf, members) =>
-    case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members) =>
+  def build(compilationUnit: CompilationUnit): Unit = {
+    val CompilationUnit(fileName, packageName, imports, typeDecl) = compilationUnit
+    build(typeDecl, environment)
+  }
+
+  def build(typeDecl: TypeDecl, environment: Environment): Unit = typeDecl match {
+    case InterfaceDecl(modifiers, name, id, extensionOf, members, packageName) =>
+    case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members, packageName) =>
       val (fields, methods, ctors) = partitionMembers(members)
       val (staticFields, nonStaticFields) = fields.partition(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
       buildFields(staticFields, typeDecl, fields.map(field => VarDecl(field.typ, field.name)), isStatic = true)
@@ -340,108 +344,4 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
   }
 
-
-  private def findName(id: FullyQualifiedID, typeDecl: TypeDecl, scope: List[VarDecl],
-                       parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Name = {
-    if (id.qualifiers.isEmpty) {
-      if (isField && scope.exists(_.name.lexeme == id.id.lexeme)) {
-        throw Error.identifierNotInScope(id)
-      }
-      val expr = (scope ++ parameters).find(_.name.lexeme == id.id.lexeme)
-      expr match {
-        case Some(value) =>
-          ExprName(id, value.typ)
-        case None =>
-          findNonStaticField(id.id, typeDecl) match {
-            case Some(value) =>
-              if (isStatic) throw Error.cannotInvokeThisInStaticContext
-              println(value._2.typ)
-              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
-            case None =>
-              environment.findType(id.id.lexeme) match {
-                case Some(value) => TypeName(id, value)
-                case None =>
-                  if (environment.containsPackage(id.id.lexeme)) {
-                    PackageName(id)
-                  } else {
-                    throw Error.noTopLevelPackage(id.name)
-                  }
-              }
-          }
-      }
-    } else {
-      findName(FullyQualifiedID(id.qualifiers), typeDecl, scope, parameters, isField, isStatic) match {
-        case PackageName(packageId) =>
-          if (environment.qualifiedTypes.contains(packageId.name)) {
-            val types = environment.qualifiedTypes(packageId.name)
-            val matchingTypes = types.filter(t => t.name.lexeme == id.id.lexeme)
-            if (matchingTypes.lengthCompare(1) == 0) {
-              TypeName(id, matchingTypes.head)
-            } else {
-              PackageName(id)
-            }
-          } else {
-            PackageName(id)
-          }
-        case ExprName(exprId, typ) =>
-          val field = id.id
-          val exprType = typ match {
-            case ArrayType(arrayOf, size) =>
-              if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
-              else throw Error.memberNotFound(s"$arrayOf[]", field)
-            case NullType() => throw Error.nullPointerException
-            case ClassType(typeID) =>
-              val typeOf = environment.findType(typeID)
-              typeOf.flatMap(findNonStaticField(field, _)) match {
-                case Some(value) =>
-                  findFieldType(value, typeDecl, typeID)
-                case None => throw Error.classNotFound(typeID)
-              }
-            case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
-          }
-          ExprName(id, exprType)
-        case TypeName(typeId, typeOf) =>
-          findStaticField(id.id, typeOf) match {
-            case Some(value) =>
-              val fieldType = findFieldType(value, typeDecl, typeId)
-              ExprName(id, fieldType)
-            case None => throw Error.memberNotFound(typeId, id.id)
-          }
-
-        case AmbiguousName(ambiId) => throw Error.ambiguousName(ambiId)
-      }
-    }
-  }
-
-  private def findMemberType(typeDecl: TypeDecl, typeOf: Type): Type = {
-    typeOf match {
-      case ClassType(externType) =>
-        environment.findExternType(externType, typeDecl) match {
-          case Some(fieldTypeId) => ClassType(FullyQualifiedID(fieldTypeId))
-          case None => throw Error.classNotFound(externType)
-        }
-      case ArrayType(ClassType(externType), length) =>
-        environment.findExternType(externType, typeDecl) match {
-          case Some(fieldTypeId) => ArrayType(ClassType(FullyQualifiedID(fieldTypeId)), length)
-          case None => throw Error.classNotFound(externType)
-        }
-      case NullType() => throw Error.nullPointerException
-      case a: ArrayType => a
-      case p: PrimitiveType => p
-    }
-  }
-
-  private def findFieldType(value: (TypeDecl, FieldDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Type = {
-    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
-      throw Error.protectedAccess(value._1, value._2.name)
-    }
-    findMemberType(value._1, value._2.typ)
-  }
-
-  private def findMethodType(value: (TypeDecl, MethodDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Option[Type] = {
-    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
-      throw Error.protectedAccess(value._1, value._2.name)
-    }
-    value._2.returnType.map(findMemberType(value._1, _))
-  }
 }

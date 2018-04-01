@@ -16,13 +16,10 @@ object LabelFactory {
     val i = labelID.getAndAdd(1)
     for(use <- uses) yield { Label(s"${use}_$i") }
   }
-}
 
-//TODO: gonna need to change this so a cu can get labels outside its own
-class LabelFactory(cu: CompilationUnit) {
-  private val labelPrefix = cu.packageName match {
-    case Some(value) => s"${value.name}_${cu.typeDecl.name.lexeme}"
-    case None => s"?_${cu.typeDecl.name.lexeme}"
+  def labelPrefix(typeDecl: TypeDecl): String = typeDecl.packageName match {
+    case Some(value) => s"${value.name}_${typeDecl.name.lexeme}"
+    case None => s"?_${typeDecl.name.lexeme}"
   }
 
   private var globalLabels = List[Label]()
@@ -34,25 +31,25 @@ class LabelFactory(cu: CompilationUnit) {
     case rt: ReferenceType => rt match {
       case ArrayType(arrayOf, _) => s"ARRAY_${typeName(arrayOf)}"
       case ClassType(typeID) => s"CLASS_${typeID.name}"
-      case NullType() | Class(_)=> assert(assertion = false, "Invalid parameter type"); ???
+      case NullType() | Class(_)=> throw Error.Error.undefinedMatch
     }
     case PrimitiveType(typeToken) => typeToken.lexeme
   }
 
-  def makeMethodLabel(md: MethodDecl): Label = {
+  def makeMethodLabel(md: MethodDecl, typeDecl: TypeDecl): Label = {
     val params = (for(p <- md.parameters) yield { typeName(p.typ) }).mkString("~")
-    globalLabels = Label(s"${labelPrefix}_METHOD_${md.name.lexeme}~$params") :: globalLabels
+    globalLabels = Label(s"${labelPrefix(typeDecl)}_METHOD_${md.name.lexeme}~$params") :: globalLabels
     globalLabels.head
   }
 
-  def makeCtorLabel(cd: ConstructorDecl): Label = {
+  def makeCtorLabel(cd: ConstructorDecl, typeDecl: TypeDecl): Label = {
     val params = (for(p <- cd.parameters) yield { typeName(p.typ) }).mkString("~")
-    globalLabels = Label(s"${labelPrefix}_CTOR_${cd.identifier.lexeme}~$params") :: globalLabels
+    globalLabels = Label(s"${labelPrefix(typeDecl)}_CTOR_${cd.identifier.lexeme}~$params") :: globalLabels
     globalLabels.head
   }
 
-  def makeFieldLabel(fd: FieldDecl): Label = {
-    globalLabels = Label(s"${labelPrefix}_FIELD_${fd.name}") :: globalLabels
+  def makeFieldLabel(fd: FieldDecl, typeDecl: TypeDecl): Label = {
+    globalLabels = Label(s"${labelPrefix(typeDecl)}_FIELD_${fd.name}") :: globalLabels
     globalLabels.head
   }
 }

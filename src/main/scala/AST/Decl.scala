@@ -36,6 +36,7 @@ sealed trait TypeDecl extends Decl {
   def id: Int
   def superClass: Option[FullyQualifiedID]
   def superInterfaces: List[FullyQualifiedID]
+  def packageName: Option[FullyQualifiedID]
 }
 /**
   * InterfaceDecl represents an interface declaration
@@ -45,7 +46,8 @@ sealed trait TypeDecl extends Decl {
   * @param extensionOf the identifiers of the interfaces this interface extends
   * @param members the field and method declarations in this interface's body
   */
-case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl {
+case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: List[FullyQualifiedID],
+                         members: List[MemberDecl], packageName: Option[FullyQualifiedID]) extends TypeDecl {
 
   override def superClass: Option[FullyQualifiedID] = None
 
@@ -61,7 +63,9 @@ case class InterfaceDecl(modifiers: List[Modifier], name: Identifier, id: Int, e
   * @param implementationOf the identifiers of the interfaces this class implements
   * @param members the field, method and constructor declarations in this class' body
   */
-case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: Option[FullyQualifiedID], implementationOf: List[FullyQualifiedID], members: List[MemberDecl]) extends TypeDecl {
+case class ClassDecl(modifiers: List[Modifier], name: Identifier, id: Int, extensionOf: Option[FullyQualifiedID],
+                     implementationOf: List[FullyQualifiedID], members: List[MemberDecl],
+                     packageName: Option[FullyQualifiedID]) extends TypeDecl {
 
   override def superClass: Option[FullyQualifiedID] = extensionOf
 

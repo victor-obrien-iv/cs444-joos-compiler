@@ -1,18 +1,18 @@
 package Environment
 
 import AST._
+import Disambiguator._
 import Error.Error
 import Token._
 
-abstract class EnvironmentBuilder[T](environment: Environment) {
+class EnvironmentBuilder[T](environment: Environment) {
 
-  def build(compilationUnit: CompilationUnit): T = {
-    val CompilationUnit(fileName, packageName, imports, typeDecl) = compilationUnit
-    build(typeDecl, environment)
-  }
-
-  def build(typeDecl: TypeDecl, environment: Environment): T
-
+  /**
+    * Partitions the members of a type to Fields, Methods and Constructors
+    *
+    * @param decls
+    * @return
+    */
   protected def partitionMembers(decls: List[MemberDecl]): (List[FieldDecl], List[MethodDecl], List[ConstructorDecl]) =
     decls.foldRight((List.empty[FieldDecl], List.empty[MethodDecl], List.empty[ConstructorDecl])) {
       case (fieldDecl: FieldDecl, (fields, methods, ctors)) => (fieldDecl :: fields, methods, ctors)
@@ -20,6 +20,13 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       case (ctorDecl: ConstructorDecl, (fields, methods, ctors)) => (fields, methods, ctorDecl :: ctors)
     }
 
+  /**
+    * Checks if a list of types match with the parameter declarations
+    *
+    * @param paramTypes
+    * @param parameters
+    * @return
+    */
   protected def parametersMatch(paramTypes: List[Type], parameters: List[ParameterDecl]): Boolean = {
     (parameters, paramTypes) match {
       case (Nil, Nil) => true
@@ -33,6 +40,12 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  /**
+    * Checks if two types are equal
+    * @param type1
+    * @param type2
+    * @return
+    */
   def typeEquals(type1: Type, type2: Type): Boolean = {
     (type1, type2) match {
       case (PrimitiveType(_: JavaVoid), _) => false
@@ -44,6 +57,12 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  /**
+    * Checks if type2 is type assignable to type1
+    * @param type1 The type assigned to
+    * @param type2 The type assignee
+    * @return True if type assignable, false if not
+    */
   def typeAssignable(type1: Type, type2: Type): Boolean = {
     if (typeEquals(type1, type2)) true
     else {
@@ -82,6 +101,13 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  /**
+    * Checks whether subType is a subType of superType
+    *
+    * @param superType
+    * @param subType
+    * @return True/False
+    */
   def isSubTypeOf(superType: FullyQualifiedID, subType: FullyQualifiedID): Boolean = {
     if (superType.id.lexeme == "Object") {
       true
@@ -238,6 +264,14 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  /**
+    * Finds non static method based on the parameters
+    *
+    * @param id         Identifier of the method
+    * @param parameters The types of the parameters
+    * @return The declaration of the method
+    * @return
+    */
   def findNonStaticMethod(id: Identifier, parameters: List[Type], typeDecl: TypeDecl): Option[(TypeDecl, MethodDecl)] = {
     val methodOption = findMethod(id, parameters, typeDecl)
     methodOption filter {
@@ -259,6 +293,144 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
         parametersMatch(parameters, parameterDecls)
       case _ => false
     }
+  }
+
+  /**
+    * Disambiguates the name of id
+    *
+    * @param id         Ambiguous name
+    * @param typeDecl   The declaration where it was found
+    * @param scope      The scope currently where the name was found
+    * @param parameters The parameters of the method where the name was found
+    * @param isField    If the name is being called from a field
+    * @param isStatic   If the name is being called from a static method
+    * @return A Name denoting the kind of name and the type that was found
+    */
+  def findName(id: FullyQualifiedID, typeDecl: TypeDecl, scope: List[VarDecl],
+               parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Name = {
+    if (id.qualifiers.isEmpty) {
+      if (isField && scope.exists(_.name.lexeme == id.id.lexeme)) {
+        throw Error.identifierNotInScope(id)
+      }
+      val expr = (scope ++ parameters).find(_.name.lexeme == id.id.lexeme)
+      expr match {
+        case Some(value) =>
+          ExprName(id, value.typ)
+        case None =>
+          findNonStaticField(id.id, typeDecl) match {
+            case Some(value) =>
+              if (isStatic) throw Error.cannotInvokeThisInStaticContext
+              println(value._2.typ)
+              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
+            case None =>
+              environment.findType(id.id.lexeme) match {
+                case Some(value) => TypeName(id, value)
+                case None =>
+                  if (environment.containsPackage(id.id.lexeme)) {
+                    PackageName(id)
+                  } else {
+                    throw Error.noTopLevelPackage(id.name)
+                  }
+              }
+          }
+      }
+    } else {
+      findName(FullyQualifiedID(id.qualifiers), typeDecl, scope, parameters, isField, isStatic) match {
+        case PackageName(packageId) =>
+          if (environment.qualifiedTypes.contains(packageId.name)) {
+            val types = environment.qualifiedTypes(packageId.name)
+            val matchingTypes = types.filter(t => t.name.lexeme == id.id.lexeme)
+            if (matchingTypes.lengthCompare(1) == 0) {
+              TypeName(id, matchingTypes.head)
+            } else {
+              PackageName(id)
+            }
+          } else {
+            PackageName(id)
+          }
+        case ExprName(exprId, typ) =>
+          val field = id.id
+          val exprType = typ match {
+            case ArrayType(arrayOf, size) =>
+              if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
+              else throw Error.memberNotFound(s"$arrayOf[]", field)
+            case NullType() => throw Error.nullPointerException
+            case ClassType(typeID) =>
+              val typeOf = environment.findType(typeID)
+              typeOf.flatMap(findNonStaticField(field, _)) match {
+                case Some(value) =>
+                  findFieldType(value, typeDecl, typeID)
+                case None => throw Error.classNotFound(typeID)
+              }
+            case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
+          }
+          ExprName(id, exprType)
+        case TypeName(typeId, typeOf) =>
+          findStaticField(id.id, typeOf) match {
+            case Some(value) =>
+              val fieldType = findFieldType(value, typeDecl, typeId)
+              ExprName(id, fieldType)
+            case None => throw Error.memberNotFound(typeId, id.id)
+          }
+
+        case AmbiguousName(ambiId) => throw Error.ambiguousName(ambiId)
+      }
+    }
+  }
+
+  /**
+    * Changes a class to qualified type from a simple type based on the scope
+    *
+    * @param typeDecl The origin of the member that contains the original scope
+    * @param typeOf   The simple or qualified type of the member
+    * @return The fully qualified type of the member
+    */
+  def findMemberType(typeDecl: TypeDecl, typeOf: Type): Type = {
+    typeOf match {
+      case ClassType(externType) =>
+        environment.findExternType(externType, typeDecl) match {
+          case Some(fieldTypeId) => ClassType(FullyQualifiedID(fieldTypeId))
+          case None => throw Error.classNotFound(externType)
+        }
+      case ArrayType(ClassType(externType), length) =>
+        environment.findExternType(externType, typeDecl) match {
+          case Some(fieldTypeId) => ArrayType(ClassType(FullyQualifiedID(fieldTypeId)), length)
+          case None => throw Error.classNotFound(externType)
+        }
+      case NullType() => throw Error.nullPointerException
+      case a: ArrayType => a
+      case p: PrimitiveType => p
+    }
+  }
+
+  /**
+    * Finds the type of the field and checks if it has proper access
+    *
+    * @param value    The field declaration and type it was found in
+    * @param typeDecl The type trying to access the field
+    * @param typeId   The id of the type accessing the field
+    * @return The type of the field fully qualified
+    */
+  def findFieldType(value: (TypeDecl, FieldDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Type = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
+      throw Error.protectedAccess(value._1, value._2.name)
+    }
+    findMemberType(value._1, value._2.typ)
+  }
+
+  /**
+    * Finds the type of the method and checks for proper access
+    *
+    * @param value    The method declaration and type it was found in
+    * @param typeDecl The type trying to access the field
+    * @param typeId   The id of the type accessing the field
+    * @return The type of the field fully qualified
+    */
+  def findMethodType(value: (TypeDecl, MethodDecl), typeDecl: TypeDecl, typeId: FullyQualifiedID): Option[Type] = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !hasProtectedAccess(typeId, value._1, typeDecl)) {
+      throw Error.protectedAccess(value._1, value._2.name)
+    }
+    value._2.returnType.map(findMemberType(value._1, _))
   }
 
 }

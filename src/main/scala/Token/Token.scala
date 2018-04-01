@@ -175,4 +175,4 @@ case class Bar(lexeme:String = "|", row: Int, col: Int) extends BooleanOperator 
 
 case class Becomes(lexeme:String = "=", row: Int, col: Int) extends Operator with BinaryOperator
 
-case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends BinaryOperator
+case class JavaInstanceof(lexeme:String = "instanceof", row: Int, col: Int) extends Operator

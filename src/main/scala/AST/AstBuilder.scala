@@ -29,7 +29,7 @@ class AstBuilder(filename: String) {
 
     val packageDeclaration = buildPackageAst(node.children(1))
     val imports = buildImports(node.children(2))
-    val typeDeclaration = buildTypeDecl(node.children(3))
+    val typeDeclaration = buildTypeDecl(node.children(3), packageDeclaration)
 
     CompilationUnit(filename, packageDeclaration, imports, typeDeclaration)
   }
@@ -74,14 +74,14 @@ class AstBuilder(filename: String) {
     if (node.children.lengthCompare(3) == 0) ImportDecl(id, asterisk = false) else ImportDecl(id, asterisk = true)
   }
 
-  def buildTypeDecl(node: TreeNode): TypeDecl = {
+  def buildTypeDecl(node: TreeNode, packageName: Option[FullyQualifiedID]): TypeDecl = {
     val typeDeclaration = node.children.head
     val modifiers = buildModifiers(typeDeclaration.children.head)
 
     val actualDeclaration = typeDeclaration.children(1)
     actualDeclaration.state match {
-      case Right("InterfaceDeclaration")  => buildInterfaceDeclaration(modifiers, actualDeclaration)
-      case Right("ClassDeclaration") => buildClassDeclaration(modifiers, actualDeclaration)
+      case Right("InterfaceDeclaration")  => buildInterfaceDeclaration(modifiers, actualDeclaration, packageName)
+      case Right("ClassDeclaration") => buildClassDeclaration(modifiers, actualDeclaration, packageName)
       case Right(_) => throw AstError(actualDeclaration)
       case Left(token) => throw AstError(token)
     }
@@ -98,7 +98,7 @@ class AstBuilder(filename: String) {
     }
   }
 
-  private def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode): InterfaceDecl = {
+  private def buildInterfaceDeclaration(modifiers: List[Modifier], node: TreeNode, packageName: Option[FullyQualifiedID]): InterfaceDecl = {
     val identifier = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superInterfaces = if (node.children.lengthCompare(3) == 0) Nil else buildInterfaceList(node.children(3))
 //    println(node.state)
@@ -106,7 +106,7 @@ class AstBuilder(filename: String) {
     val body = if (node.children.lengthCompare(3) == 0) node.children(2) else node.children(4)
     val bodyDecls = buildInterfaceBody(body.children(1))
 
-    InterfaceDecl(modifiers, identifier, filename.hashCode, superInterfaces, bodyDecls)
+    InterfaceDecl(modifiers, identifier, filename.hashCode, superInterfaces, bodyDecls, packageName)
   }
 
   private def buildInterfaceBody(node: TreeNode): List[MemberDecl] = {
@@ -136,13 +136,13 @@ class AstBuilder(filename: String) {
     MethodDecl(modifiers, typ, identifier, parameters, None)
   }
 
-  private def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode): ClassDecl = {
+  private def buildClassDeclaration(modifiers: List[Modifier], node: TreeNode, packageName: Option[FullyQualifiedID]): ClassDecl = {
     val id = node.children(1).state.left.get.asInstanceOf[Identifier]
     val superCLass = buildSuperClass(node.children(2))
     val superInterfaces = buildSuperInterfaces(node.children(3))
     val body = buildClassBody(node.children(4).children(1))
 
-    ClassDecl(modifiers, id, filename.hashCode, superCLass, superInterfaces, body)
+    ClassDecl(modifiers, id, filename.hashCode, superCLass, superInterfaces, body, packageName)
   }
 
   private def buildSuperClass(node: TreeNode): Option[FullyQualifiedID] = {
@@ -264,13 +264,13 @@ class AstBuilder(filename: String) {
             //Casts the token as operator if it is an operator, else the operator is only one level deeper
             // for all grammar rules of binary operators
             val operator = if (children(1).state.isLeft) {
-              children(1).state.left.get.asInstanceOf[BinaryOperator]
+              children(1).state.left.get.asInstanceOf[Operator]
             } else {
-              children(1).children.head.state.left.get.asInstanceOf[BinaryOperator]
+              children(1).children.head.state.left.get.asInstanceOf[Operator]
             }
             operator match {
               case io: JavaInstanceof => InstanceOfExpr(buildExpr(children.head), buildType(children(2)))
-              case _ => BinaryExpr(buildExpr(children.head), operator, buildExpr(children(2)))
+              case _ => BinaryExpr(buildExpr(children.head), operator.asInstanceOf[BinaryOperator], buildExpr(children(2)))
             }
 
           case 4 =>
