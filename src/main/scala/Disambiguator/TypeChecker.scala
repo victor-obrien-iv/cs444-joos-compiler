@@ -141,6 +141,8 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       val leftType = build(lhs, typeDecl, scope, parameters, isField)
       val rightType = build(rhs, typeDecl, scope, parameters, isField)
       (leftType, rightType) match {
+        case (_, PrimitiveType(v: JavaVoid)) => throw Error.expectedNumeric(PrimitiveType(v))
+        case (PrimitiveType(v: JavaVoid), _) => throw Error.expectedNumeric(PrimitiveType(v))
         case (ClassType(iD), _) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
         case (_, ClassType(iD)) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
         case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
