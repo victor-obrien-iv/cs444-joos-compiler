@@ -124,6 +124,7 @@ abstract class Visitor {
   }
   def visit(aae: ArrayAccessExpr): Unit = {
     visit(aae.lhs)
+    visit(aae.index)
   }
   def visit(ve: ValExpr): Unit = {
   }

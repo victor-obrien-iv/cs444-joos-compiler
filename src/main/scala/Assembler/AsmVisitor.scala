@@ -1,36 +1,28 @@
 package Assembler
 
 import AST._
-import java.io._
 import Driver.FileOperations._
+import java.io.PrintWriter
 
-class AsmVisitor(filename: String, id: Int) extends Visitor {
-  val sFileName: String = getPath(filename) + "/output/" + getFileBaseName(filename) + ".s"
-  val sFile = new File(sFileName)
-  val bw = new BufferedWriter(new FileWriter(sFile))
-  val assembler = new Assembler(id)
+class AsmVisitor(ast: CompilationUnit) extends Visitor {
+  val sFileName = s"output/${getFileBaseName(ast.fileName)}.s"
+  val writer = new PrintWriter(sFileName, "UTF-8")
+  val assembler = new Assembler(ast)
 
   def write(instrs: List[String]): Unit = {
     instrs foreach { instr =>
-      bw.write(instr)
-      bw.write('\n')
+      writer.println(instr)
     }
-    bw.write('\n')
   }
 
   override def visit(cu: CompilationUnit): Unit = {
-    bw.write("SECTION .text\n\n")
+    writer.println("SECTION .text")
     super.visit(cu)
-    bw.close()
+    writer.close()
+    println(s"wrote to $sFileName")
   }
 
   override def visit(md: MethodDecl): Unit = {
-    if (md.name.lexeme == "test")
-      md.body match {
-        case Some(bodyStmts) =>
-          write(assembler.assemble(bodyStmts))
-        case None =>
-      }
-
+    if (md.name.lexeme == "test") write(assembler.assemble(md))
   }
 }

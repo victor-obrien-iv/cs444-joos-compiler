@@ -4,64 +4,55 @@ import AST._
 import Token._
 import i386._
 
-//trait AsmAssembler {
-//  /**
-//    * pushes vd onto the stack and internally marks where the vd is on the stack
-//    * @return the asm that will push the decl onto the stack and assign its value if present
-//    */
-//  def pushVar(ds: DeclStmt): List[String]
-//
-//  def getVarAddr(dre: DeclRefExpr): String
-//
-//  /**
-//    * load from the stack
-//    * @param dre
-//    * @param reg
-//    * @return
-//    */
-//  def loadVar(dre: DeclRefExpr, reg: String): String
-//
-//  /**
-//    * will generate the assembly for the expr, storing the result in eax
-//    * @param expr
-//    * @param localEnv
-//    */
-//  def assemble(expr: Expr)(implicit localEnv: List[String]): List[String]
-//
-////  def assemble(stmt: Stmt)
-//
-////  def assemble(typ: Type)
-//}
 
-class Assembler(num: Int) {
-  val labelTag: String = s"F${num.toString}_"
-  var labelCount: Int = 0
-  def makeLabel(usage: String): String = {
-    labelCount = labelCount + 1
-    s"$labelTag${usage}_${labelCount.toString}"
+class Assembler(cu: CompilationUnit) {
+  import LabelFactory._
+  private val labelFactory = new LabelFactory(cu)
+
+  def assemble(cd: ConstructorDecl): List[String] = {
+
+    val label = labelFactory.makeCtorLabel(cd)
+    val paramTotalBytes = (cd.parameters.size + 1) * wordSize
+    implicit val st: StackTracker = new StackTracker(cd.parameters, true)
+
+    functionEntrance(label, paramTotalBytes) :::
+      // TODO: call super class constructor
+    assemble(cd.body) :::
+    functionExit()
+
   }
 
-  def pushVar(ds: DeclStmt): List[String] = {
-    assert(assertion = false, "Unimplemented")
-    List()
+  def assemble(md: MethodDecl): List[String] = md.body match {
+    case Some(blockStmt) =>
+      val label = labelFactory.makeMethodLabel(md)
+      val paramTotalBytes = md.parameters.size * wordSize
+      implicit val st: StackTracker = new StackTracker(md.parameters, false)
+      functionEntrance(label, paramTotalBytes) :::
+      assemble(blockStmt) :::
+      functionExit()
+
+    case None =>
+      comment(s"${md.name.lexeme} method declaration") :: Nil
   }
 
-  def loadVar(dre: DeclRefExpr, reg: String): String = {
-    assert(assertion = false, "Unimplemented")
-    ""
-  }
 
-  def assemble(stmt: Stmt)(implicit localEnv: List[String]): List[String] = stmt match {
+  def assemble(stmt: Stmt)(implicit st: StackTracker): List[String] = stmt match {
     case BlockStmt(stmts) =>
-      //TODO: run environment building
+      //TODO: run environment building here?
       stmts flatMap { stmt =>
-        assemble(stmt)
+        assemble(stmt)(new StackTracker(st))
       }
 
     case DeclStmt(decl, assignment) =>
-      //TODO: handle declarations
-      assert(assertion = false, "TODO")
-      List("error")
+      st.pushVar(decl)
+      assignment match {
+        case Some(expr) =>
+          assemble(expr) :::
+          push(eax) :: Nil
+        case None =>
+          // no assignment defaults to zero/null
+          push(constant(0)) :: Nil
+      }
 
     case ExprStmt(expr) =>
       assemble(expr)
@@ -70,98 +61,132 @@ class Assembler(num: Int) {
       expr match {
         case Some(value) =>
           assemble(value) :::
-          leave() ::
-          return_() :: Nil
+          functionExit()
         case None =>
-          leave() ::
-          return_() :: Nil
+          functionExit()
       }
 
     case IfStmt(condition, thenStmt, elseStmt) =>
-      val elseLabel = makeLabel("if")
-      val commonCode =
-        assemble(condition) :::
-        jumpIfRegIsFalse(eax, elseLabel) :::
-        assemble(thenStmt)
+      val labels = makeLocalLabels("else" :: "if~" :: Nil)
+      val elseLabel = labels.head
+      val endLabel = labels(1)
 
       elseStmt match {
         case Some(elseCode: Stmt) =>
-          val endLabel = makeLabel("fi")
-          commonCode :::
+          assemble(condition) :::
+          jumpIfRegIsFalse(eax, elseLabel) :::
+          assemble(thenStmt) :::
           jump(endLabel) ::
-          prependLabel(elseLabel, assemble(elseCode)) :::
-          placeLabel(endLabel, s"end if of if $elseLabel") :: Nil
+          placeLabel(elseLabel) ::
+          assemble(elseCode) :::
+          placeLabel(endLabel) :: Nil
+
         case None =>
-          commonCode :::
-          placeLabel(elseLabel, s"end if of if $elseLabel") :: Nil
+          assemble(condition) :::
+          jumpIfRegIsFalse(eax, endLabel) :::
+          assemble(thenStmt) :::
+          placeLabel(elseLabel) :: Nil
       }
 
     case ForStmt(init, condition, update, bodyStmt) =>
-      val startLabel = makeLabel("for")
-      val endLabel = makeLabel("end")
+      val labels = makeLocalLabels("for" :: "for~" :: Nil)
+      val startLabel = labels.head
+      val endLabel = labels(1)
       val initCode = init match {
         case Some(initStmt) =>
           assemble(initStmt)
         case None =>
-          s"\t ; for loop $startLabel has no init" :: Nil
+          comment(s"for loop $startLabel has no init") :: Nil
       }
       def conditionCode() = condition match {
         case Some(conditionExpr) =>
           assemble(conditionExpr)
         case None =>
-          s"\t ; for loop $startLabel has no condition" :: Nil
+          comment(s"for loop $startLabel has no condition") :: Nil
       }
       val updateCode = update match {
         case Some(updateStmt) =>
           assemble(updateStmt)
         case None =>
-          s"\t ; for loop $startLabel has no condition" :: Nil
+          comment(s"for loop $startLabel has no condition") :: Nil
       }
       initCode :::
       conditionCode() :::
       jumpIfRegIsFalse(eax, endLabel) :::
-      prependLabel(startLabel, assemble(bodyStmt)) :::
+      placeLabel(startLabel) ::
+      assemble(bodyStmt) :::
       updateCode :::
       conditionCode() :::
       jumpIfRegIsTrue(eax, startLabel) :::
-      placeLabel(endLabel, s"end of for loop $startLabel") :: Nil
+      placeLabel(endLabel) :: Nil
 
     case WhileStmt(condition, bodyStmt) =>
-      val startLabel = makeLabel("do")
-      val endLabel = makeLabel("end")
+      val labels = makeLocalLabels("while" :: "while~" :: Nil)
+      val startLabel = labels.head
+      val endLabel = labels(1)
       assemble(condition) :::
       jumpIfRegIsFalse(eax, endLabel) :::
-      prependLabel(startLabel, assemble(bodyStmt)) :::
+      placeLabel(startLabel) ::
+      assemble(bodyStmt) :::
       assemble(condition) :::
       jumpIfRegIsTrue(eax, startLabel) :::
-      placeLabel(endLabel, s"end of while loop $startLabel") :: Nil
+      placeLabel(endLabel) :: Nil
   }
 
-  def assemble(expr: Expr)(implicit localEnv: List[String]): List[String] = expr match {
-    case be: BinaryExpr =>
-      assemble(be)
-    case ue: UnaryExpr =>
-      assemble(ue)
-    case pe: ParenExpr =>
-      assemble(pe.expr)
-    /* TODO:
-    case ce: CallExpr =>
-    case te: ThisExpr =>
-    case ce: CastExpr =>
-    case ae: AccessExpr =>
-    case aae: ArrayAccessExpr =>
-    */
-    case ve: ValExpr =>
-      assemble(ve)
-    /* TODO:
-    case dre: DeclRefExpr =>
+
+
+  def assemble(expr: Expr)(implicit st: StackTracker): List[String] = {
+    def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] = {
+      assemble(params.head) :::
+      push(eax) ::
+      pushParams(params.tail)
+    }
+
+    expr match {
+      case be: BinaryExpr =>
+        assemble(be)
+      case ue: UnaryExpr =>
+        assemble(ue)
+      case pe: ParenExpr =>
+        assemble(pe.expr)
+      /* TODO:
+      case ce: CallExpr =>
+      case te: ThisExpr =>
+      case ce: CastExpr =>
+      case ae: AccessExpr =>
+      case aae: ArrayAccessExpr =>
+      */
+      case _: ThisExpr =>
+        val thisStackLoc = st.lookUpThis()
+        move(eax, stackAddress(thisStackLoc)) :: Nil
+      case ve: ValExpr =>
+        assemble(ve)
+
+      case DeclRefExpr(identifier) =>
+        val stackLoc = st.lookUpLocation(identifier)
+        move(eax, stackAddress(stackLoc)) :: Nil
+      /* TODO:
     case ioe: InstanceOfExpr =>
     case ne: NewExpr =>
     case ne: NamedExpr =>
     */
+      case ne: NewExpr =>
+        ne match {
+          case ObjNewExpr(ctor, params) =>
+            //TODO: environment look up to see what decl ctor refers to
+            //TODO: type checking look up to infer param types to choose correct ctor
+            allocate(8 /*TODO: actually get the class size*/) :::
+            push(eax) ::
+            pushParams(params) :::
+            call(Label("foobar" /*TODO: actually get the right label*/)) :: Nil
+          case ArrayNewExpr(arrayType) =>
+            //TODO: not sure what this will look like atm
+            assert(assertion = false, "implement arrays"); List("error")
+        }
+    }
   }
 
-  def assemble(be: BinaryExpr)(implicit localEnv: List[String]): List[String] = {
+  def assemble(be: BinaryExpr)(implicit st: StackTracker): List[String] = {
     def evaluate(): List[String] =
       assemble(be.lhs) :::
       push(eax) ::
@@ -174,8 +199,11 @@ class Assembler(num: Int) {
 
     be.operatorTok match {
       case Becomes(_, _, _) =>
+        //TODO: environment look up to see what the lhs actually refers to
+        // for now just assume its on the stack
+        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
         assemble(be.rhs) :::
-        move(variableStackLocation(be.lhs.asInstanceOf[DeclRefExpr]), eax) :: Nil
+        move(stackAddress(stackLoc), eax) :: Nil
       case GT(_, _, _) =>
         evaluateAndCompare() :::
         setOnGreater(al) ::
@@ -203,20 +231,20 @@ class Assembler(num: Int) {
       case Bang(_, _, _) =>
         assert(assertion = false, "Bininary bang is not a thing"); List("error")
       case AmpAmp(_, _, _) =>
-        val endLabel = makeLabel("and")
+        val endLabel = makeLocalLabel("and")
         assemble(be.lhs) :::
         jumpIfRegIsFalse(eax, endLabel) :::
         assemble(be.rhs) :::
-        placeLabel(endLabel, s"end of logical and(&&) $endLabel") :: Nil
+        placeLabel(endLabel) :: Nil
       case Amp(_, _, _) =>
         evaluate() :::
         binaryAnd(eax, ebx) :: Nil
       case BarBar(_, _, _) =>
-        val endLabel = makeLabel("and")
+        val endLabel = makeLocalLabel("or")
         assemble(be.lhs) :::
         jumpIfRegIsTrue(eax, endLabel) :::
         assemble(be.rhs) :::
-        placeLabel(endLabel, s"end of logical or(||) $endLabel") :: Nil
+        placeLabel(endLabel) :: Nil
       case Bar(_, _, _) =>
         evaluate() :::
         binaryOr(eax, ebx) :: Nil
@@ -232,13 +260,10 @@ class Assembler(num: Int) {
         signedMultiply(eax, ebx) :: Nil
       case Slash(_, _, _) =>
         evaluate() :::
-        eaxToQuadWord() ::
-        signedDivide(ebx) :: Nil
+        signedDivide(ebx)
       case Percent(_, _, _) =>
         evaluate() :::
-        eaxToQuadWord() ::
-        signedDivide(ebx) ::
-        move(eax, edx) :: Nil
+        signedModulo(ebx)
       case JavaInstanceof(_, _, _) =>
         //TODO: implement instanceof
         assert(assertion = false, "unimplemented"); List("error")
@@ -246,7 +271,7 @@ class Assembler(num: Int) {
   }
 
   case class IntMin() extends Exception
-  def assemble(ue: UnaryExpr)(implicit localEnv: List[String]): List[String] = ue.operatorTok match {
+  def assemble(ue: UnaryExpr)(implicit st: StackTracker): List[String] = ue.operatorTok match {
     case Bang(_, _, _) =>
       assemble(ue.rhs) :::
       compare(eax, constant(0)) ::
