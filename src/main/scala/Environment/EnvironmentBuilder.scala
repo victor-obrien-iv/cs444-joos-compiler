@@ -186,12 +186,23 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       case None =>
         val superClass = getSuperClass(typeDecl)
 
-        superClass flatMap {
+        val superMethod = superClass flatMap {
           value =>
             if (typeDecl == value) {
               None
             } else {
               findMethod(id, parameters, value)
+            }
+        }
+
+        superMethod match {
+          case Some(value) => Some(value)
+          case None =>
+            val interfaces = typeDecl.superInterfaces.map(interfaceId =>
+              environment.findType(interfaceId).getOrElse(throw Error.classNotFound(interfaceId)))
+            interfaces.map(findMethod(id, parameters, _)).find(_.isDefined) match {
+              case Some(value) => value
+              case None => None
             }
         }
     }
