@@ -306,7 +306,6 @@ class Assembler(cu: CompilationUnit) {
     case StringLiteral(_, _, _, value) =>
       //TODO: handle strings in expressions
       ???
-
     case NullLiteral(_, _, _, _) =>
       move(eax, constant(0)) :: Nil
   }
