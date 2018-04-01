@@ -186,7 +186,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
-  private def getSuperClass(typeDecl: TypeDecl): TypeDecl = {
+  protected def getSuperClass(typeDecl: TypeDecl): TypeDecl = {
     typeDecl.superClass match {
       case Some(value) =>
         environment.findExternType(value, typeDecl).flatMap(environment.findType) match {
