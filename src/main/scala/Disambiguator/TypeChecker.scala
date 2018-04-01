@@ -65,13 +65,15 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       scope
     case ReturnStmt(expr) =>
       val exprType = expr.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField = false))
+      println(returnType)
+      println(exprType)
       (returnType, exprType) match {
         case (Some(type1), Some(type2)) =>
           if (!typeAssignable(type1, type2)) {
             throw Error.typeMismatch(type2, type1)
           }
         case (None, None) =>
-        case _ => Error.undefinedMatch
+        case _ => throw Error.undefinedMatch
       }
       scope
     case c: CtrlFlowStmt => c match {
