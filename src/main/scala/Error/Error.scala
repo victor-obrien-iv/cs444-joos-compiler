@@ -4,7 +4,7 @@ import AST.TypeDecl
 import Token.{Identifier, Primitive}
 
 case object Type extends Enumeration {
-  val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder, TypeLinking, Disambiguation,
+  val CommandLine, Lexer, LiteralDFA, Parser, Weeder, ModifiersPass, ASTBuilder, TypeLinking, Disambiguation, MethodsPass,
   Implementation, TypeChecker, EnvironmentPass, ExtendsPass, HierarchyCheck, StaticAnalysis = Value
 }
 

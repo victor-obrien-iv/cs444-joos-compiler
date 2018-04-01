@@ -1,5 +1,3 @@
-import AST.{CompilationUnit, TypeDecl}
-
 import Disambiguator.TypeChecker
 import Driver.{CommandLine, Driver}
 import Environment.Environment
@@ -71,7 +69,7 @@ object Main extends App {
   }
 
 
-  val nameCheck = for {
+  val typeCheck = for {
     typeContext <- typeContextTry
     checked <- linkedAndChecked
     astList <- asts
@@ -80,25 +78,16 @@ object Main extends App {
       ast =>
         (ast.typeDecl, typeLinker.buildSimpleTypeLink(ast, typeContext))
     }
-    typeContext.foreach {
-      case (pack, types) =>
-        println("PACKAGE:" + pack)
-        types.foreach {
-          typeDecl => println(typeDecl.name.lexeme)
-        }
-    }
     astList.foreach { ast =>
       val localTypeLink = typeLinker.buildSimpleTypeLink(ast, typeContext)
       val packageName = ast.packageName.map(_.name)
       val environment = Environment(typeContext, localTypeLink, mapLink.toMap, packageName.getOrElse(""))
       val typeChecker = new TypeChecker(environment)
-      println(ast.fileName)
-      println(localTypeLink)
       typeChecker.build(ast)
     }
   }
 
-  val done = nameCheck andThen {
+  val done = typeCheck andThen {
     case Failure(exception) => exception match {
       case e: Error.Error => println(errorFormatter.format(e)); e.printStackTrace(); ErrorExit()
       case e: Throwable => println(s"INTERNAL COMPILER ERROR OCCURRED: $e"); e.printStackTrace(); ErrorExit()
