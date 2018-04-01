@@ -104,7 +104,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       val subTypeSuper = superClass.exists(isSubTypeOf(superTypeDecl, _))
       val interfaces = subTypeDecl.superInterfaces.foldRight(false) {
         case (interface, isSub) =>
-          val interfaceDecl = environment.findType(interface).getOrElse(throw Error.classNotFound(interface))
+          val interfaceDecl = environment.findExternType(interface, subTypeDecl).flatMap(environment.findType).getOrElse(throw Error.classNotFound(interface))
           isSubTypeOf(superTypeDecl, interfaceDecl) || isSub
       }
       subTypeSuper || interfaces
