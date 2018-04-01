@@ -16,8 +16,7 @@ abstract class Visitor {
   def visit(d: Decl): Unit = d match {
     case cu: CompilationUnit => visit(cu: CompilationUnit)
     case id: ImportDecl =>      visit(id: ImportDecl)
-    case id: InterfaceDecl =>   visit(id: InterfaceDecl)
-    case cd: ClassDecl =>       visit(cd: ClassDecl)
+    case td: TypeDecl =>        visit(td: TypeDecl)
     case cd: ConstructorDecl => visit(cd: ConstructorDecl)
     case fd: FieldDecl =>       visit(fd: FieldDecl)
     case md: MethodDecl =>      visit(md: MethodDecl)
@@ -37,6 +36,10 @@ abstract class Visitor {
   }
   def visit(id: InterfaceDecl): Unit = {
     for(d <- id.members) visit(d: Decl)
+  }
+  def visit(td: TypeDecl): Unit = td match {
+    case id: InterfaceDecl => visit(id: InterfaceDecl)
+    case cd: ClassDecl => visit(cd: ClassDecl)
   }
   def visit(cd: ClassDecl): Unit = {
     cd.extensionOf match {

@@ -13,7 +13,7 @@ object HierarchyChecker {
 class HierarchyChecker(val localContexts: Map[CompilationUnit, Map[String, TypeDecl]],
                        val typeContext: Map[String, List[TypeDecl]]) {
   val localContextsByTypeDecl: Map[TypeDecl, Map[String, TypeDecl]] = localContexts.map(context => context._1.typeDecl -> context._2)
-  val objectClass = typeContext("java.lang").collect {
+  val objectClass: (Int, Map[MethodSig, MethodDecl]) = typeContext("java.lang").collect {
     case td if td.name.lexeme == "Object" => (td.id, declaredMethods(td))
   } head
 

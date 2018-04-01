@@ -47,7 +47,9 @@ case class IfStmt(condition: Expr, thenStmt: Stmt, elseStmt: Option[Stmt]) exten
 /**
   * LoopStmt qualifies control flow statements that loop
   */
-sealed trait LoopStmt extends CtrlFlowStmt
+sealed trait LoopStmt extends CtrlFlowStmt {
+  def bodyStmt: Stmt
+}
 
 /**
   * ForStmt represents a for-loop

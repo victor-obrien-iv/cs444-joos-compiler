@@ -1,9 +1,9 @@
-
 import AST.{CompilationUnit, TypeDecl}
 import Driver.{CommandLine, Driver}
 import Error.ErrorFormatter
 import TypeLinker.{TypeContextBuilder, TypeLinker}
 import HierarchyChecker.HierarchyChecker
+import StaticAnalyzer._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -45,22 +45,25 @@ object Main extends App {
 
         val linkers = futures.map { ast =>
           val linker = new TypeLinker(localContexts(ast), typeContext)
-//          val checker = new HierarchyChecker(context, typeContext)
-          linker.run(ast) //+: checker.check(ast)
+          linker.run(ast)
         }
 
-        //     Map[CompilationUnit, Map[String, List[TypeDecl]]]
-        // ==> Map[CompilationUnit, Map[String, TypeDecl]]
         val localContextsTrimmed = localContexts.map { name => name._1 -> name._2.map { decl => decl._1 -> decl._2.head }}
         val checker = new HierarchyChecker(localContextsTrimmed, typeContext)
-
-        val hierarchy: Future[Unit] = checker.checkForCycles()
-
-        val checkers: Seq[List[Future[Unit]]] = futures.map {
+        val hierarchyCycles = checker.checkForCycles()
+        val checkers = futures.flatMap {
           ast => checker.check(ast)
         }
+        val hierarchy = hierarchyCycles :: checkers
 
-        Future.sequence(linkers ++ checkers.flatten :+ hierarchy)
+        val staticAnalysis = futures.flatMap { ast =>
+          List(
+            new ReturnsPass(ast.fileName).run(ast),
+            new InitializationPass(ast.fileName).run(ast)
+          )
+        }
+
+        Future.sequence(linkers ++ hierarchy ++ staticAnalysis)
       }
   }
 
