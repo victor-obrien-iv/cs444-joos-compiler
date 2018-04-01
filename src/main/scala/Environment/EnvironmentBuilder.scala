@@ -101,12 +101,13 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       false
     }else {
       val superClass = getSuperClass(subTypeDecl)
-      lazy val interfaces = subTypeDecl.superInterfaces.foldRight(false) {
+      val subTypeSuper = superClass.exists(isSubTypeOf(superTypeDecl, _))
+      val interfaces = subTypeDecl.superInterfaces.foldRight(false) {
         case (interface, isSub) =>
           val interfaceDecl = environment.findType(interface).getOrElse(throw Error.classNotFound(interface))
-          isSubTypeOf(interfaceDecl, subTypeDecl) || isSub
+          isSubTypeOf(superTypeDecl, interfaceDecl) || isSub
       }
-      isSubTypeOf(superTypeDecl, superClass) || interfaces
+      subTypeSuper || interfaces
     }
   }
 
@@ -117,7 +118,7 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
   }
 
   def samePackage(owner: FullyQualifiedID): Boolean = {
-    environment.findQualifiedType(owner.pack).contains(environment.packageName)
+    environment.findQualifiedType(owner).exists(pack => pack.startsWith(environment.packageName))
   }
 
   /**
@@ -136,12 +137,13 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
     fieldOption match {
       case Some(value) => Some(typeDecl, value)
       case None =>
-        val superClass = getSuperClass(typeDecl)
-
-        if (typeDecl == superClass) {
-          None
-        } else {
-          findField(id, superClass)
+        getSuperClass(typeDecl).flatMap {
+          value =>
+            if (typeDecl == value) {
+              None
+            } else {
+              findField(id, value)
+            }
         }
     }
   }
@@ -184,25 +186,32 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
       case None =>
         val superClass = getSuperClass(typeDecl)
 
-        if (typeDecl == superClass) {
-          None
-        } else {
-          findMethod(id, parameters, superClass)
+        superClass flatMap {
+          value =>
+            if (typeDecl == value) {
+              None
+            } else {
+              findMethod(id, parameters, value)
+            }
         }
     }
   }
 
-  protected def getSuperClass(typeDecl: TypeDecl): TypeDecl = {
+  protected def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
     typeDecl.superClass match {
       case Some(value) =>
         environment.findExternType(value, typeDecl).flatMap(environment.findType) match {
-          case Some(superClassDecl) => superClassDecl
+          case Some(superClassDecl) => Some(superClassDecl)
           case None => throw Error.classNotFound(value.name)
         }
       case None =>
-        environment.findType("Object") match {
-          case Some(value) => value
-          case None => throw Error.langLibraryNotLoaded
+        if (typeDecl.isInstanceOf[ClassDecl]) {
+          environment.findType("Object") match {
+            case Some(value) => Some(value)
+            case None => throw Error.langLibraryNotLoaded
+          }
+        } else {
+          None
         }
     }
   }

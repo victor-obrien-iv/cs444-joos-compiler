@@ -24,7 +24,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
       ctors.map {
         ctor =>
-          val superClass = getSuperClass(typeDecl)
+          val superClass = getSuperClass(typeDecl).getOrElse(throw Error.classNotFound(typeDecl.name.lexeme))
           findConstructor(Nil, superClass) match {
             case Some(value) =>
             case None => throw Error.memberNotFound(superClass.name.lexeme, superClass.name)
