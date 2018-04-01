@@ -71,8 +71,6 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
         case p: PrimitiveType if p.isNumeric =>
           (type1, type2) match {
             case (PrimitiveType(_: JavaShort), PrimitiveType(_: JavaByte))
-                 | (PrimitiveType(_: JavaChar), PrimitiveType(_: JavaShort))
-                 | (PrimitiveType(_: JavaShort), PrimitiveType(_: JavaChar))
                  | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaShort))
                  | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaChar))
                  | (PrimitiveType(_:JavaInt), PrimitiveType(_: JavaByte)) => true
