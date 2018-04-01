@@ -78,6 +78,10 @@ object Error {
   }
 
   def protectedAccess(typeId: TypeDecl, member: Identifier): Error = {
-    Error(member.lexeme, s"${member.lexeme} is protected in ${typeId.name.lexeme}", Type.Disambiguation)
+    Error(member.lexeme, s"${member.lexeme} is protected in ${typeId.name.lexeme}", Type.TypeChecker)
+  }
+
+  def cannotInstantiateAbstract(typeDecl: TypeDecl): Error = {
+    Error(typeDecl.name.lexeme, s"${typeDecl.name.lexeme} is an abstract class and cannot be instantiated", Type.TypeChecker)
   }
 }

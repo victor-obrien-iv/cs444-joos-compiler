@@ -296,6 +296,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     case e: NewExpr => e match {
       case ObjNewExpr(ctor, params) =>
         val newType = environment.findType(ctor).getOrElse(throw Error.classNotFound(ctor))
+        if (newType.modifiers.exists(_.isInstanceOf[JavaAbstract])) {
+          throw Error.cannotInstantiateAbstract(newType)
+        }
         val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField))
         findConstructor(paramTypes, newType) match {
           case Some(value) =>
