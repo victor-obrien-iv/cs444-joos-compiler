@@ -302,7 +302,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField))
         findConstructor(paramTypes, newType) match {
           case Some(value) =>
-            if (value.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(newType, typeDecl)) {
+            if (value.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
               throw Error.protectedAccess(newType, ctor.id)
             }
             ClassType(ctor)
