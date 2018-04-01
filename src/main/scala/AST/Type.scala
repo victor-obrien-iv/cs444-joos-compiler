@@ -36,6 +36,9 @@ case class PrimitiveType(typeToken: Token.Primitive) extends Type {
   }
 }
 
+/**
+  * Type for null literal
+  */
 case class NullType() extends ReferenceType
 
 /**
@@ -46,3 +49,9 @@ case class ClassType(typeID: FullyQualifiedID) extends ReferenceType {
   override def equals(obj: scala.Any): Boolean = super.equals(obj)
   def equals(fullyQualifiedID: FullyQualifiedID): Boolean = typeID.name == fullyQualifiedID.name
 }
+
+/**
+  * Actual class
+  * @param typeId The id that denotes the class
+  */
+case class Class(typeId: FullyQualifiedID) extends ReferenceType

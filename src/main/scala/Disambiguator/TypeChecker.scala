@@ -179,9 +179,13 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
     case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField)
     case CallExpr(obj, call, params) =>
+      var isClass = false //flag to consider finding a static member or nah
       val objTypeDecl = obj.flatMap{(expr: Expr) =>
         build(expr, typeDecl, scope, parameters, isField) match {
           case ClassType(id) =>
+            environment.findType(id)
+          case Class(id) =>
+            isClass = true
             environment.findType(id)
           case _ : ArrayType => environment.findType("java.lang.Object")
           case PrimitiveType(primitive) => throw Error.accessPrimitiveType(primitive, call)
@@ -190,8 +194,15 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
       val paramTypes = params.map(build(_, typeDecl, scope, parameters, isField))
       val methodType = objTypeDecl match {
-        case Some(value) => findNonStaticMethod(call, paramTypes, value)
-        case None => findNonStaticMethod(call, paramTypes, typeDecl)
+        case Some(value) =>
+          if (isClass)
+            findStaticMethod(call, paramTypes, value)
+          else findNonStaticMethod(call, paramTypes, value)
+        case None =>
+          if (isClass)
+            throw Error.memberNotFound(typeDecl.name.lexeme, call)
+          else findNonStaticMethod(call, paramTypes, typeDecl)
+
       }
       val returnType = methodType match {
         case Some(value) => findMethodType(value)
@@ -224,7 +235,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
           val typeOf = environment.findType(typeID)
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
-              findFieldType(value)
+              findFieldType(value, typeDecl)
             case None => throw Error.classNotFound(typeID)
           }
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
@@ -276,7 +287,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case ExprName(id, typ) => typ
         case TypeName(id, typ) =>
           environment.findQualifiedType(id.name) match {
-            case Some(qualifiedType) => ClassType(FullyQualifiedID(qualifiedType))
+            case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
             case None => throw Error.classNotFound(id)
         }
         case _ =>
@@ -297,7 +308,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case None =>
           findField(id.id, typeDecl) match {
             case Some(value) =>
-              ExprName(FullyQualifiedID(value._2.name), findFieldType(value))
+              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl))
             case None =>
               environment.findType(id.id.lexeme) match {
                 case Some(value) => TypeName(id, value)
@@ -335,7 +346,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
               val typeOf = environment.findType(typeID)
               typeOf.flatMap(findNonStaticField(field, _)) match {
                 case Some(value) =>
-                  findFieldType(value)
+                  findFieldType(value, typeDecl)
                 case None => throw Error.classNotFound(typeID)
               }
             case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
@@ -344,7 +355,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         case TypeName(typeId, typeOf) =>
           findStaticField(id.id, typeOf) match {
             case Some(value) =>
-              val fieldType = findFieldType(value)
+              val fieldType = findFieldType(value, typeDecl)
               ExprName(id, fieldType)
             case None => throw Error.memberNotFound(typeId, id.id)
           }
@@ -372,7 +383,12 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     }
   }
 
-  private def findFieldType(value: (TypeDecl, FieldDecl)): Type = findMemberType(value._1, value._2.typ)
+  private def findFieldType(value: (TypeDecl, FieldDecl), typeDecl: TypeDecl): Type = {
+    if (value._2.modifiers.exists(_.isInstanceOf[JavaProtected]) && !isSubTypeOf(value._1, typeDecl)) {
+      throw Error.protectedAccess(value._1, value._2.name)
+    }
+    findMemberType(value._1, value._2.typ)
+  }
 
   private def findMethodType(value: (TypeDecl, MethodDecl)): Option[Type] = {
     value._2.returnType.map(findMemberType(value._1, _))

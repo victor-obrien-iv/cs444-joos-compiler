@@ -82,6 +82,8 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
   def isSubTypeOf(superType: FullyQualifiedID, subType: FullyQualifiedID): Boolean = {
     if (superType.id.lexeme == "Object") {
       true
+    } else if (subType.id.lexeme == "Object") {
+      false
     } else {
       val superTypeDecl = environment.findType(superType).getOrElse(throw Error.classNotFound(superType))
       val subTypeDecl = environment.findType(subType).getOrElse(throw Error.classNotFound(subType))
@@ -92,7 +94,9 @@ abstract class EnvironmentBuilder[T](environment: Environment) {
   def isSubTypeOf(superTypeDecl: TypeDecl, subTypeDecl: TypeDecl): Boolean = {
     if (superTypeDecl == subTypeDecl) {
       true
-    } else {
+    } else if (subTypeDecl.name.lexeme == "Object") {
+      false
+    }else {
       val superClass = getSuperClass(subTypeDecl)
       lazy val interfaces = subTypeDecl.superInterfaces.foldRight(false) {
         case (interface, isSub) =>

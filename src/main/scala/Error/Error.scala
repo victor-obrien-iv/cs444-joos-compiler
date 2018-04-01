@@ -1,5 +1,6 @@
 package Error
 
+import AST.TypeDecl
 import Token.{Identifier, Primitive}
 
 case object Type extends Enumeration {
@@ -74,5 +75,9 @@ object Error {
 
   def nullPointerException: Error = {
     Error("null", "null cannot be called with accessor", Type.TypeChecker)
+  }
+
+  def protectedAccess(typeId: TypeDecl, member: Identifier): Error = {
+    Error(member.lexeme, s"${member.lexeme} is protected in $typeId", Type.Disambiguation)
   }
 }
