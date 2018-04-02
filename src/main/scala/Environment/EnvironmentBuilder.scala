@@ -318,6 +318,7 @@ class EnvironmentBuilder(environment: Environment) {
     * Find the constructor based on the types of the parameters
     *
     * @param parameters The types of the parameters
+    * @param typeDecl the TypeDecl to search
     * @return The declaration of the constructor
     */
   def findConstructor(parameters: List[Type], typeDecl: TypeDecl): Option[ConstructorDecl] = {
@@ -349,13 +350,16 @@ class EnvironmentBuilder(environment: Environment) {
       val expr = (scope ++ parameters).find(_.name.lexeme == id.id.lexeme)
       expr match {
         case Some(value) =>
-          ExprName(id, value.typ)
+          ExprName(id, value.typ, None)
         case None =>
           findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
               if (isStatic) throw Error.cannotInvokeThisInStaticContext
               println(value._2.typ)
-              ExprName(FullyQualifiedID(value._2.name), findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)))
+              ExprName(FullyQualifiedID(value._2.name),
+                findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)),
+                Some(value)
+              )
             case None =>
               environment.findType(id.id.lexeme) match {
                 case Some(value) => TypeName(id, value)
@@ -382,7 +386,7 @@ class EnvironmentBuilder(environment: Environment) {
           } else {
             PackageName(id)
           }
-        case ExprName(exprId, typ) =>
+        case ExprName(exprId, typ, _) =>
           val field = id.id
           val exprType = typ match {
             case ArrayType(arrayOf, size) =>
@@ -398,12 +402,12 @@ class EnvironmentBuilder(environment: Environment) {
               }
             case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
           }
-          ExprName(id, exprType)
+          ExprName(id, exprType, None)
         case TypeName(typeId, typeOf) =>
           findStaticField(id.id, typeOf) match {
             case Some(value) =>
               val fieldType = findFieldType(value, typeDecl, typeId)
-              ExprName(id, fieldType)
+              ExprName(id, fieldType, Some(value))
             case None => throw Error.memberNotFound(typeId, id.id)
           }
 

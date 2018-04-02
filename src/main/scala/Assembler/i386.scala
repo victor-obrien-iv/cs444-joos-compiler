@@ -1,7 +1,5 @@
 package Assembler
 
-import AST.TypeDecl
-
 object i386 {
   val wordSize = 4
 
@@ -19,8 +17,18 @@ object i386 {
     if(offset >= 0) Operand(s"dword [ebp+$offset]")
     else Operand(s"dword [ebp$offset]") // scala toString will put in the minus
   }
+  def dereference(operand: Operand, offset: Int = 0): Operand = {
+    assert(operand.op.head != '[', s"cannot dereference $operand as it is already deferenced!")
+    if (offset > 0)
+      Operand(s"[${operand.op}+$offset]")
+    else if (offset < 0)
+      Operand(s"[${operand.op}$offset]") // int.toString will put in the minus
+    else
+      Operand(s"[${operand.op}]")
+  }
 
   private def instr(instr: String, op1: Operand, op2: Operand) = s"\t$instr\t${op1.op}, ${op2.op}"
+  private def instr(instr: String, op1: Operand, label: Label) = s"\t$instr\t${op1.op}, ${label.name}"
   private def instr(instr: String, op1: Operand) = s"\t$instr\t${op1.op}"
   private def instr(instr: String, label: Label) = s"\t$instr\t${label.name}"
   private def instr(instr: String) = s"\t$instr"
@@ -34,6 +42,7 @@ object i386 {
   // movement instrs
   def move(op1: Operand, op2: Operand): String = instr("mov", op1, op2)
   def moveZeroExtended(op1: Operand, op2: Operand): String = instr("movzx", op1, op2)
+  def loadEffectiveAddress(op1: Operand, label: Label): String = instr("lea", op1, label)
   def push(op1: Operand): String = instr("push", op1)
   def pop(op1: Operand): String = instr("pop", op1)
 
@@ -69,14 +78,12 @@ object i386 {
   def jump(destination: Label): String = instr("jmp", destination)
   private def jumpIfZero(destination: Label): String = instr("jz", destination)
   private def jumpIfNotZero(destination: Label): String = instr("jnz", destination)
-  def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] = {
+  def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] =
     compare(op1, constant(0)) ::
     jumpIfNotZero(destination) :: Nil
-  }
-  def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] = {
+  def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] =
     compare(op1, constant(0)) ::
     jumpIfZero(destination) :: Nil
-  }
   def call(destination: Label): String = instr("call", destination)
   def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
     placeLabel(enter) ::
@@ -92,6 +99,10 @@ object i386 {
   def allocate(numBytes: Int): List[String] =
     move(eax, constant(numBytes)) ::
     call(Label("__malloc")) :: Nil
+  def nullCheck(): List[String] =
+    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
 
-  def placeValue(value: String): String = s"dd $value"
+  // data
+  def placeValue(label: Label): String = s"dd ${label.name}"
+  def placeValue(value: Int): String = s"dd $value"
 }

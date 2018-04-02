@@ -3,13 +3,12 @@ package Assembler
 import AST._
 import Driver.FileOperations._
 import java.io.PrintWriter
+import Disambiguator.TypeChecker
 
-import Environment.Environment
-
-class AsmVisitor(ast: CompilationUnit, environment: Environment) extends Visitor {
+class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
   val sFileName = s"output/${getFileBaseName(ast.fileName)}.s"
   val writer = new PrintWriter(sFileName, "UTF-8")
-  val assembler = new Assembler(ast, environment)
+  val assembler = new Assembler(ast, tc)
 
   def write(instrs: List[String]): Unit = {
     instrs foreach { instr =>

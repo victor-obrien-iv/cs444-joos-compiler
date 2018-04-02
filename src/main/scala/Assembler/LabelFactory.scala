@@ -81,15 +81,15 @@ class LabelFactory(thisType: TypeDecl) {
     label
   }
 
-  def makeClassLabel: Label = {
-    val label = Label(s"${labelPrefix(thisType)}")
-    addLabel(label, thisType)
+  def makeClassLabel(originType: TypeDecl): Label = {
+    val label = Label(s"${labelPrefix(originType)}")
+    addLabel(label, originType)
     label
   }
 
-  def makeVtableLabel: Label = {
-    val label = Label(s"${labelPrefix(thisType)}_VTABLE")
-    addLabel(label, thisType)
+  def makeVtableLabel(originType: TypeDecl): Label = {
+    val label = Label(s"${labelPrefix(originType)}_VTABLE")
+    addLabel(label, originType)
     label
   }
 }
