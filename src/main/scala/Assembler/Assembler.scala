@@ -8,10 +8,11 @@ import i386._
 
 
 
-class Assembler(cu: CompilationUnit, tc: TypeChecker) {
+class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   import LabelFactory._
 
   val labelFactory = new LabelFactory(cu.typeDecl)
+  val layout = new Layout(cu.typeDecl, typeChecker)
 
   //TODO: move this to where the layout code is
   /**
@@ -21,7 +22,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
     */
   def getObjByteSize(objType: TypeDecl): Int = {
     val numNonStaticField = {
-      val (fields, _, _) = tc.partitionMembers(objType.members)
+      val (fields, _, _) = typeChecker.partitionMembers(objType.members)
       fields.size - fields.count(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
     }
     4 + 4 + numNonStaticField * 4
@@ -37,7 +38,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
     val typeDecl = cu.typeDecl
     val classLabel = labelFactory.makeClassLabel(typeDecl)
 
-    val (fields, methods, ctors) = tc.partitionMembers(typeDecl.members)
+    val (fields, methods, ctors) = typeChecker.partitionMembers(typeDecl.members)
     val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
     val staticFieldAsm = "SECTION .data" :: assemble(fields)
     val methodAsm = "SECTION .text" :: assemble(methods)
@@ -54,7 +55,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
 
   def makeVtable(typeDecl: TypeDecl): List[String] = {
     val vtableLabel = labelFactory.makeVtableLabel(typeDecl)
-    val allMethods = tc.findAllInstanceMethods(typeDecl)
+    val allMethods = typeChecker.findAllInstanceMethods(typeDecl)
     val methodTableEntries = allMethods.map {
       case (typeFrom, method) =>
         placeValue(labelFactory.makeLabel(typeFrom, method))
@@ -88,9 +89,9 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
     val paramTotalBytes = (cd.parameters.size + 1) * wordSize
     implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
 
-    tc.getSuperClass(cu.typeDecl) match {
+    typeChecker.getSuperClass(cu.typeDecl) match {
       case Some(superClass) =>
-        val superCtor = tc.findConstructor(Nil, superClass)
+        val superCtor = typeChecker.findConstructor(Nil, superClass)
         val superObjSize = getObjByteSize(superClass)
         superCtor match {
           case Some(ctor: ConstructorDecl) =>
@@ -98,11 +99,12 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
             functionEntrance(label, paramTotalBytes) :::
             loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
             move(st.thisStackAddress(), eax) + comment("put the vtable ptr at this(0)") ::
+            //TODO: redo this shit so we don't have two allocations, just store the super fields in the one
             allocate(superObjSize) :::
             push(eax) ::
             call(superCtorLabel) + comment("call the super ctor") ::
             move(edx, st.thisStackAddress()) ::
-            move(dereference(edx, 4), eax) + comment("store the super object at this(+4)") ::
+            move(Memory(edx, 4), eax) + comment("store the super object at this(+4)") ::
             assemble(cd.body) :::
             move(eax, st.thisStackAddress()) ::
             functionExit()
@@ -146,7 +148,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
           push(eax) :: Nil
         case None =>
           // no assignment defaults to zero/null
-          push(constant(0)) :: Nil
+          push(Immediate(0)) :: Nil
       }
 
     case ExprStmt(expr) =>
@@ -239,7 +241,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
       case pe: ParenExpr =>
         assemble(pe.expr)
       case ce: CallExpr =>
-        val (methodClass, methodDecl) = tc.declCache(ce)
+        val (methodClass, methodDecl) = typeChecker.declCache(ce)
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
@@ -248,17 +250,17 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
             push(eax) ::
             pushParams(ce.params) :::
             call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-            add(esp, constant(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+            add(esp, Immediate(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
           case None =>
             if (isStatic)
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-              add(esp, constant(4 * ce.params.size)) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+              add(esp, Immediate(4 * ce.params.size)) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             else
               push(st.thisStackAddress()) ::
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-              add(esp, constant(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+              add(esp, Immediate(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
         }
       case _: ThisExpr =>
         move(eax, st.thisStackAddress()) :: Nil
@@ -274,12 +276,12 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
-            val (ctorClass, ctorDecl) = tc.declCache(ne)
+            val (ctorClass, ctorDecl) = typeChecker.declCache(ne)
             allocate(getObjByteSize(ctorClass)) :::
             push(eax) ::
             pushParams(params) :::
             call(labelFactory.makeLabel(ctorClass, ctorDecl)) ::
-            add(esp, constant(4 * params.size)) + comment(s"discard args for ${ctor.name}") :: Nil
+            add(esp, Immediate(4 * params.size)) + comment(s"discard args for ${ctor.name}") :: Nil
           case ArrayNewExpr(arrayType) =>
             //TODO: not sure what this will look like atm
             ???
@@ -375,11 +377,11 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
         negate(eax) :: Nil
       catch {
         case IntMin() =>
-          move(eax, constant(Int.MinValue)) :: Nil
+          move(eax, Immediate(Int.MinValue)) :: Nil
       }
     case Bang(_, _, _) =>
       assemble(ue.rhs) :::
-      compare(eax, constant(0)) ::
+      compare(eax, Immediate(0)) ::
       setOnEqual(al) ::
       moveZeroExtended(eax, al) :: Nil
   }
@@ -387,7 +389,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
   def assemble(ve: ValExpr): List[String] = ve.value match {
     case IntegerLiteral(_, _, _, value) =>
       if (value.isValidInt)
-        move(eax, constant(value.intValue())) :: Nil
+        move(eax, Immediate(value.intValue())) :: Nil
       else {
         assert(value.intValue() == Int.MinValue, "Oversized int is not intmin?")
         throw IntMin() // prior weeding has asserted that a unary minus comes directly before this
@@ -395,18 +397,18 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
 
     case BooleanLiteral(_, _, value) =>
       if (value)
-        move(eax, constant(1)) :: Nil
+        move(eax, Immediate(1)) :: Nil
       else
-        move(eax, constant(0)) :: Nil
+        move(eax, Immediate(0)) :: Nil
 
     case CharacterLiteral(_, _, _, value) =>
-      move(eax, constant(value.toInt)) :: Nil
+      move(eax, Immediate(value.toInt)) :: Nil
 
     case StringLiteral(_, _, _, value) =>
       //TODO: handle strings in expressions
       ???
     case NullLiteral(_, _, _, _) =>
-      move(eax, constant(0)) :: Nil
+      move(eax, Immediate(0)) :: Nil
   }
 
 }
