@@ -36,16 +36,42 @@ object LabelFactory {
     case PrimitiveType(typeToken) => typeToken.lexeme
   }
 
-  def makeMethodLabel(md: MethodDecl, typeDecl: TypeDecl): Label = {
-    val params = (for(p <- md.parameters) yield { typeName(p.typ) }).mkString("~")
-    globalLabels = Label(s"${labelPrefix(typeDecl)}_METHOD_${md.name.lexeme}~$params") :: globalLabels
+  def makeClassLabel(typeDecl: TypeDecl): Label = {
+    globalLabels =  classLabel(typeDecl) :: globalLabels
     globalLabels.head
   }
 
-  def makeCtorLabel(cd: ConstructorDecl, typeDecl: TypeDecl): Label = {
-    val params = (for(p <- cd.parameters) yield { typeName(p.typ) }).mkString("~")
-    globalLabels = Label(s"${labelPrefix(typeDecl)}_CTOR_${cd.identifier.lexeme}~$params") :: globalLabels
+  private def classLabel(typeDecl: TypeDecl): Label = {
+    Label(s"${labelPrefix(typeDecl)}")
+  }
+
+  def makeVtableLabel(typeDecl: TypeDecl): Label = {
+    globalLabels = vtableLabel(typeDecl) :: globalLabels
     globalLabels.head
+  }
+
+  private def vtableLabel(typeDecl: TypeDecl) = {
+    Label(s"${labelPrefix(typeDecl)}_VTABLE")
+  }
+
+  def makeMethodLabel(md: MethodDecl, typeDecl: TypeDecl): Label = {
+    globalLabels = methodLabel(md, typeDecl) :: globalLabels
+    globalLabels.head
+  }
+
+  private def methodLabel(md: MethodDecl, typeDecl: TypeDecl) = {
+    val params = (for(p <- md.parameters) yield { typeName(p.typ) }).mkString("~")
+    Label(s"${labelPrefix(typeDecl)}_METHOD_${md.name.lexeme}~$params")
+  }
+
+  def makeCtorLabel(cd: ConstructorDecl, typeDecl: TypeDecl): Label = {
+    globalLabels = ctorLabel(cd, typeDecl) :: globalLabels
+    globalLabels.head
+  }
+
+  private def ctorLabel(cd: ConstructorDecl, typeDecl: TypeDecl) = {
+    val params = (for(p <- cd.parameters) yield { typeName(p.typ) }).mkString("~")
+    Label(s"${labelPrefix(typeDecl)}_CTOR_${cd.identifier.lexeme}~$params")
   }
 
   def makeFieldLabel(fd: FieldDecl, typeDecl: TypeDecl): Label = {

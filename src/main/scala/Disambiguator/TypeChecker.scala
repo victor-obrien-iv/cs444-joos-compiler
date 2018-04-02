@@ -5,7 +5,7 @@ import Environment._
 import Error.Error
 import Token._
 
-class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](environment) {
+class TypeChecker(environment: Environment) extends EnvironmentBuilder(environment) {
 
   def build(compilationUnit: CompilationUnit): Unit = {
     val CompilationUnit(fileName, packageName, imports, typeDecl) = compilationUnit

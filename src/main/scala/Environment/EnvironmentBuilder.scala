@@ -5,7 +5,7 @@ import Disambiguator._
 import Error.Error
 import Token._
 
-class EnvironmentBuilder[T](environment: Environment) {
+class EnvironmentBuilder(environment: Environment) {
 
   /**
     * Partitions the members of a type to Fields, Methods and Constructors
@@ -13,7 +13,7 @@ class EnvironmentBuilder[T](environment: Environment) {
     * @param decls
     * @return
     */
-  protected def partitionMembers(decls: List[MemberDecl]): (List[FieldDecl], List[MethodDecl], List[ConstructorDecl]) =
+  def partitionMembers(decls: List[MemberDecl]): (List[FieldDecl], List[MethodDecl], List[ConstructorDecl]) =
     decls.foldRight((List.empty[FieldDecl], List.empty[MethodDecl], List.empty[ConstructorDecl])) {
       case (fieldDecl: FieldDecl, (fields, methods, ctors)) => (fieldDecl :: fields, methods, ctors)
       case (methodDecl: MethodDecl, (fields, methods, ctors)) => (fields, methodDecl :: methods, ctors)
@@ -200,12 +200,7 @@ class EnvironmentBuilder[T](environment: Environment) {
     */
   def findMethod(id: Identifier, parameters: List[Type], typeDecl: TypeDecl): Option[(TypeDecl, MethodDecl)] = {
     val (_, methods, _) = partitionMembers(typeDecl.members)
-    val memberOption = methods.find {
-      case MethodDecl(modifiers, returnType, name, parameterDecls, body) =>
-        val idMatch = name.lexeme == id.lexeme
-        val parametersEqual = parametersMatch(parameters, parameterDecls)
-        idMatch && parametersEqual
-    }
+    val memberOption = findMethod(id, parameters, methods)
 
     memberOption match {
       case Some(value) => Some((typeDecl, value))
@@ -234,6 +229,43 @@ class EnvironmentBuilder[T](environment: Environment) {
     }
   }
 
+  private def findMethod(id: Identifier, parameters: List[Type], methods: List[MethodDecl]) = {
+    methods.find {
+      case MethodDecl(modifiers, returnType, name, parameterDecls, body) =>
+        val idMatch = name.lexeme == id.lexeme
+        val parametersEqual = parametersMatch(parameters, parameterDecls)
+        idMatch && parametersEqual
+    }
+  }
+
+  def findAllInstanceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
+    val (_, methods, _ ) = partitionMembers(typeDecl.members)
+
+    val augmentedMethods = methods.map((typeDecl, _))
+
+    val superClass = getSuperClass(typeDecl)
+
+    val inheritedMethods = superClass.map(findAllInstanceMethods)
+
+    val allMethods =
+      inheritedMethods.map {
+        _.foldRight(List.empty[(TypeDecl, MethodDecl)], methods) {
+          case ((superClassDecl, superMethod), (inherited, subclassMethods)) =>
+            val parameters = superMethod.parameters.map(_.typ)
+
+            findMethod(superMethod.name, parameters, subclassMethods) match {
+              case Some(value) => ((typeDecl, value)::inherited, methods diff List(value))
+              case None => (inherited, methods)
+            }
+        }
+      }
+
+    allMethods match {
+      case Some((overriddenMethods, thisMethods)) => overriddenMethods ::: thisMethods.map((typeDecl, _))
+      case None => methods.map((typeDecl, _))
+    }
+  }
+
   protected def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
     typeDecl.superClass match {
       case Some(value) =>
@@ -242,7 +274,9 @@ class EnvironmentBuilder[T](environment: Environment) {
           case None => throw Error.classNotFound(value.name)
         }
       case None =>
-        environment.findType("Object") match {
+        if (typeDecl.qualifiedName == "java.lang.Object") {
+          None
+        } else environment.findType("Object") match {
           case Some(value) => Some(value)
           case None => throw Error.langLibraryNotLoaded
         }

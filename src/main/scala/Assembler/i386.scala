@@ -1,5 +1,7 @@
 package Assembler
 
+import AST.TypeDecl
+
 object i386 {
   val wordSize = 4
 
@@ -91,4 +93,5 @@ object i386 {
     move(eax, constant(numBytes)) ::
     call(Label("__malloc")) :: Nil
 
+  def placeValue(value: String): String = s"dd $value"
 }

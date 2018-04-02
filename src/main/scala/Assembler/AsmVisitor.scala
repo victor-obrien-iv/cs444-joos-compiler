@@ -4,10 +4,12 @@ import AST._
 import Driver.FileOperations._
 import java.io.PrintWriter
 
-class AsmVisitor(ast: CompilationUnit) extends Visitor {
+import Environment.Environment
+
+class AsmVisitor(ast: CompilationUnit, environment: Environment) extends Visitor {
   val sFileName = s"output/${getFileBaseName(ast.fileName)}.s"
   val writer = new PrintWriter(sFileName, "UTF-8")
-  val assembler = new Assembler(ast)
+  val assembler = new Assembler(ast, environment)
 
   def write(instrs: List[String]): Unit = {
     instrs foreach { instr =>
