@@ -66,17 +66,11 @@ object Main extends App {
           )
         }
 
-        var count = 0
-        val asm = futures.map { ast =>
-          count = count + 1
-          new AsmVisitor(ast).run(ast)
-        }
-
         val print = futures.map { ast =>
           new PrettyPrinter(ast.fileName).run(ast)
         }
 
-        Future.sequence(linkers ++ hierarchy ++ staticAnalysis ++ asm ++ print)
+        Future.sequence(linkers ++ hierarchy ++ staticAnalysis ++ print)
       }
   }
 
@@ -90,14 +84,14 @@ object Main extends App {
       ast =>
         (ast.typeDecl, typeLinker.buildSimpleTypeLink(ast, typeContext))
     }
-    val augmentedNode = astList.map { ast =>
+    astList foreach { ast =>
       val localTypeLink = typeLinker.buildSimpleTypeLink(ast, typeContext)
       val packageName = ast.packageName.map(_.name)
       val environment = Environment(typeContext, localTypeLink, mapLink.toMap, packageName.getOrElse(""))
       val typeChecker = new TypeChecker(environment)
       println(ast.fileName)
       typeChecker.build(ast)
-      (ast, environment)
+      new AsmVisitor(ast, typeChecker).visit(ast) //TODO: change this to .run when things are working
     }
   }
 
