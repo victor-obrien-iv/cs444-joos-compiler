@@ -1,29 +1,69 @@
 package Assembler
 
 import AST._
+import Disambiguator.TypeChecker
+import Error.Error
 import Token._
 import i386._
+import LabelFactory._
 
+class Assembler(cu: CompilationUnit, tc: TypeChecker) {
+  val labelFactory = new LabelFactory(cu.typeDecl)
 
-class Assembler(cu: CompilationUnit) {
-  import LabelFactory._
+  //TODO: move this to where the layout code is
+  /**
+    * 4 bytes for class ptr
+    * 4 bytes for superclass object pointer
+    * 4 bytes for each non static field
+    */
+  def getObjByteSize(objType: TypeDecl): Int = {
+    val numNonStaticField = {
+      val (fields, _, _) = tc.partitionMembers(objType.members)
+      fields.size - fields.count(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
+    }
+    4 + 4 + numNonStaticField * 4
+  }
+
+  def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] =
+    params flatMap { param =>
+      assemble(param) :::
+      push(eax) :: Nil
+    }
 
   def assemble(cd: ConstructorDecl): List[String] = {
-
-    val label = LabelFactory.makeCtorLabel(cd, cu.typeDecl)
+    val label = labelFactory.makeLabel(cu.typeDecl, cd)
     val paramTotalBytes = (cd.parameters.size + 1) * wordSize
-    implicit val st: StackTracker = new StackTracker(cd.parameters, true)
+    implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
 
-    functionEntrance(label, paramTotalBytes) :::
-      // TODO: call super class constructor
-    assemble(cd.body) :::
-    functionExit()
+    tc.getSuperClass(cu.typeDecl) match {
+      case Some(superClass) =>
+        val superCtor = tc.findConstructor(Nil, superClass)
+        val superObjSize = getObjByteSize(superClass)
+        superCtor match {
+          case Some(ctor: ConstructorDecl) =>
+            val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
+            functionEntrance(label, paramTotalBytes) :::
+            allocate(superObjSize) :::
+            push(eax) ::
+            call(superCtorLabel) ::
+            assemble(cd.body) :::
+            move(eax, stackAddress(st.lookUpThis())) ::
+            functionExit()
+          case None =>
+            assert(assertion = false, "Super class must have zero param ctor"); throw Error.undefinedMatch
+        }
+      case None =>
+        functionEntrance(label, paramTotalBytes) :::
+        assemble(cd.body) :::
+        functionExit()
+    }
+
 
   }
 
   def assemble(md: MethodDecl): List[String] = md.body match {
     case Some(blockStmt) =>
-      val label = LabelFactory.makeMethodLabel(md, cu.typeDecl)
+      val label = labelFactory.makeLabel(cu.typeDecl, md)
       val paramTotalBytes = md.parameters.size * wordSize
       implicit val st: StackTracker = new StackTracker(md.parameters, false)
       functionEntrance(label, paramTotalBytes) :::
@@ -37,7 +77,6 @@ class Assembler(cu: CompilationUnit) {
 
   def assemble(stmt: Stmt)(implicit st: StackTracker): List[String] = stmt match {
     case BlockStmt(stmts) =>
-      //TODO: run environment building here?
       stmts flatMap { stmt =>
         assemble(stmt)(new StackTracker(st))
       }
@@ -135,12 +174,6 @@ class Assembler(cu: CompilationUnit) {
 
 
   def assemble(expr: Expr)(implicit st: StackTracker): List[String] = {
-    def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] = {
-      assemble(params.head) :::
-      push(eax) ::
-      pushParams(params.tail)
-    }
-
     expr match {
       case be: BinaryExpr =>
         assemble(be)
@@ -148,14 +181,35 @@ class Assembler(cu: CompilationUnit) {
         assemble(ue)
       case pe: ParenExpr =>
         assemble(pe.expr)
-      case ce: CallExpr => ???
+      case ce: CallExpr =>
+        val (methodClass, methodDecl) = tc.declCache(ce)
+        val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
+        ce.obj match {
+          case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
+            assert(!isStatic, "Static call on object?")
+            assemble(objExpr) :::
+            push(eax) ::
+            pushParams(ce.params) :::
+            call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+            add(esp, constant(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+          case None =>
+            if (isStatic)
+              pushParams(ce.params) :::
+              call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+              add(esp, constant(4 * ce.params.size)) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+            else
+              push(stackAddress(st.lookUpThis())) ::
+              pushParams(ce.params) :::
+              call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+              add(esp, constant(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+        }
       case _: ThisExpr =>
         val thisStackLoc = st.lookUpThis()
         move(eax, stackAddress(thisStackLoc)) :: Nil
       case ce: CastExpr => ???
       case ae: AccessExpr => ???
       case aae: ArrayAccessExpr => ???
-      case ve: ValExpr => ???
+      case ve: ValExpr =>
         assemble(ve)
 
       case DeclRefExpr(identifier) =>
@@ -165,12 +219,12 @@ class Assembler(cu: CompilationUnit) {
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
-            //TODO: environment look up to see what decl ctor refers to
-            //TODO: type checking look up to infer param types to choose correct ctor
-            allocate(8 /*TODO: actually get the class size*/) :::
+            val (ctorClass, ctorDecl) = tc.declCache(ne)
+            allocate(getObjByteSize(ctorClass)) :::
             push(eax) ::
             pushParams(params) :::
-            call(Label("foobar" /*TODO: actually get the right label*/)) :: Nil
+            call(labelFactory.makeLabel(ctorClass, ctorDecl)) ::
+            add(esp, constant(4 * params.size)) + comment(s"discard args for ${ctor.name}") :: Nil
           case ArrayNewExpr(arrayType) =>
             //TODO: not sure what this will look like atm
             ???
