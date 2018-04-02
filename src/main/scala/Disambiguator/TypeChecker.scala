@@ -5,7 +5,14 @@ import Environment._
 import Error.Error
 import Token._
 
-class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](environment) {
+import scala.collection.mutable
+
+class TypeChecker(val environment: Environment) extends EnvironmentBuilder[Unit](environment) {
+
+  /**
+    * cache what declaration an ast node refers to
+    */
+  val declCache: mutable.Map[AstNode, (TypeDecl, MemberDecl)] = mutable.Map()
 
   def build(compilationUnit: CompilationUnit): Unit = {
     val CompilationUnit(fileName, packageName, imports, typeDecl) = compilationUnit
@@ -204,7 +211,7 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
     case CallExpr(obj, call, params) =>
       var isClass = false //flag to consider finding a static member or nah//
       var typeId = FullyQualifiedID("java.lang.Object")
-      val objTypeDecl = obj.flatMap{(expr: Expr) =>
+      val objTypeDecl = obj.flatMap{ (expr: Expr) =>
         build(expr, typeDecl, scope, parameters, isField, isStatic) match {
           case ClassType(id) =>
             typeId = id
@@ -234,7 +241,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
 
       }
       val returnType = methodType match {
-        case Some(value) => findMethodType(value, typeDecl, typeId)
+        case Some(value) =>
+          declCache(expr) = value
+          findMethodType(value, typeDecl, typeId)
         case None =>
           throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
       }
@@ -295,7 +304,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
       }
     case DeclRefExpr(reference) =>
       findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField, isStatic) match {
-        case ExprName(id, typ) => typ
+        case ExprName(id, typ: Type, decls) =>
+          decls foreach { d => declCache(expr) = d }
+          typ
         case _ => throw Error.classNotFound(reference.lexeme)
       }
     case InstanceOfExpr(lhs, typ) =>
@@ -313,8 +324,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
         }
         val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField, isStatic))
         findConstructor(paramTypes, newType) match {
-          case Some(value) =>
-            if (value.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
+          case Some(constructorDecl) =>
+            declCache(e) = (newType, constructorDecl)
+            if (constructorDecl.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
               throw Error.protectedAccess(newType, ctor.id)
             }
             ClassType(ctor)
@@ -333,7 +345,9 @@ class TypeChecker(environment: Environment) extends EnvironmentBuilder[Unit](env
 
     case NamedExpr(name) =>
       findName(name, typeDecl, scope, parameters, isField, isStatic) match {
-        case ExprName(id, typ) => typ
+        case ExprName(id, typ, decls) =>
+          decls foreach { d => declCache(expr) = d }
+          typ
         case TypeName(id, typ) =>
           environment.findQualifiedType(id.name) match {
             case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
