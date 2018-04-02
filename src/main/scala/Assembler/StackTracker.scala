@@ -10,22 +10,23 @@ class StackTracker private (outerScope: Option[StackTracker]) {
   def this(outerScope: StackTracker) = this(Some(outerScope))
   def this(params: List[ParameterDecl], inObject: Boolean) = {
     this(None)
-    var index = 8 // start at 1st argument
-    if (inObject) {
-      varsInBlock(thisReference) = index
-      index += i386.wordSize
-    }
-    for(p <- params) {
+    var index = 8 // start at last argument
+    params.reverse foreach { p =>
       val varName = p.name.lexeme
       assert(assertion = !varsInBlock.contains(varName), s"Variable $varName already pushed on stack")
       varsInBlock(varName) = index
       index += i386.wordSize
     }
+    if (inObject) {
+      varsInBlock(thisReference) = index
+      index += i386.wordSize
+    }
   }
 
   /*
+  [ebp + 16] (1st argument)
   [ebp + 12] (2nd argument)
-  [ebp + 8]  (1st argument)
+  [ebp + 8]  (3rd argument)
   [ebp + 4]  (return address)
   [ebp]      (old ebp value)
   [ebp - 4]  (1st local variable)
