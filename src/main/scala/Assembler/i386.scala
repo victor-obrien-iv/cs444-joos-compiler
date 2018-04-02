@@ -1,5 +1,7 @@
 package Assembler
 
+import AST.TypeDecl
+
 object i386 {
   val wordSize = 4
 
@@ -91,4 +93,5 @@ object i386 {
   def nullCheck(): List[String] =
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
 
+  def placeValue(value: String): String = s"dd $value"
 }

@@ -65,15 +65,37 @@ class LabelFactory(thisType: TypeDecl) {
   def makeLabel(originType: TypeDecl, md: MemberDecl): Label = {
     val label = md match {
       case ConstructorDecl(_, identifier, parameters, _) =>
-        val params = (for(p <- parameters) yield { typeName(p.typ) }).mkString("~")
+        val params = (for (p <- parameters) yield {
+          typeName(p.typ)
+        }).mkString("~")
         Label(s"${labelPrefix(originType)}_CTOR_${identifier.lexeme}~$params")
       case FieldDecl(_, _, name, _) =>
         Label(s"${labelPrefix(originType)}_FIELD_$name")
       case MethodDecl(_, _, name, parameters, _) =>
-        val params = (for(p <- parameters) yield { typeName(p.typ) }).mkString("~")
+        val params = (for (p <- parameters) yield {
+          typeName(p.typ)
+        }).mkString("~")
         Label(s"${labelPrefix(originType)}_METHOD_${name.lexeme}~$params")
     }
     addLabel(label, originType)
     label
+  }
+
+  def makeClassLabel(typeDecl: TypeDecl): Label = {
+    globalLabels =  classLabel(typeDecl) :: globalLabels
+    globalLabels.head
+  }
+
+  private def classLabel(typeDecl: TypeDecl): Label = {
+    Label(s"${labelPrefix(typeDecl)}")
+  }
+
+  def makeVtableLabel(typeDecl: TypeDecl): Label = {
+    globalLabels = vtableLabel(typeDecl) :: globalLabels
+    globalLabels.head
+  }
+
+  private def vtableLabel(typeDecl: TypeDecl) = {
+    Label(s"${labelPrefix(typeDecl)}_VTABLE")
   }
 }

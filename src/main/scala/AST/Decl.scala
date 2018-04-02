@@ -37,6 +37,10 @@ sealed trait TypeDecl extends Decl {
   def superClass: Option[FullyQualifiedID]
   def superInterfaces: List[FullyQualifiedID]
   def packageName: Option[FullyQualifiedID]
+  def qualifiedName: String = packageName match {
+    case Some(value) => s"${value.name}.${name.lexeme}"
+    case None => name.lexeme
+  }
 }
 /**
   * InterfaceDecl represents an interface declaration

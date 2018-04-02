@@ -5,9 +5,8 @@ import Environment._
 import Error.Error
 import Token._
 
-import scala.collection.mutable
-
-class TypeChecker(val environment: Environment) extends EnvironmentBuilder[Unit](environment) {
+class TypeChecker(environment: Environment) extends EnvironmentBuilder(environment) {
+  import scala.collection.mutable
 
   /**
     * cache what declaration an ast node refers to
