@@ -67,14 +67,12 @@ object i386 {
   def jump(destination: Label): String = instr("jmp", destination)
   private def jumpIfZero(destination: Label): String = instr("jz", destination)
   private def jumpIfNotZero(destination: Label): String = instr("jnz", destination)
-  def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] = {
+  def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] =
     compare(op1, constant(0)) ::
     jumpIfNotZero(destination) :: Nil
-  }
-  def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] = {
+  def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] =
     compare(op1, constant(0)) ::
     jumpIfZero(destination) :: Nil
-  }
   def call(destination: Label): String = instr("call", destination)
   def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
     placeLabel(enter) ::
@@ -90,5 +88,7 @@ object i386 {
   def allocate(numBytes: Int): List[String] =
     move(eax, constant(numBytes)) ::
     call(Label("__malloc")) :: Nil
+  def nullCheck(): List[String] =
+    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
 
 }
