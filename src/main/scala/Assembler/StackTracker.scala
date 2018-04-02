@@ -1,10 +1,9 @@
 package Assembler
 
 import AST.{ParameterDecl, VarDecl}
+import Assembler.i386.Operand
 import Token.Identifier
-
 import scala.collection.mutable
-
 
 class StackTracker private (outerScope: Option[StackTracker]) {
   def this(outerScope: StackTracker) = this(Some(outerScope))
@@ -53,6 +52,6 @@ class StackTracker private (outerScope: Option[StackTracker]) {
     }
     else varsInBlock(name)
   }
-  def lookUpLocation(id: Identifier): Int = lookUpLocation(id.lexeme)
-  def lookUpThis(): Int = lookUpLocation(thisReference)
+  def identifierStackAddress(id: Identifier): Operand = i386.stackAddress(lookUpLocation(id.lexeme))
+  def thisStackAddress(): Operand = i386.stackAddress(lookUpLocation(thisReference))
 }

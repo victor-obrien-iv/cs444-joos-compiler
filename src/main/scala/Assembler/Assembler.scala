@@ -96,12 +96,17 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
           case Some(ctor: ConstructorDecl) =>
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
             functionEntrance(label, paramTotalBytes) :::
+            loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
+            move(st.thisStackAddress(), eax) + comment("put the vtable ptr at this(0)") ::
             allocate(superObjSize) :::
             push(eax) ::
-            call(superCtorLabel) ::
+            call(superCtorLabel) + comment("call the super ctor") ::
+            move(edx, st.thisStackAddress()) ::
+            move(dereference(edx, 4), eax) + comment("store the super object at this(+4)") ::
             assemble(cd.body) :::
-            move(eax, stackAddress(st.lookUpThis())) ::
+            move(eax, st.thisStackAddress()) ::
             functionExit()
+
           case None =>
             assert(assertion = false, "Super class must have zero param ctor"); throw Error.undefinedMatch
         }
@@ -109,9 +114,8 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
         functionEntrance(label, paramTotalBytes) :::
         assemble(cd.body) :::
         functionExit()
+
     }
-
-
   }
 
   def assemble(md: MethodDecl): List[String] = md.body match {
@@ -251,14 +255,13 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
               add(esp, constant(4 * ce.params.size)) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             else
-              push(stackAddress(st.lookUpThis())) ::
+              push(st.thisStackAddress()) ::
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
               add(esp, constant(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
         }
       case _: ThisExpr =>
-        val thisStackLoc = st.lookUpThis()
-        move(eax, stackAddress(thisStackLoc)) :: Nil
+        move(eax, st.thisStackAddress()) :: Nil
       case ce: CastExpr => ???
       case ae: AccessExpr => ???
       case aae: ArrayAccessExpr => ???
@@ -266,8 +269,7 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
         assemble(ve)
 
       case DeclRefExpr(identifier) =>
-        val stackLoc = st.lookUpLocation(identifier)
-        move(eax, stackAddress(stackLoc)) :: Nil
+        move(eax, st.identifierStackAddress(identifier)) :: Nil
       case ioe: InstanceOfExpr => ???
       case ne: NewExpr =>
         ne match {
@@ -359,9 +361,9 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
       case Becomes(_, _, _) =>
         //TODO: environment look up to see what the lhs actually refers to
         // for now just assume its on the stack
-        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
+        val stackLoc = st.identifierStackAddress(be.lhs.asInstanceOf[DeclRefExpr].reference)
         assemble(be.rhs) :::
-        move(stackAddress(stackLoc), eax) :: Nil
+        move(stackLoc, eax) :: Nil
     }
   }
 
