@@ -1,7 +1,6 @@
 package Assembler
 
 import AST._
-import Environment.{Environment, EnvironmentBuilder}
 import Disambiguator.TypeChecker
 import Error.Error
 import Token._
@@ -10,6 +9,8 @@ import i386._
 
 
 class Assembler(cu: CompilationUnit, tc: TypeChecker) {
+  import LabelFactory._
+
   val labelFactory = new LabelFactory(cu.typeDecl)
 
   //TODO: move this to where the layout code is
@@ -32,13 +33,11 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
       push(eax) :: Nil
     }
 
-  val environmentBuilder = new EnvironmentBuilder(environment)
-
   def assemble(): List[String] = {
     val typeDecl = cu.typeDecl
     val classLabel = labelFactory.makeClassLabel(typeDecl)
 
-    val (fields, methods, ctors) = environmentBuilder.partitionMembers(typeDecl.members)
+    val (fields, methods, ctors) = tc.partitionMembers(typeDecl.members)
     val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
     val staticFieldAsm = "SECTION .data" :: assemble(fields)
     val methodAsm = "SECTION .text" :: assemble(methods)
@@ -46,15 +45,19 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
 
     val vtableAsm = makeVtable(typeDecl)
 
-    placeLabel(classLabel) :: staticFieldAsm ::: methodAsm ::: ctorAsm ::: vtableAsm
+    placeLabel(classLabel) ::
+    staticFieldAsm :::
+    methodAsm :::
+    ctorAsm :::
+    vtableAsm
   }
 
   def makeVtable(typeDecl: TypeDecl): List[String] = {
-    val vtableLabel = LabelFactory.makeVtableLabel(typeDecl)
-    val allMethods = environmentBuilder.findAllInstanceMethods(typeDecl)
+    val vtableLabel = labelFactory.makeVtableLabel(typeDecl)
+    val allMethods = tc.findAllInstanceMethods(typeDecl)
     val methodTableEntries = allMethods.map {
       case (typeFrom, method) =>
-        placeValue(makeMethodLabel(method, typeFrom).name)
+        placeValue(labelFactory.makeLabel(typeFrom, method))
     }
     placeLabel(vtableLabel) :: methodTableEntries
   }
@@ -74,8 +77,8 @@ class Assembler(cu: CompilationUnit, tc: TypeChecker) {
 
   def assemble(fieldDecl: FieldDecl): List[String] ={
 
-    val label = LabelFactory.makeFieldLabel(fieldDecl, cu.typeDecl)
-    val defaultValue = placeValue("0")
+    val label = labelFactory.makeLabel(cu.typeDecl, fieldDecl)
+    val defaultValue = placeValue(0)
 
     placeLabel(label) :: defaultValue :: Nil
   }

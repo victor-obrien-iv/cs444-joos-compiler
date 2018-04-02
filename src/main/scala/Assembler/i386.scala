@@ -93,5 +93,7 @@ object i386 {
   def nullCheck(): List[String] =
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
 
-  def placeValue(value: String): String = s"dd $value"
+  // data
+  def placeValue(label: Label): String = s"dd ${label.name}"
+  def placeValue(value: Int): String = s"dd $value"
 }

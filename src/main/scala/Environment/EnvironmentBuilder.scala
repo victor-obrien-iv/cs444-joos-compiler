@@ -266,7 +266,7 @@ class EnvironmentBuilder(environment: Environment) {
     }
   }
 
-  protected def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
+  def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
     typeDecl.superClass match {
       case Some(value) =>
         environment.findExternType(value, typeDecl).flatMap(environment.findType) match {

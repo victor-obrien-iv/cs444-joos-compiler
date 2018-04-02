@@ -5,7 +5,7 @@ import Environment._
 import Error.Error
 import Token._
 
-class TypeChecker(environment: Environment) extends EnvironmentBuilder(environment) {
+class TypeChecker(val environment: Environment) extends EnvironmentBuilder(environment) {
   import scala.collection.mutable
 
   /**
