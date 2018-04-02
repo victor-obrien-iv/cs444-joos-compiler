@@ -81,21 +81,15 @@ class LabelFactory(thisType: TypeDecl) {
     label
   }
 
-  def makeClassLabel(typeDecl: TypeDecl): Label = {
-    globalLabels =  classLabel(typeDecl) :: globalLabels
-    globalLabels.head
+  def makeClassLabel: Label = {
+    val label = Label(s"${labelPrefix(thisType)}")
+    addLabel(label, thisType)
+    label
   }
 
-  private def classLabel(typeDecl: TypeDecl): Label = {
-    Label(s"${labelPrefix(typeDecl)}")
-  }
-
-  def makeVtableLabel(typeDecl: TypeDecl): Label = {
-    globalLabels = vtableLabel(typeDecl) :: globalLabels
-    globalLabels.head
-  }
-
-  private def vtableLabel(typeDecl: TypeDecl) = {
-    Label(s"${labelPrefix(typeDecl)}_VTABLE")
+  def makeVtableLabel: Label = {
+    val label = Label(s"${labelPrefix(thisType)}_VTABLE")
+    addLabel(label, thisType)
+    label
   }
 }
