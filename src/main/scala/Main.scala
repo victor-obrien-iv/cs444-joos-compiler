@@ -84,10 +84,11 @@ object Main extends App {
       ast =>
         (ast.typeDecl, typeLinker.buildSimpleTypeLink(ast, typeContext))
     }
+    val interfaces = typeLinker.buildInterfaces(astList)
     astList foreach { ast =>
       val localTypeLink = typeLinker.buildSimpleTypeLink(ast, typeContext)
       val packageName = ast.packageName.map(_.name)
-      val environment = Environment(typeContext, localTypeLink, mapLink.toMap, packageName.getOrElse(""))
+      val environment = Environment(typeContext, localTypeLink, mapLink.toMap, interfaces, packageName.getOrElse(""))
       val typeChecker = new TypeChecker(environment)
       println(ast.fileName)
       typeChecker.build(ast)

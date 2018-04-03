@@ -1,6 +1,6 @@
 package TypeLinker
 
-import AST.{CompilationUnit, TypeDecl}
+import AST.{CompilationUnit, InterfaceDecl, TypeDecl}
 
 
 class TypeContextBuilder {
@@ -36,6 +36,22 @@ class TypeContextBuilder {
     }
 
     ctx
+  }
+
+  /**
+    * Basically filters for interfaces but filter doesn't really work with types so here
+    *
+    * @param units Compilation Units
+    * @return List of all interfaces in the compilation units
+    */
+  def buildInterfaces(units: List[CompilationUnit]): List[InterfaceDecl] = {
+    units.foldRight(List.empty[InterfaceDecl]) {
+      case (unit, interfaces) =>
+        unit.typeDecl match {
+          case i: InterfaceDecl => i :: interfaces
+          case _ => interfaces
+        }
+    }
   }
 
   /**
