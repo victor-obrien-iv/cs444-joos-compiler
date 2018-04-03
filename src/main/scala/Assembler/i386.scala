@@ -4,27 +4,32 @@ object i386 {
   val wordSize = 4
 
   // operands
-  case class Operand(op: String)
-  val al = Operand("al")
-  val eax = Operand("eax")
-  val ebx = Operand("ebx")
-  val edx = Operand("edx")
-  val ebp = Operand("ebp")
-  val esp = Operand("esp")
-  def constant(c: Int): Operand = Operand(c.toString)
-  def stackAddress(offset: Int): Operand = {
-    assert(offset % 4 == 0, "stack location is not word aligned")
-    if(offset >= 0) Operand(s"dword [ebp+$offset]")
-    else Operand(s"dword [ebp$offset]") // scala toString will put in the minus
+  trait Operand {
+    def op: String
   }
-  def dereference(operand: Operand, offset: Int = 0): Operand = {
-    assert(operand.op.head != '[', s"cannot dereference $operand as it is already deferenced!")
+  case class Register(op: String) extends Operand
+  val al = Register("al")
+  val eax = Register("eax")
+  val ebx = Register("ebx")
+  val edx = Register("edx")
+  val ebp = Register("ebp")
+  val esp = Register("esp")
+
+  case class Memory(reg: Operand, offset: Int) extends Operand {
+    assert(offset % 4 == 0, "stack location is not word aligned")
+    val op: String =
     if (offset > 0)
-      Operand(s"[${operand.op}+$offset]")
+    s"dword [${reg.op}+$offset]"
     else if (offset < 0)
-      Operand(s"[${operand.op}$offset]") // int.toString will put in the minus
+    s"dword [${reg.op}$offset]" // int.toString will put in the minus
     else
-      Operand(s"[${operand.op}]")
+    s"dword [${reg.op}]"
+  }
+  def stackMemory(offset: Int): Memory = Memory(ebp, offset)
+
+  case class Immediate(value: Int) extends Operand {
+    val op: String = value.toString
+
   }
 
   private def instr(instr: String, op1: Operand, op2: Operand) = s"\t$instr\t${op1.op}, ${op2.op}"
@@ -43,6 +48,13 @@ object i386 {
   def move(op1: Operand, op2: Operand): String = instr("mov", op1, op2)
   def moveZeroExtended(op1: Operand, op2: Operand): String = instr("movzx", op1, op2)
   def loadEffectiveAddress(op1: Operand, label: Label): String = instr("lea", op1, label)
+  def loadFromObject(objPtr: Memory, offset: Int): List[String] =
+    move(eax, objPtr) ::
+    move(eax, Memory(eax, offset)) :: Nil
+  def loadFromObject(objPtr: Register, offset: Int): String =
+    move(eax, Memory(objPtr, offset))
+  def storeIntoObject(objPtr: Register, offset: Int, value: Register): String =
+    move(Memory(objPtr, offset), value)
   def push(op1: Operand): String = instr("push", op1)
   def pop(op1: Operand): String = instr("pop", op1)
 
@@ -79,17 +91,18 @@ object i386 {
   private def jumpIfZero(destination: Label): String = instr("jz", destination)
   private def jumpIfNotZero(destination: Label): String = instr("jnz", destination)
   def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] =
-    compare(op1, constant(0)) ::
+    compare(op1, Immediate(0)) ::
     jumpIfNotZero(destination) :: Nil
   def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] =
-    compare(op1, constant(0)) ::
+    compare(op1, Immediate(0)) ::
     jumpIfZero(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
+  def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
   def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
     placeLabel(enter) ::
     push(ebp) ::
     move(ebp, esp) ::
-    subtract(esp, constant(paramTotalBytes)) :: Nil
+    subtract(esp, Immediate(paramTotalBytes)) :: Nil
   private def return_(): String = instr("ret")
   def functionExit(): List[String] =
     leave() ::
@@ -97,8 +110,8 @@ object i386 {
 
   // runtime calls
   def allocate(numBytes: Int): List[String] =
-    move(eax, constant(numBytes)) ::
-    call(Label("__malloc")) :: Nil
+    move(eax, Immediate(numBytes)) ::
+    call(LabelFactory.mallocLabel) :: Nil
   def nullCheck(): List[String] =
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
 

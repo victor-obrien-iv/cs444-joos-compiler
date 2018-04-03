@@ -52,6 +52,6 @@ class StackTracker private (outerScope: Option[StackTracker]) {
     }
     else varsInBlock(name)
   }
-  def identifierStackAddress(id: Identifier): Operand = i386.stackAddress(lookUpLocation(id.lexeme))
-  def thisStackAddress(): Operand = i386.stackAddress(lookUpLocation(thisReference))
+  def lookUpLocation(id: Identifier): Int = lookUpLocation(id.lexeme)
+  def lookUpThis(): Int = lookUpLocation("0")
 }
