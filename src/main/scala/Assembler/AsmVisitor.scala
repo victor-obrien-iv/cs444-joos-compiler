@@ -17,8 +17,10 @@ class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
   }
 
   override def visit(cu: CompilationUnit): Unit = {
-    writer.println("SECTION .text")
-    super.visit(cu)
+//    writer.println("SECTION .text")
+    assembler.assemble() foreach {
+      writer.println(_)
+    }
     writer.close()
     println(s"wrote to $sFileName")
   }

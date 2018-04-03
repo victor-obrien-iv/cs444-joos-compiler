@@ -70,7 +70,7 @@ class LabelFactory(thisType: TypeDecl) {
         }).mkString("~")
         Label(s"${labelPrefix(originType)}_CTOR_${identifier.lexeme}~$params")
       case FieldDecl(_, _, name, _) =>
-        Label(s"${labelPrefix(originType)}_FIELD_$name")
+        Label(s"${labelPrefix(originType)}_FIELD_${name.lexeme}")
       case MethodDecl(_, _, name, parameters, _) =>
         val params = (for (p <- parameters) yield {
           typeName(p.typ)

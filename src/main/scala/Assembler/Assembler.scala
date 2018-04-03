@@ -40,17 +40,19 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     val (fields, methods, ctors) = typeChecker.partitionMembers(typeDecl.members)
     val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-    val staticFieldAsm = "SECTION .data" :: assemble(fields)
-    val methodAsm = "SECTION .text" :: assemble(methods)
+    val staticFieldAsm = assemble(staticFields)
+    val methodAsm = assemble(methods)
     val ctorAsm = assemble(ctors)
 
     val vtableAsm = makeVtable(typeDecl)
 
     placeLabel(classLabel) ::
-    staticFieldAsm :::
-    methodAsm :::
-    ctorAsm :::
-    vtableAsm
+      "SECTION .data" ::
+      staticFieldAsm :::
+      "SECTION .text" ::
+      methodAsm :::
+      ctorAsm :::
+      vtableAsm
   }
 
   def makeVtable(typeDecl: TypeDecl): List[String] = {
@@ -65,8 +67,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(members: List[MemberDecl]): List[String] = {
     members.foldRight(List.empty[String]){
-      case (field, asm) =>
-        assemble(field) ::: asm
+      case (member, asm) =>
+        assemble(member) ::: asm
     }
   }
 
