@@ -86,17 +86,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(cd: ConstructorDecl): List[String] = {
     val label = labelFactory.makeLabel(cu.typeDecl, cd)
-    val paramTotalBytes = (cd.parameters.size + 1) * wordSize
+    val totalLocalBytes = 0 //TODO: change this to be accurate
     implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
 
     typeChecker.getSuperClass(cu.typeDecl) match {
       case Some(superClass) =>
         val superCtor = typeChecker.findConstructor(Nil, superClass)
-        val superObjSize = getObjByteSize(superClass)
         superCtor match {
           case Some(ctor: ConstructorDecl) =>
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
-            functionEntrance(label, paramTotalBytes) :::
+            functionEntrance(label, totalLocalBytes) :::
             loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
             move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
             push(eax) ::
@@ -110,7 +109,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             assert(assertion = false, "Super class must have zero param ctor"); throw Error.undefinedMatch
         }
       case None =>
-        functionEntrance(label, paramTotalBytes) :::
+        functionEntrance(label, totalLocalBytes) :::
         assemble(cd.body) :::
         functionExit()
 
@@ -242,7 +241,6 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
-            assert(!isStatic, "Static call on object?")
             assemble(objExpr) :::
             push(eax) ::
             pushParams(ce.params) :::
@@ -267,9 +265,27 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case ve: ValExpr =>
         assemble(ve)
 
-      case DeclRefExpr(identifier) =>
-        //TODO: consult the environment
-        move(eax, stackMemory(st.lookUpThis())) :: Nil
+      case dre: DeclRefExpr =>
+
+        if (typeChecker.declCache.contains(dre)){
+          val (typeDecl, memberDecl) = typeChecker.declCache(dre)
+          memberDecl match {
+            case fd: FieldDecl =>
+              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                // static variable to be found in data section
+                move(eax, Data(labelFactory.makeLabel(typeDecl, fd))) :: Nil
+              else {
+                // member variable to be found in object layout
+                assert(typeDecl == cu.typeDecl, "DeclRef to different obj?")
+
+              }
+
+            case _: MethodDecl | _: ConstructorDecl =>
+              assert(assertion = false, "DeclRef mapped to method?"); throw Error.undefinedMatch
+          }
+        }
+        else move(eax, stackMemory(st.lookUpLocation(dre.reference))) :: Nil
+
       case ioe: InstanceOfExpr => ???
       case ne: NewExpr =>
         ne match {
@@ -359,6 +375,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         evaluate() :::
         binaryOr(eax, ebx) :: Nil
       case Becomes(_, _, _) =>
+        //TODO: check what the the lhs is (static field, field or local) to determine how to store to it
         //TODO: environment look up to see what the lhs actually refers to
         // for now just assume its on the stack
         val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)

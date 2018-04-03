@@ -19,17 +19,21 @@ object i386 {
     assert(offset % 4 == 0, "stack location is not word aligned")
     val op: String =
     if (offset > 0)
-    s"dword [${reg.op}+$offset]"
+      s"dword [${reg.op}+$offset]"
     else if (offset < 0)
-    s"dword [${reg.op}$offset]" // int.toString will put in the minus
+      s"dword [${reg.op}$offset]" // int.toString will put in the minus
     else
-    s"dword [${reg.op}]"
+      s"dword [${reg.op}]"
   }
   def stackMemory(offset: Int): Memory = Memory(ebp, offset)
 
   case class Immediate(value: Int) extends Operand {
     val op: String = value.toString
 
+  }
+
+  case class Data(label: Label) extends Operand {
+    val op = s"dword [${label.name}]"
   }
 
   private def instr(instr: String, op1: Operand, op2: Operand) = s"\t$instr\t${op1.op}, ${op2.op}"
@@ -98,11 +102,11 @@ object i386 {
     jumpIfZero(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
   def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
-  def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
+  def functionEntrance(enter: Label, totalLocalBytes: Int): List[String] =
     placeLabel(enter) ::
     push(ebp) ::
     move(ebp, esp) ::
-    subtract(esp, Immediate(paramTotalBytes)) :: Nil
+    subtract(esp, Immediate(totalLocalBytes)) :: Nil
   private def return_(): String = instr("ret")
   def functionExit(): List[String] =
     leave() ::
