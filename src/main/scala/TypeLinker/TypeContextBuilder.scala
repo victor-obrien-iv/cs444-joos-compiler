@@ -1,6 +1,6 @@
 package TypeLinker
 
-import AST.{CompilationUnit, InterfaceDecl, TypeDecl}
+import AST._
 
 
 class TypeContextBuilder {
@@ -44,13 +44,31 @@ class TypeContextBuilder {
     * @param units Compilation Units
     * @return List of all interfaces in the compilation units
     */
-  def buildInterfaces(units: List[CompilationUnit]): List[InterfaceDecl] = {
-    units.foldRight(List.empty[InterfaceDecl]) {
+  def buildInterfaces(units: List[CompilationUnit]): List[(InterfaceDecl, MethodDecl)] = {
+    val interfaces = units.foldRight(List.empty[InterfaceDecl]) {
       case (unit, interfaces) =>
         unit.typeDecl match {
           case i: InterfaceDecl => i :: interfaces
           case _ => interfaces
         }
+    }
+    interfaces.flatMap {
+      interface =>
+        partitionMembers(interface.members)._2.map((interface, _))
+    }
+  }
+
+  def partitionMembers(decls: List[MemberDecl]): (List[FieldDecl], List[MethodDecl], List[ConstructorDecl]) =
+    decls.foldRight((List.empty[FieldDecl], List.empty[MethodDecl], List.empty[ConstructorDecl])) {
+      case (fieldDecl: FieldDecl, (fields, methods, ctors)) => (fieldDecl :: fields, methods, ctors)
+      case (methodDecl: MethodDecl, (fields, methods, ctors)) => (fields, methodDecl :: methods, ctors)
+      case (ctorDecl: ConstructorDecl, (fields, methods, ctors)) => (fields, methods, ctorDecl :: ctors)
+    }
+
+  def interfaceMethods(interfaces: List[InterfaceDecl]): List[(InterfaceDecl, MethodDecl)] = {
+    interfaces.flatMap {
+      interface =>
+        partitionMembers(interface.members)._2.map((interface, _))
     }
   }
 

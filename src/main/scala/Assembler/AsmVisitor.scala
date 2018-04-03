@@ -6,7 +6,12 @@ import java.io.PrintWriter
 import Disambiguator.TypeChecker
 
 class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
-  val sFileName = s"output/${getFileBaseName(ast.fileName)}.s"
+  val packageName = ast.packageName.map(_.name)
+  val outPutFile = packageName match {
+    case Some(value) => s"$value.${getFileBaseName(ast.fileName)}"
+    case None => getFileBaseName(ast.fileName)
+  }
+  val sFileName = s"output/$outPutFile.s"
   val writer = new PrintWriter(sFileName, "UTF-8")
   val assembler = new Assembler(ast, tc)
 
@@ -18,9 +23,7 @@ class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
 
   override def visit(cu: CompilationUnit): Unit = {
 //    writer.println("SECTION .text")
-    assembler.assemble() foreach {
-      writer.println(_)
-    }
+    write(assembler.assemble())
     writer.close()
     println(s"wrote to $sFileName")
   }

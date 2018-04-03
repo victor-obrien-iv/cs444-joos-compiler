@@ -277,7 +277,6 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
         case NullType() => throw Error.nullPointerException
         case ClassType(typeID) =>
           val typeOf = environment.findType(typeID)
-          println(typeOf.map(_.members.map(_.name)))
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
               findFieldType(value, typeDecl, typeID)
@@ -286,7 +285,6 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
       }
     case ArrayAccessExpr(lhs, index) =>
-      println(lhs)
       val arrayType = build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
         case a: ArrayType => a
         case e => throw Error.notArray(e)
