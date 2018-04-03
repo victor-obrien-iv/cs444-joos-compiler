@@ -238,6 +238,13 @@ class EnvironmentBuilder(environment: Environment) {
     }
   }
 
+  def interfaceMethods: List[(InterfaceDecl, MethodDecl)] = {
+    environment.interfaces.flatMap {
+      interface =>
+        partitionMembers(interface.members)._2.map((interface, _))
+    }
+  }
+
   def findAllInstanceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
     val (_, methods, _ ) = partitionMembers(typeDecl.members)
 
