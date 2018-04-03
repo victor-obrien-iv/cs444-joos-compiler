@@ -238,13 +238,6 @@ class EnvironmentBuilder(environment: Environment) {
     }
   }
 
-  def interfaceMethods: List[(InterfaceDecl, MethodDecl)] = {
-    environment.interfaces.flatMap {
-      interface =>
-        partitionMembers(interface.members)._2.map((interface, _))
-    }
-  }
-
   def findAllInstanceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
     val (_, methods, _ ) = partitionMembers(typeDecl.members)
 
@@ -268,11 +261,42 @@ class EnvironmentBuilder(environment: Environment) {
         }
       }
 
-    allMethods match {
+    val superClassThisClassMethods = allMethods match {
       case Some((overriddenMethods, thisMethods)) => overriddenMethods ::: thisMethods.map((typeDecl, _))
       case None => methods.map((typeDecl, _))
     }
+    superClassThisClassMethods
   }
+
+  def interfaceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
+    val (_, methods, _) = partitionMembers(typeDecl.members)
+    val interfaceMethods = environment.interfaceMethods
+    val superInterfaces = typeDecl.superInterfaces.map {
+      id =>
+        environment.findExternType(id, typeDecl).getOrElse(throw Error.classNotFound(id))
+    }
+    interfaceMethods.foldRight(List.empty[(TypeDecl, MethodDecl)]) {
+      case ((interfaceDecl, interfaceMethod), bigUglyTable) =>
+        if (superInterfaces.contains(interfaceDecl.qualifiedName)) {
+          val methodName = interfaceMethod.name
+          val params = interfaceMethod.parameters.map(_.typ)
+          findMethod(methodName, params, methods) match {
+            case Some(value) => (typeDecl, value)::bigUglyTable
+            case None => (interfaceDecl, interfaceMethod)::bigUglyTable
+          }
+        } else {
+          (interfaceDecl, interfaceMethod)::bigUglyTable
+        }
+    }
+  }
+
+  def findVtableMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
+    println(interfaceMethods(typeDecl).map(_._1.name))
+    interfaceMethods(typeDecl) ::: findAllInstanceMethods(typeDecl)
+  }
+
+  def interfaceMethodOffset: Int = environment.interfaceMethods.length
+
 
   def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
     typeDecl.superClass match {

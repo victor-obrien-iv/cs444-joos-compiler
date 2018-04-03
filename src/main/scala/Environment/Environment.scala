@@ -8,13 +8,13 @@ import AST._
   * @param qualifiedTypes Full compiled type context
   * @param types Local type context
   * @param typeContexts The simple type contexts of types
-  * @param interfaces All interfaces in the global context
+  * @param interfaceMethods All interface methods in the global context
   * @param packageName The environments package
   */
 case class Environment(qualifiedTypes: Map[String, List[TypeDecl]] = Map.empty,
                        types: Map[String, String] = Map.empty,
                        typeContexts: Map[TypeDecl, Map[String, String]] = Map.empty,
-                       interfaces: List[InterfaceDecl] = Nil,
+                       interfaceMethods: List[(InterfaceDecl, MethodDecl)] = Nil,
                        packageName: String = ""
                       ) {
 
