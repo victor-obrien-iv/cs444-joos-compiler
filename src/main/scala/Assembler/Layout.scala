@@ -7,7 +7,7 @@ import Token.JavaStatic
 class Layout(typeDecl: TypeDecl, typeChecker: TypeChecker) {
   val hierarchy: List[TypeDecl] = {
     def getSuper(decl: TypeDecl): List[TypeDecl] = typeChecker.getSuperClass(decl) match {
-      case Some(superClass) => decl :: getSuper(decl)
+      case Some(superClass) => decl :: getSuper(superClass)
       case None => decl :: Nil
     }
     (typeDecl :: getSuper(typeDecl)).reverse

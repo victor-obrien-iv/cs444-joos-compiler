@@ -254,8 +254,9 @@ class EnvironmentBuilder(environment: Environment) {
             val parameters = superMethod.parameters.map(_.typ)
 
             findMethod(superMethod.name, parameters, subclassMethods) match {
-              case Some(value) => ((typeDecl, value)::inherited, methods diff List(value))
-              case None => (inherited, methods)
+              case Some(value) =>
+                ((typeDecl, value)::inherited, subclassMethods diff List(value))
+              case None => ((superClassDecl, superMethod)::inherited, subclassMethods)
             }
         }
       }
