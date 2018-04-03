@@ -6,27 +6,11 @@ import Error.Error
 import Token._
 import i386._
 
-
-
 class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   import LabelFactory._
 
   val labelFactory = new LabelFactory(cu.typeDecl)
   val layout = new Layout(cu.typeDecl, typeChecker)
-
-  //TODO: move this to where the layout code is
-  /**
-    * 4 bytes for class ptr
-    * 4 bytes for superclass object pointer
-    * 4 bytes for each non static field
-    */
-  def getObjByteSize(objType: TypeDecl): Int = {
-    val numNonStaticField = {
-      val (fields, _, _) = typeChecker.partitionMembers(objType.members)
-      fields.size - fields.count(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-    }
-    4 + 4 + numNonStaticField * 4
-  }
 
   def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] =
     params flatMap { param =>
@@ -88,17 +72,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(cd: ConstructorDecl): List[String] = {
     val label = labelFactory.makeLabel(cu.typeDecl, cd)
-    val paramTotalBytes = (cd.parameters.size + 1) * wordSize
+    val totalLocalBytes = new VarDeclCounter().getNumVarDecl(cd.body)
     implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
 
     typeChecker.getSuperClass(cu.typeDecl) match {
       case Some(superClass) =>
         val superCtor = typeChecker.findConstructor(Nil, superClass)
-        val superObjSize = getObjByteSize(superClass)
         superCtor match {
           case Some(ctor: ConstructorDecl) =>
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
-            functionEntrance(label, paramTotalBytes) :::
+            functionEntrance(label, totalLocalBytes) :::
             loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
             move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
             push(eax) ::
@@ -112,7 +95,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             assert(assertion = false, "Super class must have zero param ctor"); throw Error.undefinedMatch
         }
       case None =>
-        functionEntrance(label, paramTotalBytes) :::
+        functionEntrance(label, totalLocalBytes) :::
         assemble(cd.body) :::
         functionExit()
 
@@ -121,12 +104,26 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(md: MethodDecl): List[String] = md.body match {
     case Some(blockStmt) =>
+
+
       val label = labelFactory.makeLabel(cu.typeDecl, md)
-      val paramTotalBytes = md.parameters.size * wordSize
-      implicit val st: StackTracker = new StackTracker(md.parameters, false)
-      functionEntrance(label, paramTotalBytes) :::
-      assemble(blockStmt) :::
-      functionExit()
+      val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt)
+      val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
+      val _start =
+        placeLabel(Label("_start")) ::
+        jump(label) :: Nil
+      implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
+      if(md.name.lexeme == "test" && isStatic)
+        placeLabel(Label("_start")) :: //TODO: this needs to be relocated and actually initialize things
+        jump(label) ::
+        functionEntrance(label, totalLocalBytes) :::
+        assemble(blockStmt) :::
+        functionExit()
+
+      else
+        functionEntrance(label, totalLocalBytes) :::
+        assemble(blockStmt) :::
+        functionExit()
 
     case None =>
       comment(s"${md.name.lexeme} method declaration") :: Nil
@@ -227,6 +224,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       assemble(condition) :::
       jumpIfRegIsTrue(eax, startLabel) :::
       placeLabel(endLabel) :: Nil
+
   }
 
 
@@ -244,22 +242,24 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
-            assert(!isStatic, "Static call on object?")
             assemble(objExpr) :::
             push(eax) ::
             pushParams(ce.params) :::
             call(labelFactory.makeLabel(methodClass, methodDecl)) ::
             discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+
           case None =>
             if (isStatic)
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
               discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+
             else
               push(stackMemory(st.lookUpThis())) ::
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
               discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+
         }
       case _: ThisExpr =>
         move(eax, stackMemory(st.lookUpThis())) :: Nil
@@ -269,19 +269,39 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case ve: ValExpr =>
         assemble(ve)
 
-      case DeclRefExpr(identifier) =>
-        //TODO: consult the environment
-        move(eax, stackMemory(st.lookUpThis())) :: Nil
+      case dre: DeclRefExpr =>
+        if (typeChecker.declCache.contains(dre)) {
+          val (typeDecl, memberDecl) = typeChecker.declCache(dre)
+          memberDecl match {
+            case fd: FieldDecl =>
+              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                // static variable to be found in data section
+                move(eax, Data(labelFactory.makeLabel(typeDecl, fd))) :: Nil
+
+              else {
+                // member variable to be found in object layout
+                assert(typeDecl == cu.typeDecl, "DeclRef to different obj?")
+                comment(s"load ${fd.name} from ${typeDecl.name}") ::
+                loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
+
+              }
+            case _: MethodDecl | _: ConstructorDecl =>
+              assert(assertion = false, "DeclRef mapped to method?"); throw Error.undefinedMatch
+          }
+        }
+        else move(eax, stackMemory(st.lookUpLocation(dre.reference))) :: Nil
+
       case ioe: InstanceOfExpr => ???
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
             val (ctorClass, ctorDecl) = typeChecker.declCache(ne)
-            allocate(getObjByteSize(ctorClass)) :::
+            allocate(layout.getObjByteSize(ctorClass)) :::
             push(eax) ::
             pushParams(params) :::
             call(labelFactory.makeLabel(ctorClass, ctorDecl)) ::
             discardArgs(params.size) + comment(s"discard args for ${ctor.name}") :: Nil
+
           case ArrayNewExpr(arrayType) =>
             //TODO: not sure what this will look like atm
             ???
@@ -306,66 +326,105 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         //TODO do type checking for (Str + Str)
         evaluate() :::
         add(eax, ebx) :: Nil
+
       case Minus(_, _, _) =>
         evaluate() :::
         subtract(eax, ebx) :: Nil
+
       case Star(_, _, _) =>
         evaluate() :::
         signedMultiply(eax, ebx) :: Nil
+
       case Slash(_, _, _) =>
         evaluate() :::
         signedDivide(ebx)
+
       case Percent(_, _, _) =>
         evaluate() :::
         signedModulo(ebx)
+
       case GT(_, _, _) =>
         evaluateAndCompare() :::
         setOnGreater(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case LT(_, _, _) =>
         evaluateAndCompare() :::
         setOnLess(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case GE(_, _, _) =>
         evaluateAndCompare() :::
         setOnGreaterOrEqual(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case LE(_, _, _) =>
         evaluateAndCompare() :::
         setOnLessOrEqual(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case EQ(_, _, _) =>
         evaluateAndCompare() :::
         setOnEqual(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case NE(_, _, _) =>
         evaluateAndCompare() :::
         setOnNotEqual(al) ::
         moveZeroExtended(eax, al) :: Nil
+
       case AmpAmp(_, _, _) =>
         val endLabel = makeLocalLabel("and")
         assemble(be.lhs) :::
         jumpIfRegIsFalse(eax, endLabel) :::
         assemble(be.rhs) :::
         placeLabel(endLabel) :: Nil
+
       case BarBar(_, _, _) =>
         val endLabel = makeLocalLabel("or")
         assemble(be.lhs) :::
         jumpIfRegIsTrue(eax, endLabel) :::
         assemble(be.rhs) :::
         placeLabel(endLabel) :: Nil
+
       case Amp(_, _, _) =>
         evaluate() :::
         binaryAnd(eax, ebx) :: Nil
+
       case Bar(_, _, _) =>
         evaluate() :::
         binaryOr(eax, ebx) :: Nil
+
       case Becomes(_, _, _) =>
-        //TODO: environment look up to see what the lhs actually refers to
-        // for now just assume its on the stack
-        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
-        assemble(be.rhs) :::
-        move(stackMemory(stackLoc), eax) :: Nil
+        //TODO: the left hand side might not be a dre
+        val leftDre = be.lhs.asInstanceOf[DeclRefExpr]
+        if (typeChecker.declCache.contains(leftDre)) {
+          val (typeDecl, memberDecl) = typeChecker.declCache(leftDre)
+          memberDecl match {
+            case fd: FieldDecl =>
+              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                // static variable to be found in data section
+                assemble(be.rhs) :::
+                move(Data(labelFactory.makeLabel(typeDecl, fd)), eax) :: Nil
+
+              else {
+                // member variable to be found in object layout
+                assert(typeDecl == cu.typeDecl, "DeclRef to different obj?")
+                assemble(be.rhs) :::
+                move(stackMemory(st.lookUpThis()), edx) + comment("load this() into edx") ::
+                storeIntoObject(edx, layout.objectLayout(fd), eax) +
+                  comment(s"store into ${fd.name} in ${typeDecl.name}") :: Nil
+              }
+            case _: MethodDecl | _: ConstructorDecl =>
+              assert(assertion = false, "DeclRef mapped to method?"); throw Error.undefinedMatch
+          }
+        }
+        else {
+          // the lhs variable is on the stack
+          val stackLoc = st.lookUpLocation(leftDre.reference)
+          assemble(be.rhs) :::
+          move(stackMemory(stackLoc), eax) :: Nil
+        }
     }
   }
 
