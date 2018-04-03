@@ -274,7 +274,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         move(eax, stackMemory(st.lookUpThis())) :: Nil
       case ce: CastExpr => ???
       case ae: AccessExpr => ???
-      case aae: ArrayAccessExpr => ???
+      case aae: ArrayAccessExpr =>
+        assemble(aae)
       case ve: ValExpr =>
         assemble(ve)
 
@@ -330,6 +331,18 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         }
       case ne: NamedExpr => ???
     }
+  }
+
+  def assemble(arrayAccessExpr: ArrayAccessExpr): List[String] = arrayAccessExpr match {
+    case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
+      assemble(lhs) ::: comment("Loads address of array") ::
+      push(eax) ::
+      assemble(index) ::: comment("Loads index into array") ::
+      pop(ebx) :: comment("Loads address of array pushed earlier") ::
+      add(eax, Immediate(2)) :: comment("Adds offset since first entry of array should be after vtable and length") ::
+      signedMultiply(eax, Immediate(4)) :: comment("Aligns index") ::
+      add(eax, ebx) :: comment("Adds the index offset to the address") :: Nil
+
   }
 
   def assemble(be: BinaryExpr)(implicit st: StackTracker): List[String] = {
