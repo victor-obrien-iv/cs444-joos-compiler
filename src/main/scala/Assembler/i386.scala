@@ -101,6 +101,7 @@ object i386 {
     compare(op1, Immediate(0)) ::
     jumpIfZero(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
+  def call(memory: Memory): String = instr("call", memory)
   def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
   def functionEntrance(enter: Label, totalLocalBytes: Int): List[String] =
     placeLabel(enter) ::

@@ -49,6 +49,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     placeLabel(vtableLabel) :: methodTableEntries
   }
 
+  def methodOffset(typeDecl: TypeDecl, methodDecl: MethodDecl): Int = typeDecl match {
+    case InterfaceDecl(modifiers, name, id, extensionOf, members, packageName) =>
+      val interfaceMethods = typeChecker.environment.interfaceMethods.map(_._2)
+      typeChecker.findMethodIndex(methodDecl, interfaceMethods)
+    case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members, packageName) =>
+      val vtableMethods = typeChecker.findAllInstanceMethods(typeDecl).map(_._2)
+      val methodIndex = typeChecker.findMethodIndex(methodDecl, vtableMethods)
+      (methodIndex + typeChecker.interfaceMethodOffset)*4
+  }
+
   def assemble(members: List[MemberDecl]): List[String] = {
     members.foldRight(List.empty[String]){
       case (member, asm) =>
@@ -239,9 +249,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
+            val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
             assemble(objExpr) :::
-            push(eax) ::
             pushParams(ce.params) :::
+            move(eax, Memory(eax, 0)) ::
+            move(eax, Memory(eax, offset)) ::
             call(labelFactory.makeLabel(methodClass, methodDecl)) ::
             discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
 

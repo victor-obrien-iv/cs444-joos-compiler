@@ -238,6 +238,16 @@ class EnvironmentBuilder(environment: Environment) {
     }
   }
 
+  def findMethodIndex(methodDecl: MethodDecl, methods: List[MethodDecl]): Int = {
+    methods.indexWhere {
+      case MethodDecl(modifiers, returnType, name, parameterDecls, body) =>
+        val idMatch = name.lexeme == methodDecl.name.lexeme
+        val parameters = methodDecl.parameters.map(_.typ)
+        val parametersEqual = parametersMatch(parameters, parameterDecls)
+        idMatch && parametersEqual
+    }
+  }
+
   def findAllInstanceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
     val (_, methods, _ ) = partitionMembers(typeDecl.members)
 
@@ -296,7 +306,6 @@ class EnvironmentBuilder(environment: Environment) {
   }
 
   def interfaceMethodOffset: Int = environment.interfaceMethods.length
-
 
   def getSuperClass(typeDecl: TypeDecl): Option[TypeDecl] = {
     typeDecl.superClass match {
