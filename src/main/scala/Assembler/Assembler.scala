@@ -104,18 +104,15 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(md: MethodDecl): List[String] = md.body match {
     case Some(blockStmt) =>
-
-
       val label = labelFactory.makeLabel(cu.typeDecl, md)
       val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt)
       val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
-      val _start =
-        placeLabel(Label("_start")) ::
-        jump(label) :: Nil
       implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
       if(md.name.lexeme == "test" && isStatic)
-        placeLabel(Label("_start")) :: //TODO: this needs to be relocated and actually initialize things
-        jump(label) ::
+        //TODO: _start needs to be relocated and actually initialize things
+        placeLabel(labelFactory.makeStartLabel()) ::
+        call(label) ::
+        debugExit() ::
         functionEntrance(label, totalLocalBytes) :::
         assemble(blockStmt) :::
         functionExit()

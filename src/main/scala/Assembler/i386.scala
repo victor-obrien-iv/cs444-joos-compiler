@@ -118,6 +118,8 @@ object i386 {
     call(LabelFactory.mallocLabel) :: Nil
   def nullCheck(): List[String] =
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
+  def debugExit(): String =
+    call(LabelFactory.debugExitLabel)
 
   // data
   def placeValue(label: Label): String = s"dd ${label.name}"

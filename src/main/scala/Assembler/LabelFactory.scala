@@ -62,6 +62,12 @@ class LabelFactory(thisType: TypeDecl) {
     case PrimitiveType(typeToken) => typeToken.lexeme
   }
 
+  def makeStartLabel(): Label = {
+    val label = Label("_start")
+    globalLabels.add(label)
+    label
+  }
+
   def makeLabel(originType: TypeDecl, md: MemberDecl): Label = {
     val label = md match {
       case ConstructorDecl(_, identifier, parameters, _) =>
