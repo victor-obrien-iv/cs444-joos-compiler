@@ -98,15 +98,12 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
             functionEntrance(label, paramTotalBytes) :::
             loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
-            move(st.thisStackAddress(), eax) + comment("put the vtable ptr at this(0)") ::
-            //TODO: redo this shit so we don't have two allocations, just store the super fields in the one
-            allocate(superObjSize) :::
+            move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
             push(eax) ::
             call(superCtorLabel) + comment("call the super ctor") ::
-            move(edx, st.thisStackAddress()) ::
-            move(Memory(edx, 4), eax) + comment("store the super object at this(+4)") ::
+            add(esp, Immediate(4)) ::
             assemble(cd.body) :::
-            move(eax, st.thisStackAddress()) ::
+            move(eax, stackMemory(st.lookUpThis())) ::
             functionExit()
 
           case None =>
@@ -250,20 +247,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(eax) ::
             pushParams(ce.params) :::
             call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-            add(esp, Immediate(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+            discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
           case None =>
             if (isStatic)
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-              add(esp, Immediate(4 * ce.params.size)) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+              discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             else
-              push(st.thisStackAddress()) ::
+              push(stackMemory(st.lookUpThis())) ::
               pushParams(ce.params) :::
               call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-              add(esp, Immediate(4 * (ce.params.size + 1))) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+              discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
         }
       case _: ThisExpr =>
-        move(eax, st.thisStackAddress()) :: Nil
+        move(eax, stackMemory(st.lookUpThis())) :: Nil
       case ce: CastExpr => ???
       case ae: AccessExpr => ???
       case aae: ArrayAccessExpr => ???
@@ -271,7 +268,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         assemble(ve)
 
       case DeclRefExpr(identifier) =>
-        move(eax, st.identifierStackAddress(identifier)) :: Nil
+        //TODO: consult the environment
+        move(eax, stackMemory(st.lookUpThis())) :: Nil
       case ioe: InstanceOfExpr => ???
       case ne: NewExpr =>
         ne match {
@@ -281,7 +279,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(eax) ::
             pushParams(params) :::
             call(labelFactory.makeLabel(ctorClass, ctorDecl)) ::
-            add(esp, Immediate(4 * params.size)) + comment(s"discard args for ${ctor.name}") :: Nil
+            discardArgs(params.size) + comment(s"discard args for ${ctor.name}") :: Nil
           case ArrayNewExpr(arrayType) =>
             //TODO: not sure what this will look like atm
             ???
@@ -363,9 +361,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case Becomes(_, _, _) =>
         //TODO: environment look up to see what the lhs actually refers to
         // for now just assume its on the stack
-        val stackLoc = st.identifierStackAddress(be.lhs.asInstanceOf[DeclRefExpr].reference)
+        val stackLoc = st.lookUpLocation(be.lhs.asInstanceOf[DeclRefExpr].reference)
         assemble(be.rhs) :::
-        move(stackLoc, eax) :: Nil
+        move(stackMemory(stackLoc), eax) :: Nil
     }
   }
 

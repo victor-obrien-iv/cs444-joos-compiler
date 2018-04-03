@@ -8,26 +8,29 @@ object i386 {
     def op: String
   }
   case class Register(op: String) extends Operand
-  case class Memory(reg: Operand, offset: Int) extends Operand {
-    assert(offset % 4 == 0, "stack location is not word aligned")
-    val op: String =
-      if (offset > 0)
-        s"dword [${reg.op}+$offset]"
-      else if (offset < 0)
-        s"dword [${reg.op}$offset]" // int.toString will put in the minus
-      else
-        s"dword [${reg.op}]"
-  }
-  case class Immediate(value: Int) extends Operand {
-    val op: String = value.toString
-  }
   val al = Register("al")
   val eax = Register("eax")
   val ebx = Register("ebx")
   val edx = Register("edx")
   val ebp = Register("ebp")
   val esp = Register("esp")
-  def stackAddress(offset: Int): Memory = Memory(ebp, offset)
+
+  case class Memory(reg: Operand, offset: Int) extends Operand {
+    assert(offset % 4 == 0, "stack location is not word aligned")
+    val op: String =
+    if (offset > 0)
+    s"dword [${reg.op}+$offset]"
+    else if (offset < 0)
+    s"dword [${reg.op}$offset]" // int.toString will put in the minus
+    else
+    s"dword [${reg.op}]"
+  }
+  def stackMemory(offset: Int): Memory = Memory(ebp, offset)
+
+  case class Immediate(value: Int) extends Operand {
+    val op: String = value.toString
+
+  }
 
   private def instr(instr: String, op1: Operand, op2: Operand) = s"\t$instr\t${op1.op}, ${op2.op}"
   private def instr(instr: String, op1: Operand, label: Label) = s"\t$instr\t${op1.op}, ${label.name}"
@@ -94,6 +97,7 @@ object i386 {
     compare(op1, Immediate(0)) ::
     jumpIfZero(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
+  def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
   def functionEntrance(enter: Label, paramTotalBytes: Int): List[String] =
     placeLabel(enter) ::
     push(ebp) ::
