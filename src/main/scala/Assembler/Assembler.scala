@@ -248,7 +248,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val (methodClass, methodDecl) = typeChecker.declCache(ce)
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
-          case Some(objExpr) => //TODO: this is static dispatch, need to change to dynamic dispatch
+          case Some(objExpr) =>
             val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
             assemble(objExpr) :::
             pushParams(ce.params) :::
@@ -312,8 +312,21 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             discardArgs(params.size) + comment(s"discard args for ${ctor.name}") :: Nil
 
           case ArrayNewExpr(arrayType) =>
-            //TODO: not sure what this will look like atm
-            ???
+            val arrayLength = arrayType.size.map(assemble)
+            val lengthExpr = arrayLength match {
+              case Some(value) => value
+              case None => List(move(eax, Immediate(4)))
+            }
+            val arrayOffset = 8
+            val arrayBytes = add(eax, Immediate(arrayOffset))
+
+            lengthExpr :::
+            arrayBytes ::
+            push(eax) ::
+            call(mallocLabel) ::
+            move(eax, Memory(eax, 0)) ::
+            pop(ebx) ::
+            move(Memory(eax, 4), ebx) :: Nil
         }
       case ne: NamedExpr => ???
     }
