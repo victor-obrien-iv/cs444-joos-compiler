@@ -10,22 +10,11 @@ class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
   val writer = new PrintWriter(sFileName, "UTF-8")
   val assembler = new Assembler(ast, tc)
 
-  def write(instrs: List[String]): Unit = {
-    instrs foreach { instr =>
-      writer.println(instr)
-    }
-  }
-
   override def visit(cu: CompilationUnit): Unit = {
-//    writer.println("SECTION .text")
     assembler.assemble() foreach {
       writer.println(_)
     }
     writer.close()
     println(s"wrote to $sFileName")
-  }
-
-  override def visit(md: MethodDecl): Unit = {
-    if (md.name.lexeme == "test") write(assembler.assemble(md))
   }
 }
