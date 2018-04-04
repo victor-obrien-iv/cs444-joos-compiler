@@ -451,10 +451,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           val typeOf = typeChecker.environment.findType(typeID)
           typeOf.flatMap(typeChecker.findNonStaticField(field, _)) match {
             case Some(value) =>
-              typeChecker.findFieldType(value, cu.typeDecl, typeID)
+              loadValue(value._1, value._2)
             case None => throw Error.classNotFound(typeID)
           }
-          List("; put class stuff here later")
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
       }
       assemble(lhs) ::: getField
