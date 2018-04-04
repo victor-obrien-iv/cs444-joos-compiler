@@ -11,11 +11,18 @@ class AsmVisitor(ast: CompilationUnit, tc: TypeChecker) extends Visitor {
     case Some(value) => s"$value.${getFileBaseName(ast.fileName)}"
     case None => getFileBaseName(ast.fileName)
   }
+  val subTypeTableFile = s"output/SubtypeTable.s"
+  val subTableWriter = new PrintWriter(subTypeTableFile, "UTF-8")
   val sFileName = s"output/$outPutFile.s"
   val writer = new PrintWriter(sFileName, "UTF-8")
   val assembler = new Assembler(ast, tc)
 
   override def visit(cu: CompilationUnit): Unit = {
+    assembler.assembleSubtypeTable foreach {
+      subTableWriter.println(_)
+    }
+    subTableWriter.close()
+
     assembler.assemble() foreach {
       writer.println(_)
     }

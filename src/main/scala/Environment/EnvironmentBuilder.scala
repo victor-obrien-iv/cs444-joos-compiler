@@ -512,4 +512,22 @@ class EnvironmentBuilder(environment: Environment) {
     value._2.returnType.map(findMemberType(value._1, _))
   }
 
+  def orderedTypes: List[TypeDecl] = environment.qualifiedTypes.values.flatten.toList
+
+  def findTypeIndex(typeDecl: TypeDecl): Int = {
+    orderedTypes.zipWithIndex.find(_._1 == typeDecl) match {
+      case Some(value) => value._2
+      case None => throw Error.classNotFound(typeDecl.qualifiedName)
+    }
+  }
+
+  def createSubTypeTable: List[List[Boolean]] = {
+    orderedTypes.map {
+      typeDecl =>
+        orderedTypes.map {
+          isSubTypeOf(typeDecl, _)
+        }
+    }
+  }
+
 }

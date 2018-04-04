@@ -338,12 +338,12 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   }
 
   //TODO fix named expression
-  def assemble(accessExpr: AccessExpr): List[String] = accessExpr match {
+  def assemble(accessExpr: AccessExpr)(implicit st: StackTracker): List[String] = accessExpr match {
     case AccessExpr(lhs, field) => //LHS should be a reference
       assemble(lhs)
   }
 
-  def assemble(arrayAccessExpr: ArrayAccessExpr): List[String] = arrayAccessExpr match {
+  def assemble(arrayAccessExpr: ArrayAccessExpr)(implicit st: StackTracker): List[String] = arrayAccessExpr match {
     case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
       comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
@@ -525,6 +525,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     case NullLiteral(_, _, _, _) =>
       move(eax, Immediate(0)) :: Nil
+  }
+
+  def assembleSubtypeTable: List[String] = {
+    val subTypes = typeChecker.createSubTypeTable
+    subTypes.zipWithIndex.flatMap {
+      case (types, i) =>
+        val label = LabelFactory.makeSubTypeTableEntryLabel(i)
+        s"global ${label.name}" ::
+        placeLabel(label) ::
+        types.map {
+          value =>
+            if (value) placeValue(1) else placeValue(0)
+        }
+    }
   }
 
 }
