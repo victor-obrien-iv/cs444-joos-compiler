@@ -141,11 +141,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
       case None =>
         val emptyCode = if (md.modifiers.exists(_.isInstanceOf[JavaNative])) {
-          call(nativeWriteLabel)
+          List(call(nativeWriteLabel))
         } else {
-          placeValue(0)
+          Nil
         }
-        placeLabel(label) :: emptyCode :: Nil
+        functionEntrance(label, 0) ::: emptyCode ::: functionExit() ::: Nil
     }
   }
 
