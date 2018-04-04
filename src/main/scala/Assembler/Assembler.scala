@@ -202,7 +202,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           comment("<IfStmt then statements>") ::
           assemble(thenStmt) :::
           comment("</IfStmt then statements>") ::
-          placeLabel(elseLabel) :: Nil
+          placeLabel(endLabel) :: Nil
       }
 
     case ForStmt(init, condition, update, bodyStmt) =>
