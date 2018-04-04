@@ -180,27 +180,27 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
       elseStmt match {
         case Some(elseCode: Stmt) =>
-          comment("<condition>") ::
+          comment("<IfStmt condition>") ::
           assemble(condition) :::
-          comment("</condition>") ::
+          comment("</IfStmt condition>") ::
           jumpIfRegIsFalse(eax, elseLabel) :::
-          comment("<then statements>") ::
+          comment("<IfStmt then statements>") ::
           assemble(thenStmt) :::
-          comment("</then statements>") ::
+          comment("</IfStmt then statements>") ::
           jump(endLabel) ::
           placeLabel(elseLabel) + comment("<else statements>") ::
           assemble(elseCode) :::
-          comment("</else statements>") ::
+          comment("</IfStmt else statements>") ::
           placeLabel(endLabel) :: Nil
 
         case None =>
-          comment("<condition>") ::
+          comment("<IfStmt condition>") ::
           assemble(condition) :::
-          comment("</condition>") ::
+          comment("</IfStmt condition>") ::
           jumpIfRegIsFalse(eax, endLabel) :::
-          comment("<then statements>") ::
+          comment("<IfStmt then statements>") ::
           assemble(thenStmt) :::
-          comment("</then statements>") ::
+          comment("</IfStmt then statements>") ::
           placeLabel(elseLabel) :: Nil
       }
 
@@ -226,25 +226,41 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         case None =>
           comment(s"for loop $startLabel has no condition") :: Nil
       }
+      comment("<ForStmt init>") ::
       initCode :::
+      comment("</ForStmt init>") ::
+      comment("<ForStmt condition>") ::
       conditionCode() :::
+      comment("</ForStmt condition>") ::
       jumpIfRegIsFalse(eax, endLabel) :::
       placeLabel(startLabel) ::
+      comment("<ForStmt body>") ::
       assemble(bodyStmt) :::
+      comment("</ForStmt body>") ::
+      comment("<ForStmt update>") ::
       updateCode :::
+      comment("</ForStmt update>") ::
+      comment("<ForStmt condition part 2>") ::
       conditionCode() :::
+      comment("</ForStmt condition part 2>") ::
       jumpIfRegIsTrue(eax, startLabel) :::
-      placeLabel(endLabel) :: Nil
+      placeLabel(endLabel) + comment("ForStmt end") :: Nil
 
     case WhileStmt(condition, bodyStmt) =>
       val labels = makeLocalLabels("while" :: "while~" :: Nil)
       val startLabel = labels.head
       val endLabel = labels(1)
+      comment("<WhileStmt condition>") ::
       assemble(condition) :::
+      comment("</WhileStmt condition>") ::
       jumpIfRegIsFalse(eax, endLabel) :::
       placeLabel(startLabel) ::
+      comment("<WhileStmt body>") ::
       assemble(bodyStmt) :::
+      comment("</WhileStmt body>") ::
+      comment("<WhileStmt condition part 2>") ::
       assemble(condition) :::
+      comment("</WhileStmt condition part 2>") ::
       jumpIfRegIsTrue(eax, startLabel) :::
       placeLabel(endLabel) :: Nil
 
@@ -277,22 +293,24 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
                 nullCheck() :::
                 push(eax) + comment("push the obj being called on to be a parameter for the function") ::
                 pushParams(ce.params) :::
-                move(eax, Memory(eax, 0)) + comment("<dynamic dispatch>") ::
+                comment("<dynamic dispatch>") ::
+                move(eax, Memory(eax, 0)) ::
                 move(eax, Memory(eax, offset)) ::
-                call(Memory(eax, 0)) + comment("</dynamic dispatch>") ::
+                call(Memory(eax, 0)) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
+                comment("</dynamic dispatch>") ::
                 discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             }
 
           case None =>
             if (isStatic)
               pushParams(ce.params) :::
-              call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+              call(labelFactory.makeLabel(methodClass, methodDecl)) + comment(s"static method call ${methodDecl.name}") ::
               discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
 
             else
               push(stackMemory(st.lookUpThis())) ::
               pushParams(ce.params) :::
-              call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+              call(labelFactory.makeLabel(methodClass, methodDecl)) + comment("method call within current class") ::
               discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
 
         }
@@ -378,8 +396,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case ne: NamedExpr =>
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          loadValue(typeDecl, decl) :::
-          nullCheck()
+          loadValue(typeDecl, decl)
         }
     }
   }
@@ -560,7 +577,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
               val prologue = decls.dropRight(1) flatMap { tdd =>
                 val (typeDecl, decl) = tdd
                 loadValue(typeDecl, decl) :::
-                  nullCheck()
+                nullCheck()
               }
               val (typeDecl, decl) = decls.last
               decl match {
