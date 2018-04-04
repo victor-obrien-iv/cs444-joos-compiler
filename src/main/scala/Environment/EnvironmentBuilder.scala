@@ -301,7 +301,6 @@ class EnvironmentBuilder(environment: Environment) {
   }
 
   def findVtableMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
-    println(interfaceMethods(typeDecl).map(_._1.name))
     interfaceMethods(typeDecl) ::: findAllInstanceMethods(typeDecl)
   }
 
@@ -396,7 +395,6 @@ class EnvironmentBuilder(environment: Environment) {
           findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
               if (isStatic) throw Error.cannotInvokeThisInStaticContext
-              println(value._2.typ)
               ExprName(FullyQualifiedID(value._2.name),
                 findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)),
                 value

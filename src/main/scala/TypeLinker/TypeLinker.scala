@@ -16,7 +16,6 @@ class TypeLinker(localContext: Map[String, List[TypeDecl]], typeContext: Map[Str
       if (localContext.contains(typeName.id.lexeme)) {
         if (localContext(typeName.id.lexeme).lengthCompare(1) == 1) {
           val test = localContext.flatMap{case (a,b) => b map(c => s"$a:${c.name.lexeme}")}
-          println(test)
           throw Error.Error(typeName.name, "Multiple packages with type defined", Error.Type.TypeLinking)
         }
         return

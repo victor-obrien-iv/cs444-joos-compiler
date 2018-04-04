@@ -498,64 +498,82 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             assemble(be.rhs) :::
             move(Data(labelFactory.makeLabel(td, fd)), eax) :: Nil
 
-        val leftNamedExpr = be.lhs.asInstanceOf[NamedExpr]
-//        println(s"load from namedExprDeclCache $leftNamedExpr ${System.identityHashCode(leftNamedExpr)}")
-        val decls = typeChecker.namedExprDeclCache.get(leftNamedExpr)
-        assert(decls.nonEmpty, "namedExprDeclCache returned null")
-        if (leftNamedExpr.name.qualifiers.isEmpty) {
-          val (typeDecl, decl) = decls.head
-          assert(typeDecl == cu.typeDecl, "local with different class?")
-          decl match {
-            case fd: FieldDecl =>
-              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
-                // static variable to be found in data section
-                staticStore(typeDecl, fd)
+        be.lhs match {
+          case ne: NamedExpr =>
+            val decls = typeChecker.namedExprDeclCache.get(ne)
+            assert(decls.nonEmpty, "namedExprDeclCache returned null")
+            if (ne.name.qualifiers.isEmpty) {
+              val (typeDecl, decl) = decls.head
+              assert(typeDecl == cu.typeDecl, "local with different class?")
+              decl match {
+                case fd: FieldDecl =>
+                  if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                  // static variable to be found in data section
+                    staticStore(typeDecl, fd)
 
-              else
-                // member variable to be found in object layout
-                comment("load the rhs value into eax") ::
-                assemble(be.rhs) :::
-                move(edx, stackMemory(st.lookUpThis())) + comment("load this() into edx") ::
-                storeIntoObject(edx, layout.objectLayout(fd), eax) +
-                  comment(s"store into ${fd.name} in ${typeDecl.name}") :: Nil
+                  else
+                  // member variable to be found in object layout
+                    comment("load the rhs value into eax") ::
+                    assemble(be.rhs) :::
+                    move(edx, stackMemory(st.lookUpThis())) + comment("load this() into edx") ::
+                    storeIntoObject(edx, layout.objectLayout(fd), eax) +
+                      comment(s"store into ${fd.name} in ${typeDecl.name}") :: Nil
 
-            case vd: VarDecl =>
-              // the lhs variable is on the stack
-              val stackLoc = st.lookUpLocation(vd.name)
-              comment("load the rhs value into eax") ::
-              assemble(be.rhs) :::
-              move(stackMemory(stackLoc), eax) + comment(s"store into local variable ${vd.name.lexeme}") :: Nil
+                case vd: VarDecl =>
+                  // the lhs variable is on the stack
+                  val stackLoc = st.lookUpLocation(vd.name)
+                  comment("load the rhs value into eax") ::
+                  assemble(be.rhs) :::
+                  move(stackMemory(stackLoc), eax) + comment(s"store into local variable ${vd.name.lexeme}") :: Nil
 
-            case d: Decl =>
-              assert(assertion = false, s"single name mapped to unexpected Decl $d"); throw Error.undefinedMatch
-          }
-        }
-        else {
-          val prologue = decls.dropRight(1) flatMap { tdd =>
-            val (typeDecl, decl) = tdd
-            loadValue(typeDecl, decl) :::
-            nullCheck()
-          }
-          val (typeDecl, decl) = decls.last
-          decl match {
-            case fd: FieldDecl =>
-              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
-                // static variable to be found in data section
-                staticStore(typeDecl, fd)
+                case d: Decl =>
+                  assert(assertion = false, s"single name mapped to unexpected Decl $d"); throw Error.undefinedMatch
+              }
+            }
+            else {
+              val prologue = decls.dropRight(1) flatMap { tdd =>
+                val (typeDecl, decl) = tdd
+                loadValue(typeDecl, decl) :::
+                  nullCheck()
+              }
+              val (typeDecl, decl) = decls.last
+              decl match {
+                case fd: FieldDecl =>
+                  if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                  // static variable to be found in data section
+                    staticStore(typeDecl, fd)
 
-              else
-                // member variable to be found in object layout
-                comment("load the rhs value into eax") ::
-                assemble(be.rhs) :::
-                move(ecx, eax) + comment("save rhs into ecx") ::
-                comment("get the object into eax") ::
-                prologue :::
-                storeIntoObject(eax, layout.objectLayout(fd), ecx) +
-                  comment(s"store into ${fd.name} in ${typeDecl.name} through ecx") :: Nil
+                  else
+                  // member variable to be found in object layout
+                    comment("load the rhs value into eax") ::
+                    assemble(be.rhs) :::
+                    push(eax) + comment("save rhs") ::
+                    comment("get the object into eax") ::
+                    prologue :::
+                    pop(ecx) + comment("get rhs") ::
+                    storeIntoObject(eax, layout.objectLayout(fd), ecx) +
+                      comment(s"store into ${fd.name} in ${typeDecl.name} through ecx") :: Nil
 
-            case d: Decl =>
-              assert(assertion = false, s"namedExpr mapped to unexpected Decl $d"); throw Error.undefinedMatch
-          }
+                case d: Decl =>
+                  assert(assertion = false, s"namedExpr mapped to unexpected Decl $d"); throw Error.undefinedMatch
+              }
+            }
+          case aae: ArrayAccessExpr =>
+            comment("get the array pointer") ::
+            assemble(aae.lhs) :::
+            push(eax) + comment("save the array pointer") ::
+            comment("calculate the index") ::
+            assemble(aae.index) :::
+            signedMultiply(eax, Immediate(wordSize)) + comment("multiply by word size") ::
+            push(eax) + comment("save the index") ::
+            comment("calculate the rhs") ::
+            assemble(be.rhs) :::
+            pop(ebx) + comment("get the index") ::
+            pop(ecx) + comment("get the array pointer") ::
+            move(ecx, Memory(ecx, 0)) + comment("dereference array pointer") ::
+            comment("move to the index + 8") ::
+            add(ecx, ebx) ::
+            storeIntoObject(ecx, 8, eax) :: Nil
         }
     }
   }
