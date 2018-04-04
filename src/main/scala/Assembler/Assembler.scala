@@ -260,7 +260,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
               case t: TypeDecl =>
                 pushParams(ce.params) :::
                 call(labelFactory.makeLabel(t, methodDecl)) :: Nil
-              case f: FieldDecl =>
+              case _: FieldDecl | _: VarDecl =>
                 val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
                 assemble(objExpr) :::
                   nullCheck() :::
