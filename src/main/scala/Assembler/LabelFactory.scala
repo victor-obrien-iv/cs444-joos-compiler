@@ -102,4 +102,11 @@ class LabelFactory(thisType: TypeDecl) {
     addLabel(label, originType)
     label
   }
+
+  def makeSubTypeTableEntryLabel(i: Int): Label = {
+    val label = Label(s"subtype_table_type$i")
+    globalLabels += label
+    label
+  }
+
 }
