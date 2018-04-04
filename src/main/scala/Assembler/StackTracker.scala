@@ -1,7 +1,6 @@
 package Assembler
 
 import AST.{NamedExpr, ParameterDecl, VarDecl}
-import Assembler.i386.Operand
 import Token.Identifier
 
 import scala.collection.mutable

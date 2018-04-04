@@ -99,7 +99,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             functionEntrance(label, totalLocalBytes) :::
             loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
             move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
-            push(eax) ::
+            push(eax) + comment("provide this() as a parameter to the super ctor") ::
             call(superCtorLabel) + comment("call the super ctor") ::
             add(esp, Immediate(4)) ::
             assemble(cd.body) :::
@@ -141,7 +141,6 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       comment(s"${md.name.lexeme} method declaration") :: Nil
   }
 
-
   def assemble(stmt: Stmt)(implicit st: StackTracker): List[String] = stmt match {
     case BlockStmt(stmts) =>
       val newST = new StackTracker(st)
@@ -149,15 +148,17 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         assemble(stmt)(newST)
       }
 
-    case DeclStmt(decl, assignment) =>
+    case DeclStmt(decl: VarDecl, assignment) =>
       st.pushVar(decl)
       assignment match {
         case Some(expr) =>
           assemble(expr) :::
-          push(eax) :: Nil
+          move(stackMemory(st.lookUpLocation(decl.name)), eax) +
+            comment(s"set local var ${decl.name} on the stack") :: Nil
         case None =>
           // no assignment defaults to zero/null
-          push(Immediate(0)) :: Nil
+          move(stackMemory(st.lookUpLocation(decl.name)), Immediate(0)) +
+            comment(s"push local var ${decl.name} onto the stack with default value zero") :: Nil
       }
 
     case ExprStmt(expr) =>
@@ -179,18 +180,27 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
       elseStmt match {
         case Some(elseCode: Stmt) =>
+          comment("<condition>") ::
           assemble(condition) :::
+          comment("</condition>") ::
           jumpIfRegIsFalse(eax, elseLabel) :::
+          comment("<then statements>") ::
           assemble(thenStmt) :::
+          comment("</then statements>") ::
           jump(endLabel) ::
-          placeLabel(elseLabel) ::
+          placeLabel(elseLabel) + comment("<else statements>") ::
           assemble(elseCode) :::
+          comment("</else statements>") ::
           placeLabel(endLabel) :: Nil
 
         case None =>
+          comment("<condition>") ::
           assemble(condition) :::
+          comment("</condition>") ::
           jumpIfRegIsFalse(eax, endLabel) :::
+          comment("<then statements>") ::
           assemble(thenStmt) :::
+          comment("</then statements>") ::
           placeLabel(elseLabel) :: Nil
       }
 
@@ -424,9 +434,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   def assemble(be: BinaryExpr)(implicit st: StackTracker): List[String] = {
     def evaluate(): List[String] =
       assemble(be.lhs) :::
-      push(eax) ::
+      push(eax) + comment(s"push lhs of binary ${be.operatorTok}") ::
       assemble(be.rhs) :::
-      pop(ebx) :: Nil
+      pop(ebx) + comment(s"pop lhs of binary ${be.operatorTok}") :: Nil
 
     def evaluateAndCompare(): List[String] =
       evaluate() :::
@@ -509,8 +519,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case Becomes(_, _, _) =>
         def staticStore(td: TypeDecl, fd: FieldDecl) =
           comment("load the rhs value into eax") ::
-            assemble(be.rhs) :::
-            move(Data(labelFactory.makeLabel(td, fd)), eax) :: Nil
+          assemble(be.rhs) :::
+          move(Data(labelFactory.makeLabel(td, fd)), eax) + comment("store to static field") :: Nil
 
         be.lhs match {
           case ne: NamedExpr =>
@@ -601,7 +611,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(eax) + comment("save the access obj") ::
             assemble(be.rhs) :::
             pop(ebx) ::
-            storeIntoObject(ebx, layout.objectLayout(typeDecl)(fieldDecl), eax) :: Nil
+            storeIntoObject(ebx, layout.objectLayout(typeDecl)(fieldDecl), eax) +
+              comment("store via access expr") :: Nil
         }
     }
   }
