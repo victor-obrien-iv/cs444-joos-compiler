@@ -390,8 +390,8 @@ class EnvironmentBuilder(environment: Environment) {
       }
       val expr = (scope ++ parameters).find(_.name.lexeme == id.id.lexeme)
       expr match {
-        case Some(value) =>
-          ExprName(id, value.typ, None)
+        case Some(value: VarDecl) =>
+          ExprName(id, value.typ, (typeDecl, value))
         case None =>
           findNonStaticField(id.id, typeDecl) match {
             case Some(value) =>
@@ -399,7 +399,7 @@ class EnvironmentBuilder(environment: Environment) {
               println(value._2.typ)
               ExprName(FullyQualifiedID(value._2.name),
                 findFieldType(value, typeDecl, FullyQualifiedID(typeDecl.name)),
-                Some(value)
+                value
               )
             case None =>
               environment.findType(id.id.lexeme) match {
@@ -427,7 +427,7 @@ class EnvironmentBuilder(environment: Environment) {
           } else {
             PackageName(id)
           }
-        case ExprName(exprId, typ, _) =>
+        case ExprName(exprId, typ, decls) =>
           val field = id.id
           val exprType = typ match {
             case ArrayType(arrayOf, size) =>
@@ -443,12 +443,12 @@ class EnvironmentBuilder(environment: Environment) {
               }
             case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
           }
-          ExprName(id, exprType, None)
+          ExprName(id, exprType, decls /*this may be incorrect*/)
         case TypeName(typeId, typeOf) =>
           findStaticField(id.id, typeOf) match {
             case Some(value) =>
               val fieldType = findFieldType(value, typeDecl, typeId)
-              ExprName(id, fieldType, Some(value))
+              ExprName(id, fieldType, value)
             case None => throw Error.memberNotFound(typeId, id.id)
           }
 

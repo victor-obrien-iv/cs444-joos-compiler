@@ -1,17 +1,22 @@
 package Disambiguator
 
+import java.util
+
 import AST._
 import Environment._
 import Error.Error
 import Token._
 
+import scala.collection.mutable.ListBuffer
+
 class TypeChecker(val environment: Environment) extends EnvironmentBuilder(environment) {
-  import scala.collection.mutable
 
   /**
     * cache what declaration an ast node refers to
     */
-  val declCache: mutable.Map[AstNode, (TypeDecl, MemberDecl)] = mutable.Map()
+  val declCache: util.IdentityHashMap[AstNode, (TypeDecl, MemberDecl)] = new util.IdentityHashMap()
+  val namedExprDeclCache: util.IdentityHashMap[NamedExpr, List[Decl]] = new util.IdentityHashMap()
+
 
   def build(compilationUnit: CompilationUnit): Unit = {
     val CompilationUnit(fileName, packageName, imports, typeDecl) = compilationUnit
@@ -245,7 +250,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
       }
       val returnType = methodType match {
         case Some(value) =>
-          declCache(expr) = value
+          declCache.put(expr, value)
           findMethodType(value, typeDecl, typeId)
         case None =>
           throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
@@ -306,7 +311,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     case DeclRefExpr(reference) =>
       findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField, isStatic) match {
         case ExprName(id, typ: Type, decls) =>
-          decls foreach { d => declCache(expr) = d }
+          declCache.put(expr, (decls._1, decls._2.asInstanceOf[MethodDecl]))
           typ
         case _ => throw Error.classNotFound(reference.lexeme)
       }
@@ -326,7 +331,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
         val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField, isStatic))
         findConstructor(paramTypes, newType) match {
           case Some(constructorDecl) =>
-            declCache(e) = (newType, constructorDecl)
+            declCache.put(e, (newType, constructorDecl))
             if (constructorDecl.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
               throw Error.protectedAccess(newType, ctor.id)
             }
@@ -344,19 +349,27 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
         arrayType
     }
 
-    case NamedExpr(name) =>
-      findName(name, typeDecl, scope, parameters, isField, isStatic) match {
-        case ExprName(id, typ, decls) =>
-          decls foreach { d => declCache(expr) = d }
-          typ
-        case TypeName(id, typ) =>
-          environment.findQualifiedType(id.name) match {
-            case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
-            case None => throw Error.classNotFound(id)
+    case ne: NamedExpr =>
+      val hackyList: ListBuffer[Decl] = ListBuffer()
+      def hackySolution(name: FullyQualifiedID): Type = {
+        findName(name, typeDecl, scope, parameters, isField, isStatic) match {
+          case ExprName(_, typ, decls) =>
+            hackyList += decls._2
+            if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+            typ
+          case TypeName(id, typ) =>
+            hackyList += typ
+            if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+            environment.findQualifiedType(id.name) match {
+              case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
+              case None => throw Error.classNotFound(id)
+            }
+          case _ =>
+            throw Error.classNotFound(name)
         }
-        case _ =>
-          throw Error.classNotFound(name)
       }
+      namedExprDeclCache.put(ne, hackyList.toList)
+      hackySolution(ne.name)
   }
 
 }

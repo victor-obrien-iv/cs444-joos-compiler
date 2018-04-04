@@ -245,7 +245,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case pe: ParenExpr =>
         assemble(pe.expr)
       case ce: CallExpr =>
-        val (methodClass, methodDecl) = typeChecker.declCache(ce)
+        val (methodClass, methodDecl) = typeChecker.declCache.get(ce)
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) =>
@@ -281,8 +281,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         assemble(ve)
 
       case dre: DeclRefExpr =>
-        if (typeChecker.declCache.contains(dre)) {
-          val (typeDecl, memberDecl) = typeChecker.declCache(dre)
+        if (typeChecker.declCache.containsKey(dre)) {
+          val (typeDecl, memberDecl) = typeChecker.declCache.get(dre)
           memberDecl match {
             case fd: FieldDecl =>
               if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
@@ -306,7 +306,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
-            val (ctorClass, ctorDecl) = typeChecker.declCache(ne)
+            val (ctorClass, ctorDecl) = typeChecker.declCache.get(ne)
             allocate(layout.getObjByteSize(ctorClass)) :::
             push(eax) ::
             pushParams(params) :::
@@ -338,12 +338,12 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   }
 
   //TODO fix named expression
-  def assemble(accessExpr: AccessExpr): List[String] = accessExpr match {
+  def assemble(accessExpr: AccessExpr)(implicit st: StackTracker): List[String] = accessExpr match {
     case AccessExpr(lhs, field) => //LHS should be a reference
       assemble(lhs)
   }
 
-  def assemble(arrayAccessExpr: ArrayAccessExpr): List[String] = arrayAccessExpr match {
+  def assemble(arrayAccessExpr: ArrayAccessExpr)(implicit st: StackTracker): List[String] = arrayAccessExpr match {
     case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
       comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
@@ -443,8 +443,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case Becomes(_, _, _) =>
         //TODO: the left hand side might not be a dre
         val leftDre = be.lhs.asInstanceOf[DeclRefExpr]
-        if (typeChecker.declCache.contains(leftDre)) {
-          val (typeDecl, memberDecl) = typeChecker.declCache(leftDre)
+        if (typeChecker.declCache.containsKey(leftDre)) {
+          val (typeDecl, memberDecl) = typeChecker.declCache.get(leftDre)
           memberDecl match {
             case fd: FieldDecl =>
               if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
