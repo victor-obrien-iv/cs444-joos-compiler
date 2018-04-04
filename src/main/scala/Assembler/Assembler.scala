@@ -87,7 +87,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(cd: ConstructorDecl): List[String] = {
     val label = labelFactory.makeLabel(cu.typeDecl, cd)
-    val totalLocalBytes = new VarDeclCounter().getNumVarDecl(cd.body)
+    val totalLocalBytes = new VarDeclCounter().getNumVarDecl(cd.body) * wordSize
     implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
 
     typeChecker.getSuperClass(cu.typeDecl) match {
@@ -120,7 +120,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   def assemble(md: MethodDecl): List[String] = md.body match {
     case Some(blockStmt) =>
       val label = labelFactory.makeLabel(cu.typeDecl, md)
-      val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt)
+      val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt) * wordSize
       val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
       implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
       if(md.name.lexeme == "test" && isStatic)
