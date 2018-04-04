@@ -284,6 +284,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
           val typeOf = environment.findType(typeID)
           typeOf.flatMap(findNonStaticField(field, _)) match {
             case Some(value) =>
+              declCache.put(expr, value)
               findFieldType(value, typeDecl, typeID)
             case None => throw Error.classNotFound(typeID)
           }

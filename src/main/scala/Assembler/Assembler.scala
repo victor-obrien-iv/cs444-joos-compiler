@@ -516,6 +516,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             val decls = typeChecker.namedExprDeclCache.get(ne)
             assert(decls.nonEmpty, "namedExprDeclCache returned null")
             if (ne.name.qualifiers.isEmpty) {
+              // no qualifiers
               val (typeDecl, decl) = decls.head
               assert(typeDecl == cu.typeDecl, "local with different class?")
               decl match {
@@ -544,6 +545,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
               }
             }
             else {
+              // handles the qualifiers
               val prologue = decls.dropRight(1) flatMap { tdd =>
                 val (typeDecl, decl) = tdd
                 loadValue(typeDecl, decl) :::
@@ -551,6 +553,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
               }
               val (typeDecl, decl) = decls.last
               decl match {
+                  // gets the address of the last identifier
                 case fd: FieldDecl =>
                   if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
                   // static variable to be found in data section
@@ -564,7 +567,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
                     comment("get the object into eax") ::
                     prologue :::
                     pop(ecx) + comment("get rhs") ::
-                    storeIntoObject(eax, layout.objectLayout(fd), ecx) +
+                    storeIntoObject(eax, layout.objectLayout(typeDecl)(fd), ecx) +
                       comment(s"store into ${fd.name} in ${typeDecl.name} through ecx") :: Nil
 
                 case d: Decl =>
@@ -587,6 +590,17 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             comment("move to the index + 8") ::
             add(ecx, ebx) ::
             storeIntoObject(ecx, 8, eax) :: Nil
+
+          case ae: AccessExpr =>
+            val decl = typeChecker.declCache.get(ae)
+            val typeDecl = decl._1
+            val fieldDecl = decl._2.asInstanceOf[FieldDecl]
+            assert(!fieldDecl.modifiers.exists(_.isInstanceOf[JavaStatic]), "this should be a non-static field")
+            assemble(ae.lhs) :::
+            push(eax) + comment("save the access obj") ::
+            assemble(be.rhs) :::
+            pop(ebx) ::
+            storeIntoObject(ebx, layout.objectLayout(typeDecl)(fieldDecl), eax) :: Nil
         }
     }
   }
