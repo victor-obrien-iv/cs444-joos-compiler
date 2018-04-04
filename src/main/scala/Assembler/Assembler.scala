@@ -256,21 +256,22 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         ce.obj match {
           case Some(objExpr) =>
             val (declType, decl) = typeChecker.namedExprDeclCache.get(objExpr).last
-            val callInstr = decl match {
+            decl match {
               case t: TypeDecl =>
                 pushParams(ce.params) :::
-                call(labelFactory.makeLabel(t, methodDecl)) :: Nil
+                call(labelFactory.makeLabel(t, methodDecl)) ::
+                discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
               case _: FieldDecl | _: VarDecl =>
                 val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
                 assemble(objExpr) :::
-                  nullCheck() :::
-                  pushParams(ce.params) :::
-                  move(eax, Memory(eax, 0)) ::
-                  move(eax, Memory(eax, offset)) ::
-                  call(Memory(eax, 0)) :: Nil
+                nullCheck() :::
+                push(eax) + comment("push the obj being called on to be a parameter for the function") ::
+                pushParams(ce.params) :::
+                move(eax, Memory(eax, 0)) + comment("<dynamic dispatch>") ::
+                move(eax, Memory(eax, offset)) ::
+                call(Memory(eax, 0)) + comment("</dynamic dispatch>") ::
+                discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             }
-
-            callInstr ::: discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
 
           case None =>
             if (isStatic)

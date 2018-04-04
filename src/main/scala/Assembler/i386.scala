@@ -55,11 +55,11 @@ object i386 {
   def loadEffectiveAddress(op1: Operand, label: Label): String = instr("lea", op1, label)
   def loadFromObject(objPtr: Memory, offset: Int): List[String] =
     move(eax, objPtr) ::
-    move(eax, Memory(eax, offset)) :: Nil
+    move(eax, Memory(eax, offset)) + comment("load from object") :: Nil
   def loadFromObject(objPtr: Register, offset: Int): String =
-    move(eax, Memory(objPtr, offset))
+    move(eax, Memory(objPtr, offset)) + comment("load from object")
   def storeIntoObject(objPtr: Register, offset: Int, value: Register): String =
-    move(Memory(objPtr, offset), value)
+    move(Memory(objPtr, offset), value) + comment("store into object")
   def push(op1: Operand): String = instr("push", op1)
   def pop(op1: Operand): String = instr("pop", op1)
 
@@ -88,7 +88,7 @@ object i386 {
     instr("idiv", op1) :: Nil
   def signedModulo(op1: Operand): List[String] =
     signedDivide(op1) :::
-    move(eax, edx) :: Nil
+    move(eax, edx) + comment("signed modulo") :: Nil
 
   // control flow instrs
   private def leave(): String = instr("leave")
@@ -108,7 +108,7 @@ object i386 {
     placeLabel(enter) ::
     push(ebp) ::
     move(ebp, esp) ::
-    subtract(esp, Immediate(totalLocalBytes)) :: Nil
+    subtract(esp, Immediate(totalLocalBytes)) + comment("end of function entrance") :: Nil
   private def return_(): String = instr("ret")
   def functionExit(): List[String] =
     leave() ::
@@ -119,9 +119,10 @@ object i386 {
     move(eax, Immediate(numBytes)) ::
     call(LabelFactory.mallocLabel) :: Nil
   def nullCheck(): List[String] =
+    comment("null check") ::
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
   def debugExit(): String =
-    call(LabelFactory.debugExitLabel)
+    call(LabelFactory.debugExitLabel) + comment("exit")
 
   // data
   def placeValue(label: Label): String = s"dd ${label.name}"
