@@ -144,8 +144,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(stmt: Stmt)(implicit st: StackTracker): List[String] = stmt match {
     case BlockStmt(stmts) =>
+      val newST = new StackTracker(st)
       stmts flatMap { stmt =>
-        assemble(stmt)(new StackTracker(st))
+        assemble(stmt)(newST)
       }
 
     case DeclStmt(decl, assignment) =>
