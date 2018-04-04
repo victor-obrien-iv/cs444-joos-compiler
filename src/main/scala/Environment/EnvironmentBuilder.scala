@@ -249,7 +249,7 @@ class EnvironmentBuilder(environment: Environment) {
   }
 
   def findAllInstanceMethods(typeDecl: TypeDecl): List[(TypeDecl, MethodDecl)] = {
-    val (_, methods, _ ) = partitionMembers(typeDecl.members)
+    val (_, methods, _ ) = partitionMembers(typeDecl.members.filterNot(_.modifiers.exists(_.isInstanceOf[JavaStatic])))
 
     val augmentedMethods = methods.map((typeDecl, _))
 
