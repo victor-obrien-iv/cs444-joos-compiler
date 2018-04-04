@@ -20,6 +20,7 @@ object LabelFactory {
       Label(s"${use}_$i")
     }
   }
+  def makeSubTypeTableEntryLabel(i: Int) = Label(s"subtype_table_type$i")
 
   val mallocLabel = Label("__malloc")
   val debugExitLabel = Label("__debexit")
@@ -39,7 +40,7 @@ class LabelFactory(thisType: TypeDecl) {
     LabelFactory.mallocLabel,
     LabelFactory.debugExitLabel,
     LabelFactory.exceptionLabel,
-    LabelFactory.nativeWriteLabel
+    LabelFactory.nativeWriteLabel,
   )
   private def addLabel(l: Label, td: TypeDecl) =
     if (td eq thisType) globalLabels.add(l)

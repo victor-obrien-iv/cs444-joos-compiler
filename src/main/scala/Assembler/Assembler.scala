@@ -46,17 +46,22 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case (typeFrom, method) =>
         placeValue(labelFactory.makeLabel(typeFrom, method))
     }
-    placeLabel(vtableLabel) :: methodTableEntries
+    placeLabel(vtableLabel)::
+      placeValue(typeChecker.findTypeIndex(typeDecl)) ::
+      methodTableEntries
   }
 
-  def methodOffset(typeDecl: TypeDecl, methodDecl: MethodDecl): Int = typeDecl match {
-    case InterfaceDecl(modifiers, name, id, extensionOf, members, packageName) =>
-      val interfaceMethods = typeChecker.environment.interfaceMethods.map(_._2)
-      typeChecker.findMethodIndex(methodDecl, interfaceMethods)
-    case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members, packageName) =>
-      val vtableMethods = typeChecker.findAllInstanceMethods(typeDecl).map(_._2)
-      val methodIndex = typeChecker.findMethodIndex(methodDecl, vtableMethods)
-      (methodIndex + typeChecker.interfaceMethodOffset)*4
+  def methodOffset(typeDecl: TypeDecl, methodDecl: MethodDecl): Int = {
+    val subTypeOffset = 1
+    typeDecl match {
+      case InterfaceDecl(modifiers, name, id, extensionOf, members, packageName) =>
+        val interfaceMethods = typeChecker.environment.interfaceMethods.map(_._2)
+        (typeChecker.findMethodIndex(methodDecl, interfaceMethods) + subTypeOffset)*4
+      case ClassDecl(modifiers, name, id, extensionOf, implementationOf, members, packageName) =>
+        val vtableMethods = typeChecker.findAllInstanceMethods(typeDecl).map(_._2)
+        val methodIndex = typeChecker.findMethodIndex(methodDecl, vtableMethods)
+        (methodIndex + typeChecker.interfaceMethodOffset + subTypeOffset)*4
+    }
   }
 
   def assemble(members: List[MemberDecl]): List[String] = {
@@ -545,6 +550,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     case NullLiteral(_, _, _, _) =>
       move(eax, Immediate(0)) :: Nil
+  }
+
+  def assembleSubtypeTable: List[String] = {
+    val subTypes = typeChecker.createSubTypeTable
+    subTypes.zipWithIndex.flatMap {
+      case (types, i) =>
+        val label = LabelFactory.makeSubTypeTableEntryLabel(i)
+        s"global ${label.name}" ::
+        placeLabel(label) ::
+        types.map {
+          value =>
+            if (value) placeValue(1) else placeValue(0)
+        }
+    }
   }
 
 }
