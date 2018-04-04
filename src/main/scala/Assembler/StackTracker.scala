@@ -44,11 +44,11 @@ class StackTracker private (outerScope: Option[StackTracker]) {
   def pushInternalVar(id: Int): Unit = push(id.toString)
   def pushVar(vd: VarDecl): Unit = push(vd.name.lexeme)
 
-  case class varNotFound() extends Exception
+  case class varNotFound(name: String) extends Exception
   private def lookUpLocation(name: String): Int = {
     if(!varsInBlock.contains(name)) outerScope match {
       case Some(scope) => scope.lookUpLocation(name)
-      case None => throw varNotFound()
+      case None => throw varNotFound(name)
     }
     else varsInBlock(name)
   }

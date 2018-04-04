@@ -39,14 +39,18 @@ class Layout(typeDecl: TypeDecl, typeChecker: TypeChecker) {
     def make(decls: List[(TypeDecl, (List[FieldDecl], List[MethodDecl]))], loc: Int):
     List[(FieldDecl, Int)] = {
       val fields = decls.head._2._1
+      var newloc = loc
       val nonStaticFields = fields.filter(!_.modifiers.exists(_.isInstanceOf[JavaStatic])) //TODO fix this
-      val fieldLocPairs = for(field <- nonStaticFields) yield { (field, loc)}
+      val fieldLocPairs = for(field <- nonStaticFields) yield {
+        newloc += i386.wordSize
+        (field, newloc)
+      }
       if(decls.tail.isEmpty)
         fieldLocPairs
       else
-        fieldLocPairs ++ make(decls.tail, loc + i386.wordSize)
+        fieldLocPairs ++ make(decls.tail, newloc)
     }
-    make(decls, 4)
+    make(decls, 0)
   }
 
   /**
