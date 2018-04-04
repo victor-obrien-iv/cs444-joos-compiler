@@ -369,8 +369,10 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
             throw Error.classNotFound(name)
         }
       }
+//      println(s"saved to namedExprDeclCache $ne ${System.identityHashCode(ne)} with ${hackyList.toList}")
+      val ret = hackySolution(ne.name)
       namedExprDeclCache.put(ne, hackyList.toList)
-      hackySolution(ne.name)
+      ret
   }
 
 }
