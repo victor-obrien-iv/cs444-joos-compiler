@@ -15,7 +15,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] =
     params flatMap { param =>
       assemble(param) :::
-      push(eax) + comment(s"pushing parameter $param") :: Nil
+      push(eax) + comment(s"pushing parameter ${param}") :: Nil
     }
 
   def assemble(): List[String] = {
@@ -118,28 +118,35 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-  def assemble(md: MethodDecl): List[String] = md.body match {
-    case Some(blockStmt) =>
-      val label = labelFactory.makeLabel(cu.typeDecl, md)
-      val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt) * wordSize
-      val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
-      implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
-      if(md.name.lexeme == "test" && isStatic)
+  def assemble(md: MethodDecl): List[String] = {
+    val label = labelFactory.makeLabel(cu.typeDecl, md)
+    md.body match {
+      case Some(blockStmt) =>
+        val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt) * wordSize
+        val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
+        implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
+        if(md.name.lexeme == "test" && isStatic)
         //TODO: _start needs to be relocated and actually initialize things
-        placeLabel(labelFactory.makeStartLabel()) ::
-        call(label) ::
-        debugExit() ::
-        functionEntrance(label, totalLocalBytes) :::
-        assemble(blockStmt) :::
-        functionExit()
+          placeLabel(labelFactory.makeStartLabel()) ::
+            call(label) ::
+            debugExit() ::
+            functionEntrance(label, totalLocalBytes) :::
+            assemble(blockStmt) :::
+            functionExit()
 
-      else
-        functionEntrance(label, totalLocalBytes) :::
-        assemble(blockStmt) :::
-        functionExit()
+        else
+          functionEntrance(label, totalLocalBytes) :::
+            assemble(blockStmt) :::
+            functionExit()
 
-    case None =>
-      comment(s"${md.name.lexeme} method declaration") :: Nil
+      case None =>
+        val emptyCode = if (md.modifiers.exists(_.isInstanceOf[JavaNative])) {
+          call(nativeWriteLabel)
+        } else {
+          placeValue(0)
+        }
+        placeLabel(label) :: emptyCode :: Nil
+    }
   }
 
   def assemble(stmt: Stmt)(implicit st: StackTracker): List[String] = stmt match {
@@ -286,7 +293,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             decl match {
               case t: TypeDecl =>
                 pushParams(ce.params) :::
-                call(labelFactory.makeLabel(t, methodDecl)) ::
+                call(labelFactory.makeLabel(methodClass, methodDecl)) ::
                 discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
               case _: FieldDecl | _: VarDecl =>
                 val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])

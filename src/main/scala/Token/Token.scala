@@ -119,7 +119,9 @@ case class IntegerLiteral(lexeme: String, row: Int, col: Int, value: BigInt) ext
 case class BooleanLiteral(row: Int, col: Int, value: Boolean) extends Literal {
   val lexeme: String = if ( value ) "true" else "false"
 }
-case class CharacterLiteral(lexeme: String, row: Int, col: Int, value: Char) extends Literal
+case class CharacterLiteral(lexeme: String, row: Int, col: Int, value: Char) extends Literal {
+  override def toString: String = s"CharacterLiterals($lexeme)"
+}
 case class StringLiteral(lexeme: String, row: Int, col: Int, value: String) extends Literal
 case class NullLiteral(lexeme: String = "null", row: Int, col: Int, value: Any = null) extends Literal
 
