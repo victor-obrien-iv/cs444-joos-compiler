@@ -16,6 +16,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     */
   val declCache: util.IdentityHashMap[AstNode, (TypeDecl, MemberDecl)] = new util.IdentityHashMap()
   val namedExprDeclCache: util.IdentityHashMap[NamedExpr, List[(TypeDecl, Decl)]] = new util.IdentityHashMap()
+  val typeCache: util.IdentityHashMap[Expr, Type] = new util.IdentityHashMap()
 
 
   def build(compilationUnit: CompilationUnit): Unit = {
@@ -148,233 +149,237 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     * @param typeDecl The type this field belongs to
     * @param scope The variables that it could potentially forward reference
     */
-  protected def build(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Type = expr match {
-    case BinaryExpr(lhs, _: Becomes, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField = false, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      if (typeAssignable(leftType, rightType)) {
-        leftType
-      } else {
-        throw Error.typeMismatch(rightType, leftType)
-      }
-    case BinaryExpr(lhs, operatorTok: Plus, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      (leftType, rightType) match {
-        case (_, PrimitiveType(v: JavaVoid)) => throw Error.expectedNumeric(PrimitiveType(v))
-        case (PrimitiveType(v: JavaVoid), _) => throw Error.expectedNumeric(PrimitiveType(v))
-        case (ClassType(iD), _) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
-        case (_, ClassType(iD)) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
-        case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
-          PrimitiveType(JavaInt(row = 0, col = 0))
-        case (t1: PrimitiveType, t2) if t1.isNumeric => throw Error.expectedNumeric(t2)
-        case (t, _) => throw Error.expectedNumeric(t)
-      }
-    case BinaryExpr(lhs, operatorTok: CompareOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      (leftType, rightType) match {
-        case (p1:PrimitiveType, p2:PrimitiveType) if p1.isNumeric && p2.isNumeric =>
+  protected def build(expr: Expr, typeDecl: TypeDecl, scope: List[VarDecl], parameters: List[VarDecl], isField: Boolean, isStatic: Boolean): Type = {
+    val typeExpr = expr match {
+      case BinaryExpr(lhs, _: Becomes, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField = false, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        if (typeAssignable(leftType, rightType)) {
+          leftType
+        } else {
+          throw Error.typeMismatch(rightType, leftType)
+        }
+      case BinaryExpr(lhs, operatorTok: Plus, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        (leftType, rightType) match {
+          case (_, PrimitiveType(v: JavaVoid)) => throw Error.expectedNumeric(PrimitiveType(v))
+          case (PrimitiveType(v: JavaVoid), _) => throw Error.expectedNumeric(PrimitiveType(v))
+          case (ClassType(iD), _) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+          case (_, ClassType(iD)) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+          case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
+            PrimitiveType(JavaInt(row = 0, col = 0))
+          case (t1: PrimitiveType, t2) if t1.isNumeric => throw Error.expectedNumeric(t2)
+          case (t, _) => throw Error.expectedNumeric(t)
+        }
+      case BinaryExpr(lhs, operatorTok: CompareOperator, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        (leftType, rightType) match {
+          case (p1:PrimitiveType, p2:PrimitiveType) if p1.isNumeric && p2.isNumeric =>
+            PrimitiveType(JavaBoolean(row = 0, col = 0))
+          case (p1:PrimitiveType, t) if p1.isNumeric => throw Error.expectedNumeric(t)
+          case (t, _) => throw Error.expectedBoolean(t)
+        }
+      case BinaryExpr(lhs, operatorTok: BooleanOperator, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        (leftType, rightType) match {
+          case (PrimitiveType(_: JavaBoolean), PrimitiveType(_: JavaBoolean)) =>
+            PrimitiveType(JavaBoolean(row = 0, col = 0))
+          case (PrimitiveType(_:JavaBoolean), t) => throw Error.expectedBoolean(t)
+          case (t, _) => throw Error.expectedBoolean(t)
+        }
+      case BinaryExpr(lhs, operatorTok: NumericOperator, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        (leftType, rightType) match {
+          case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
+            PrimitiveType(JavaInt(row = 0, col = 0))
+          case (t1: PrimitiveType, t2) if t1.isNumeric => throw Error.expectedNumeric(t2)
+          case (t, _) => throw Error.expectedNumeric(t)
+        }
+      case BinaryExpr(lhs, operatorTok: EqualityOperator, rhs) =>
+        val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        if (typeAssignable(leftType, rightType) || typeAssignable(rightType, leftType)) {
           PrimitiveType(JavaBoolean(row = 0, col = 0))
-        case (p1:PrimitiveType, t) if p1.isNumeric => throw Error.expectedNumeric(t)
-        case (t, _) => throw Error.expectedBoolean(t)
-      }
-    case BinaryExpr(lhs, operatorTok: BooleanOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      (leftType, rightType) match {
-        case (PrimitiveType(_: JavaBoolean), PrimitiveType(_: JavaBoolean)) =>
-          PrimitiveType(JavaBoolean(row = 0, col = 0))
-        case (PrimitiveType(_:JavaBoolean), t) => throw Error.expectedBoolean(t)
-        case (t, _) => throw Error.expectedBoolean(t)
-      }
-    case BinaryExpr(lhs, operatorTok: NumericOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      (leftType, rightType) match {
-        case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
-          PrimitiveType(JavaInt(row = 0, col = 0))
-        case (t1: PrimitiveType, t2) if t1.isNumeric => throw Error.expectedNumeric(t2)
-        case (t, _) => throw Error.expectedNumeric(t)
-      }
-    case BinaryExpr(lhs, operatorTok: EqualityOperator, rhs) =>
-      val leftType = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      if (typeAssignable(leftType, rightType) || typeAssignable(rightType, leftType)) {
-        PrimitiveType(JavaBoolean(row = 0, col = 0))
-      } else {
-        throw Error.typeMismatch(leftType, rightType)
-      }
-    case UnaryExpr(operatorTok: Bang, rhs) =>
-      build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
-        case PrimitiveType(b: JavaBoolean) => PrimitiveType(b)
-        case t => throw Error.expectedBoolean(t)
-      }
-    case UnaryExpr(operatorTok: Minus, rhs) =>
-      build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
-        case p: PrimitiveType if p.isNumeric => p
-        case t => throw Error.expectedNumeric(t)
-      }
-    case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField, isStatic)
-    case CallExpr(obj, call, params) =>
-      var isClass = false //flag to consider finding a static member or nah//
+        } else {
+          throw Error.typeMismatch(leftType, rightType)
+        }
+      case UnaryExpr(operatorTok: Bang, rhs) =>
+        build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
+          case PrimitiveType(b: JavaBoolean) => PrimitiveType(b)
+          case t => throw Error.expectedBoolean(t)
+        }
+      case UnaryExpr(operatorTok: Minus, rhs) =>
+        build(rhs, typeDecl, scope, parameters, isField, isStatic) match {
+          case p: PrimitiveType if p.isNumeric => p
+          case t => throw Error.expectedNumeric(t)
+        }
+      case ParenExpr(parenExpr) => build(parenExpr, typeDecl, scope, parameters, isField, isStatic)
+      case CallExpr(obj, call, params) =>
+        var isClass = false //flag to consider finding a static member or nah//
       var typeId = FullyQualifiedID("java.lang.Object")
-      val objTypeDecl = obj.flatMap{ (expr: Expr) =>
-        build(expr, typeDecl, scope, parameters, isField, isStatic) match {
-          case ClassType(id) =>
-            typeId = id
-            environment.findType(id)
-          case Class(id) =>
-            typeId = id
-            isClass = true
-            environment.findType(id)
-          case _ : ArrayType =>
-            environment.findType("java.lang.Object")
-          case PrimitiveType(primitive) => throw Error.accessPrimitiveType(primitive, call)
-          case NullType() => throw Error.nullPointerException
-        }
-      }
-      val paramTypes = params.map(build(_, typeDecl, scope, parameters, isField, isStatic))
-      val methodType = objTypeDecl match {
-        case Some(value) =>
-          if (isClass)
-            findStaticMethod(call, paramTypes, value)
-          else findNonStaticMethod(call, paramTypes, value)
-        case None =>
-          if (isClass)
-            throw Error.memberNotFound(typeDecl.name.lexeme, call)
-          else if (isStatic)
-            throw Error.cannotInvokeThisInStaticContext
-          else findNonStaticMethod(call, paramTypes, typeDecl)
-
-      }
-      val returnType = methodType match {
-        case Some(value) =>
-          declCache.put(expr, value)
-          findMethodType(value, typeDecl, typeId)
-        case None =>
-          throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
-      }
-      returnType match {
-        case Some(value) => value
-        case None => PrimitiveType(JavaVoid(row = 0, col = 0))
-      }
-    case ThisExpr() =>
-      if (isStatic) throw Error.cannotInvokeThisInStaticContext
-      environment.findQualifiedType(typeDecl.name.lexeme) match {
-        case Some(value) => ClassType(FullyQualifiedID(value))
-        case None => throw Error.classNotFound(typeDecl.name.lexeme)
-      }
-    case CastExpr(castType, rhs) =>
-      val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
-      (castType, rightType) match {
-        case (p1: PrimitiveType, p2: PrimitiveType) if p1.isNumeric && p2.isNumeric =>
-          castType
-        case (t1, t2) if typeAssignable(t2, t1) || typeAssignable(t1, t2) =>
-          castType
-        case _ => throw Error.typeMismatch(rightType, castType)
-      }
-    case AccessExpr(lhs, field) =>
-      build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
-        case ArrayType(arrayOf, size) =>
-          if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
-          else throw Error.memberNotFound(s"$arrayOf[]", field)
-        case NullType() => throw Error.nullPointerException
-        case ClassType(typeID) =>
-          val typeOf = environment.findType(typeID)
-          typeOf.flatMap(findNonStaticField(field, _)) match {
-            case Some(value) =>
-              declCache.put(expr, value)
-              findFieldType(value, typeDecl, typeID)
-            case None => throw Error.classNotFound(typeID)
+        val objTypeDecl = obj.flatMap{ (expr: Expr) =>
+          build(expr, typeDecl, scope, parameters, isField, isStatic) match {
+            case ClassType(id) =>
+              typeId = id
+              environment.findType(id)
+            case Class(id) =>
+              typeId = id
+              isClass = true
+              environment.findType(id)
+            case _ : ArrayType =>
+              environment.findType("java.lang.Object")
+            case PrimitiveType(primitive) => throw Error.accessPrimitiveType(primitive, call)
+            case NullType() => throw Error.nullPointerException
           }
-        case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
-      }
-    case ArrayAccessExpr(lhs, index) =>
-      val arrayType = build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
-        case a: ArrayType => a
-        case e => throw Error.notArray(e)
-      }
-      build(index, typeDecl, scope, parameters, isField, isStatic) match {
-        case p: PrimitiveType if p.isNumeric =>
-        case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
-      }
-      arrayType.arrayOf
+        }
+        val paramTypes = params.map(build(_, typeDecl, scope, parameters, isField, isStatic))
+        val methodType = objTypeDecl match {
+          case Some(value) =>
+            if (isClass)
+              findStaticMethod(call, paramTypes, value)
+            else findNonStaticMethod(call, paramTypes, value)
+          case None =>
+            if (isClass)
+              throw Error.memberNotFound(typeDecl.name.lexeme, call)
+            else if (isStatic)
+              throw Error.cannotInvokeThisInStaticContext
+            else findNonStaticMethod(call, paramTypes, typeDecl)
 
-    case ValExpr(value) =>
-      value match {
-        case IntegerLiteral(_, row, col, _) => PrimitiveType(JavaInt(row = row, col = col))
-        case BooleanLiteral(row, col, _) => PrimitiveType(JavaBoolean(row = row, col = col))
-        case CharacterLiteral(_, row, col, _) => PrimitiveType(JavaChar(row = row, col = col))
-        case _:StringLiteral => ClassType(FullyQualifiedID("java.lang.String"))
-        case _:NullLiteral => NullType()
-      }
-    case DeclRefExpr(reference) =>
-      findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField, isStatic) match {
-        case ExprName(id, typ: Type, decls) =>
-          declCache.put(expr, (decls._1, decls._2.asInstanceOf[MethodDecl]))
-          typ
-        case _ => throw Error.classNotFound(reference.lexeme)
-      }
-    case InstanceOfExpr(lhs, typ) =>
-      val typeOfLValue = build(lhs, typeDecl, scope, parameters, isField, isStatic)
-      if (typeAssignable(typeOfLValue, typ) || typeAssignable(typ, typeOfLValue)) {
-        PrimitiveType(JavaBoolean(row = 0, col = 0))
-      } else {
-        throw Error.typeMismatch(typeOfLValue, typ)
-      }
-    case e: NewExpr => e match {
-      case ObjNewExpr(ctor, params) =>
-        val newType = environment.findType(ctor).getOrElse(throw Error.classNotFound(ctor))
-        if (newType.modifiers.exists(_.isInstanceOf[JavaAbstract])) {
-          throw Error.cannotInstantiateAbstract(newType)
         }
-        val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField, isStatic))
-        findConstructor(paramTypes, newType) match {
-          case Some(constructorDecl) =>
-            declCache.put(e, (newType, constructorDecl))
-            if (constructorDecl.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
-              throw Error.protectedAccess(newType, ctor.id)
+        val returnType = methodType match {
+          case Some(value) =>
+            declCache.put(expr, value)
+            findMethodType(value, typeDecl, typeId)
+          case None =>
+            throw Error.memberNotFound(objTypeDecl.map(_.name).toString, call)
+        }
+        returnType match {
+          case Some(value) => value
+          case None => PrimitiveType(JavaVoid(row = 0, col = 0))
+        }
+      case ThisExpr() =>
+        if (isStatic) throw Error.cannotInvokeThisInStaticContext
+        environment.findQualifiedType(typeDecl.name.lexeme) match {
+          case Some(value) => ClassType(FullyQualifiedID(value))
+          case None => throw Error.classNotFound(typeDecl.name.lexeme)
+        }
+      case CastExpr(castType, rhs) =>
+        val rightType = build(rhs, typeDecl, scope, parameters, isField, isStatic)
+        (castType, rightType) match {
+          case (p1: PrimitiveType, p2: PrimitiveType) if p1.isNumeric && p2.isNumeric =>
+            castType
+          case (t1, t2) if typeAssignable(t2, t1) || typeAssignable(t1, t2) =>
+            castType
+          case _ => throw Error.typeMismatch(rightType, castType)
+        }
+      case AccessExpr(lhs, field) =>
+        build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
+          case ArrayType(arrayOf, size) =>
+            if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
+            else throw Error.memberNotFound(s"$arrayOf[]", field)
+          case NullType() => throw Error.nullPointerException
+          case ClassType(typeID) =>
+            val typeOf = environment.findType(typeID)
+            typeOf.flatMap(findNonStaticField(field, _)) match {
+              case Some(value) =>
+                declCache.put(expr, value)
+                findFieldType(value, typeDecl, typeID)
+              case None => throw Error.classNotFound(typeID)
             }
-            ClassType(ctor)
-          case None => throw Error.classNotFound(ctor)
+          case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
         }
-      case ArrayNewExpr(arrayType) =>
-        arrayType.size.foreach {
-          expr =>
-            build(expr, typeDecl, scope, parameters, isField, isStatic) match {
-              case p: PrimitiveType if p.isNumeric =>
-              case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
-            }
+      case ArrayAccessExpr(lhs, index) =>
+        val arrayType = build(lhs, typeDecl, scope, parameters, isField, isStatic) match {
+          case a: ArrayType => a
+          case e => throw Error.notArray(e)
         }
-        arrayType
-    }
+        build(index, typeDecl, scope, parameters, isField, isStatic) match {
+          case p: PrimitiveType if p.isNumeric =>
+          case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
+        }
+        arrayType.arrayOf
 
-    case ne: NamedExpr =>
-      val hackyList: ListBuffer[(TypeDecl, Decl)] = ListBuffer()
-      def hackySolution(name: FullyQualifiedID): Type = {
-        println(name)
-        findName(name, typeDecl, scope, parameters, isField, isStatic) match {
-          case ExprName(_, typ, decls) =>
-            if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
-            hackyList += decls
+      case ValExpr(value) =>
+        value match {
+          case IntegerLiteral(_, row, col, _) => PrimitiveType(JavaInt(row = row, col = col))
+          case BooleanLiteral(row, col, _) => PrimitiveType(JavaBoolean(row = row, col = col))
+          case CharacterLiteral(_, row, col, _) => PrimitiveType(JavaChar(row = row, col = col))
+          case _:StringLiteral => ClassType(FullyQualifiedID("java.lang.String"))
+          case _:NullLiteral => NullType()
+        }
+      case DeclRefExpr(reference) =>
+        findName(FullyQualifiedID(reference), typeDecl, scope, parameters, isField, isStatic) match {
+          case ExprName(id, typ: Type, decls) =>
+            declCache.put(expr, (decls._1, decls._2.asInstanceOf[MethodDecl]))
             typ
-          case TypeName(id, typ) =>
-            val decls: (TypeDecl, Decl) = (typ, typ)
-            if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
-            hackyList += decls
-            environment.findQualifiedType(id.name) match {
-              case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
-              case None => throw Error.classNotFound(id)
-            }
-          case _ =>
-            NullType()
+          case _ => throw Error.classNotFound(reference.lexeme)
         }
+      case InstanceOfExpr(lhs, typ) =>
+        val typeOfLValue = build(lhs, typeDecl, scope, parameters, isField, isStatic)
+        if (typeAssignable(typeOfLValue, typ) || typeAssignable(typ, typeOfLValue)) {
+          PrimitiveType(JavaBoolean(row = 0, col = 0))
+        } else {
+          throw Error.typeMismatch(typeOfLValue, typ)
+        }
+      case e: NewExpr => e match {
+        case ObjNewExpr(ctor, params) =>
+          val newType = environment.findType(ctor).getOrElse(throw Error.classNotFound(ctor))
+          if (newType.modifiers.exists(_.isInstanceOf[JavaAbstract])) {
+            throw Error.cannotInstantiateAbstract(newType)
+          }
+          val paramTypes = params.map((expr: Expr) => build(expr, typeDecl, scope, parameters, isField, isStatic))
+          findConstructor(paramTypes, newType) match {
+            case Some(constructorDecl) =>
+              declCache.put(e, (newType, constructorDecl))
+              if (constructorDecl.modifiers.exists(_.isInstanceOf[JavaProtected]) && !samePackage(ctor)) {
+                throw Error.protectedAccess(newType, ctor.id)
+              }
+              ClassType(ctor)
+            case None => throw Error.classNotFound(ctor)
+          }
+        case ArrayNewExpr(arrayType) =>
+          arrayType.size.foreach {
+            expr =>
+              build(expr, typeDecl, scope, parameters, isField, isStatic) match {
+                case p: PrimitiveType if p.isNumeric =>
+                case r => throw Error.typeMismatch(r, PrimitiveType(JavaInt(row = 0, col = 0)))
+              }
+          }
+          arrayType
       }
-//      println(s"saved to namedExprDeclCache $ne ${System.identityHashCode(ne)} with ${hackyList.toList}")
-      val ret = hackySolution(ne.name)
-      namedExprDeclCache.put(ne, hackyList.toList)
-      ret
+
+      case ne: NamedExpr =>
+        val hackyList: ListBuffer[(TypeDecl, Decl)] = ListBuffer()
+        def hackySolution(name: FullyQualifiedID): Type = {
+          println(name)
+          findName(name, typeDecl, scope, parameters, isField, isStatic) match {
+            case ExprName(_, typ, decls) =>
+              if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+              hackyList += decls
+              typ
+            case TypeName(id, typ) =>
+              val decls: (TypeDecl, Decl) = (typ, typ)
+              if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+              hackyList += decls
+              environment.findQualifiedType(id.name) match {
+                case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
+                case None => throw Error.classNotFound(id)
+              }
+            case _ =>
+              NullType()
+          }
+        }
+        //      println(s"saved to namedExprDeclCache $ne ${System.identityHashCode(ne)} with ${hackyList.toList}")
+        val ret = hackySolution(ne.name)
+        namedExprDeclCache.put(ne, hackyList.toList)
+        ret
+    }
+    typeCache.put(expr, typeExpr)
+    typeExpr
   }
 
 }
