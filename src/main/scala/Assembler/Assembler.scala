@@ -333,7 +333,27 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             comment("Set the vptr of array to Object") :: move(Memory(eax, 0), edx) ::
             comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
         }
-      case ne: NamedExpr => ???
+      case ne: NamedExpr =>
+        val decls = typeChecker.namedExprDeclCache.get(ne)
+        val thisone = decls.head
+        thisone match {
+          case ParameterDecl(_, name) =>
+            move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load parameter ${name.lexeme}"):: Nil
+          case VarDecl(_, name) =>
+            move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load variable ${name.lexeme}"):: Nil
+          case md: MemberDecl => md match {
+            case FieldDecl(modifiers, typ, name, assignment) =>
+            case _: MethodDecl | _: ConstructorDecl =>
+              assert(assertion = false, "named expr should not point to function"); throw Error.undefinedMatch
+          }
+          case td: TypeDecl => td match {
+            case _: InterfaceDecl =>
+              assert(assertion = false, "named expr pointing to interface?"); throw Error.undefinedMatch
+            case _: ClassDecl =>
+              assert(assertion = false, "this should be handled by call or instanceof"); throw Error.undefinedMatch
+          }
+        }
+        ???
     }
   }
 
