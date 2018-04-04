@@ -11,6 +11,7 @@ object i386 {
   val al = Register("al")
   val eax = Register("eax")
   val ebx = Register("ebx")
+  val ecx = Register("ecx") // reserved for storing rhs in assignment
   val edx = Register("edx")
   val ebp = Register("ebp")
   val esp = Register("esp")

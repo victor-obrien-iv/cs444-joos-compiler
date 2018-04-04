@@ -1,8 +1,9 @@
 package Assembler
 
-import AST.{ParameterDecl, VarDecl}
+import AST.{NamedExpr, ParameterDecl, VarDecl}
 import Assembler.i386.Operand
 import Token.Identifier
+
 import scala.collection.mutable
 
 class StackTracker private (outerScope: Option[StackTracker]) {
@@ -53,5 +54,9 @@ class StackTracker private (outerScope: Option[StackTracker]) {
     else varsInBlock(name)
   }
   def lookUpLocation(id: Identifier): Int = lookUpLocation(id.lexeme)
+  def lookUpLocation(ne: NamedExpr): Int = {
+    assert(ne.name.qualifiers.isEmpty, "cannot look up qualified named expr")
+    lookUpLocation(ne.name.name)
+  }
   def lookUpThis(): Int = lookUpLocation("0")
 }

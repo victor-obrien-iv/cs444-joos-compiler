@@ -15,7 +15,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   def pushParams(params: List[Expr])(implicit st: StackTracker): List[String] =
     params flatMap { param =>
       assemble(param) :::
-      push(eax) :: Nil
+      push(eax) + comment(s"pushing parameter $param") :: Nil
     }
 
   def assemble(): List[String] = {
@@ -312,10 +312,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         ne match {
           case ObjNewExpr(ctor, params) =>
             val (ctorClass, ctorDecl) = typeChecker.declCache.get(ne)
+            comment(s"allocate memory for obj of class ${ctorClass.name}")
             allocate(layout.getObjByteSize(ctorClass)) :::
-            push(eax) ::
+            push(eax) + comment("push allocated memory as a parameter") ::
             pushParams(params) :::
-            call(labelFactory.makeLabel(ctorClass, ctorDecl)) ::
+            call(labelFactory.makeLabel(ctorClass, ctorDecl)) + comment(s"calling ctor ${ctorDecl.name}") ::
             discardArgs(params.size) + comment(s"discard args for ${ctor.name}") :: Nil
 
           case ArrayNewExpr(arrayType) =>
@@ -339,26 +340,39 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
         }
       case ne: NamedExpr =>
-        val decls = typeChecker.namedExprDeclCache.get(ne)
-        val thisone = decls.head
-        thisone match {
-          case ParameterDecl(_, name) =>
-            move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load parameter ${name.lexeme}"):: Nil
-          case VarDecl(_, name) =>
-            move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load variable ${name.lexeme}"):: Nil
-          case md: MemberDecl => md match {
-            case FieldDecl(modifiers, typ, name, assignment) =>
-            case _: MethodDecl | _: ConstructorDecl =>
-              assert(assertion = false, "named expr should not point to function"); throw Error.undefinedMatch
-          }
-          case td: TypeDecl => td match {
-            case _: InterfaceDecl =>
-              assert(assertion = false, "named expr pointing to interface?"); throw Error.undefinedMatch
-            case _: ClassDecl =>
-              assert(assertion = false, "this should be handled by call or instanceof"); throw Error.undefinedMatch
-          }
+        typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
+          val (typeDecl, decl) = tdd
+          loadValue(typeDecl, decl)
         }
-        ???
+    }
+  }
+
+  def loadValue(td: TypeDecl, d: Decl)(implicit st: StackTracker): List[String] = d match {
+    case ParameterDecl(_, name) =>
+      move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load parameter ${name.lexeme}") :: Nil
+
+    case VarDecl(_, name) =>
+      move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load variable ${name.lexeme}") :: Nil
+
+    case md: MemberDecl => md match {
+      case fd: FieldDecl =>
+        if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+        // static variable to be found in data section
+          move(eax, Data(labelFactory.makeLabel(td, fd))) + comment(s"load static field ${fd.name}") :: Nil
+
+        else
+        // member variable to be found in object layout
+          comment(s"load ${fd.name} from ${td.name}") ::
+            loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
+
+      case _: MethodDecl | _: ConstructorDecl =>
+        assert(assertion = false, "named expr should not point to function"); throw Error.undefinedMatch
+    }
+    case td: TypeDecl => td match {
+      case _: InterfaceDecl =>
+        assert(assertion = false, "named expr pointing to interface?"); throw Error.undefinedMatch
+      case _: ClassDecl =>
+        assert(assertion = false, "this should be handled by call or instanceof"); throw Error.undefinedMatch
     }
   }
 
@@ -372,7 +386,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
       comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
-      comment("Loads index into array") ::assemble(index) :::
+      comment("Loads index into array") :: assemble(index) :::
       comment("Loads address of array pushed earlier") :: pop(ebx) ::
       comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
       comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::
@@ -466,34 +480,67 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         binaryOr(eax, ebx) :: Nil
 
       case Becomes(_, _, _) =>
-        //TODO: the left hand side might not be a dre
-        val leftDre = be.lhs.asInstanceOf[DeclRefExpr]
-        if (typeChecker.declCache.containsKey(leftDre)) {
-          val (typeDecl, memberDecl) = typeChecker.declCache.get(leftDre)
-          memberDecl match {
+        def staticStore(td: TypeDecl, fd: FieldDecl) =
+          comment("load the rhs value into eax") ::
+            assemble(be.rhs) :::
+            move(Data(labelFactory.makeLabel(td, fd)), eax) :: Nil
+
+        val leftNamedExpr = be.lhs.asInstanceOf[NamedExpr]
+        val decls = typeChecker.namedExprDeclCache.get(leftNamedExpr)
+        assert(decls.nonEmpty, "namedExprDeclCache returned null")
+        if (leftNamedExpr.name.qualifiers.isEmpty) {
+          val (typeDecl, decl) = decls.head
+          assert(typeDecl == cu.typeDecl, "local with different class?")
+          decl match {
             case fd: FieldDecl =>
               if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
                 // static variable to be found in data section
-                assemble(be.rhs) :::
-                move(Data(labelFactory.makeLabel(typeDecl, fd)), eax) :: Nil
+                staticStore(typeDecl, fd)
 
-              else {
+              else
                 // member variable to be found in object layout
-                assert(typeDecl == cu.typeDecl, "DeclRef to different obj?")
+                comment("load the rhs value into eax") ::
                 assemble(be.rhs) :::
-                move(stackMemory(st.lookUpThis()), edx) + comment("load this() into edx") ::
+                move(edx, stackMemory(st.lookUpThis())) + comment("load this() into edx") ::
                 storeIntoObject(edx, layout.objectLayout(fd), eax) +
                   comment(s"store into ${fd.name} in ${typeDecl.name}") :: Nil
-              }
-            case _: MethodDecl | _: ConstructorDecl =>
-              assert(assertion = false, "DeclRef mapped to method?"); throw Error.undefinedMatch
+
+            case vd: VarDecl =>
+              // the lhs variable is on the stack
+              val stackLoc = st.lookUpLocation(vd.name)
+              comment("load the rhs value into eax") ::
+              assemble(be.rhs) :::
+              move(stackMemory(stackLoc), eax) + comment(s"store into local variable ${vd.name.lexeme}") :: Nil
+
+            case d: Decl =>
+              assert(assertion = false, s"single name mapped to unexpected Decl $d"); throw Error.undefinedMatch
           }
         }
         else {
-          // the lhs variable is on the stack
-          val stackLoc = st.lookUpLocation(leftDre.reference)
-          assemble(be.rhs) :::
-          move(stackMemory(stackLoc), eax) :: Nil
+          val prologue = decls.dropRight(1) flatMap { tdd =>
+            val (typeDecl, decl) = tdd
+            loadValue(typeDecl, decl)
+          }
+          val (typeDecl, decl) = decls.last
+          decl match {
+            case fd: FieldDecl =>
+              if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
+                // static variable to be found in data section
+                staticStore(typeDecl, fd)
+
+              else
+                // member variable to be found in object layout
+                comment("load the rhs value into eax") ::
+                assemble(be.rhs) :::
+                move(ecx, eax) + comment("save rhs into ecx") ::
+                comment("get the object into eax") ::
+                prologue :::
+                storeIntoObject(eax, layout.objectLayout(fd), ecx) +
+                  comment(s"store into ${fd.name} in ${typeDecl.name} through ecx") :: Nil
+
+            case d: Decl =>
+              assert(assertion = false, s"namedExpr mapped to unexpected Decl $d"); throw Error.undefinedMatch
+          }
         }
     }
   }

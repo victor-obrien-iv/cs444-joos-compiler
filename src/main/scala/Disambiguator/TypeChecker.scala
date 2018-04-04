@@ -15,7 +15,7 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     * cache what declaration an ast node refers to
     */
   val declCache: util.IdentityHashMap[AstNode, (TypeDecl, MemberDecl)] = new util.IdentityHashMap()
-  val namedExprDeclCache: util.IdentityHashMap[NamedExpr, List[Decl]] = new util.IdentityHashMap()
+  val namedExprDeclCache: util.IdentityHashMap[NamedExpr, List[(TypeDecl, Decl)]] = new util.IdentityHashMap()
 
 
   def build(compilationUnit: CompilationUnit): Unit = {
@@ -350,16 +350,17 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     }
 
     case ne: NamedExpr =>
-      val hackyList: ListBuffer[Decl] = ListBuffer()
+      val hackyList: ListBuffer[(TypeDecl, Decl)] = ListBuffer()
       def hackySolution(name: FullyQualifiedID): Type = {
         findName(name, typeDecl, scope, parameters, isField, isStatic) match {
           case ExprName(_, typ, decls) =>
-            hackyList += decls._2
             if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+            hackyList += decls
             typ
           case TypeName(id, typ) =>
-            hackyList += typ
+            val decls: (TypeDecl, Decl) = (typ, typ)
             if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))
+            hackyList += decls
             environment.findQualifiedType(id.name) match {
               case Some(qualifiedType) => Class(FullyQualifiedID(qualifiedType))
               case None => throw Error.classNotFound(id)
