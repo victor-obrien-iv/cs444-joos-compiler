@@ -45,8 +45,11 @@ class LabelFactory(thisType: TypeDecl) {
   private def addLabel(l: Label, td: TypeDecl) =
     if (td eq thisType) globalLabels.add(l)
     else externLabels.add(l)
-  def getGlobalLabels: Set[Label] = globalLabels.toSet
-  def getExternLabels: Set[Label] = externLabels.toSet
+  def exportLabels(): List[String] = {
+    val globals: List[String] = (for(g <- globalLabels) yield { s"global ${g.name}"}).toList
+    val externs: List[String] = (for(e <- externLabels) yield { s"extern ${e.name}"}).toList
+    globals ::: externs
+  }
 
 
   private def labelPrefix(typeDecl: TypeDecl): String = typeDecl.packageName match {

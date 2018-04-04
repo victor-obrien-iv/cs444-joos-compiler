@@ -30,13 +30,14 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     val vtableAsm = makeVtable(typeDecl)
 
+    labelFactory.exportLabels() :::
     placeLabel(classLabel) ::
-      "SECTION .data" ::
-      staticFieldAsm :::
-      "SECTION .text" ::
-      methodAsm :::
-      ctorAsm :::
-      vtableAsm
+    "SECTION .data" ::
+    staticFieldAsm :::
+    "SECTION .text" ::
+    methodAsm :::
+    ctorAsm :::
+    vtableAsm
   }
 
   def makeVtable(typeDecl: TypeDecl): List[String] = {
