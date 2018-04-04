@@ -479,7 +479,19 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     be.operatorTok match {
       case Plus(_, _, _) =>
-        //TODO do type checking for (Str + Str)
+//        val leftType = typeChecker.typeCache.get(be.lhs)
+//        val rightType = typeChecker.typeCache.get(be.rhs)
+//        def concatString = {
+//          val stringDecl = typeChecker.environment.findType("java.lang.String").getOrElse(throw Error.langLibraryNotLoaded)
+//          val toStringDecl = typeChecker.findMethodIndex()
+//          val concatMethod = typeChecker.findMethodIndex()
+//        }
+//        (leftType, rightType) match {
+//          case (ClassType(iD), _) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+//          case (_, ClassType(iD)) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+//          case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
+//            add(eax, ebx)
+//        }
         evaluate() :::
         add(eax, ebx) :: Nil
 
