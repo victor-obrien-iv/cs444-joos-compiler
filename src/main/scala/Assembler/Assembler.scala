@@ -25,9 +25,10 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     val classLabel = labelFactory.makeClassLabel(typeDecl)
 
     val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-    val staticFieldAsm = assemble(staticFields)
-    val methodAsm = assemble(methods)
-    val ctorAsm = assemble(ctors)
+    val staticFieldAsm = staticFields.flatMap(assemble)
+    val staticFieldInit = staticFields.flatMap(assembleInit)
+    val methodAsm = methods.flatMap(assemble)
+    val ctorAsm = ctors.flatMap(assemble)
 
     val vtableAsm = makeVtable(typeDecl)
 
@@ -36,6 +37,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     "SECTION .data" ::
     staticFieldAsm :::
     "SECTION .text" ::
+    staticFieldInit :::
     methodAsm :::
     ctorAsm :::
     vtableAsm
@@ -66,11 +68,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-  def assemble(members: List[MemberDecl]): List[String] = {
-    members.foldRight(List.empty[String]){
-      case (member, asm) =>
-        assemble(member) ::: asm
+  def assembleInit(decl: FieldDecl): List[String] = {
+    val label = labelFactory.makeStaticFieldInitLabel(cu.typeDecl, decl)
+    implicit val st: StackTracker = new StackTracker(Nil, false)
+    val ass = decl.assignment.map(assemble)
+    val assInit = ass match {
+      case Some(value) =>
+        val fieldLabel = labelFactory.makeLabel(cu.typeDecl, decl)
+        value :::
+        push(eax) ::
+        move(eax, fieldLabel) ::
+        pop(Memory(eax, 0)) :: Nil
+      case None => Nil
     }
+    functionEntrance(label, 0) ::: assInit ::: functionExit()
   }
 
   def assemble(decl: MemberDecl): List[String] = decl match {
@@ -132,6 +143,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
+  def assembleAllStatic(typeDecl: TypeDecl): List[String] = {
+    val (fields, _, _) = typeChecker.partitionMembers(typeDecl.members)
+    val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
+    staticFields.map {
+      staticField =>
+        val label = labelFactory.makeStaticFieldInitLabel(typeDecl, staticField)
+        call(label)
+    }
+  }
+
   def assemble(md: MethodDecl): List[String] = {
     val label = labelFactory.makeLabel(cu.typeDecl, md)
     md.body match {
@@ -139,16 +160,17 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt) * wordSize
         val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
         implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
-        if(md.name.lexeme == "test" && isStatic)
-        //TODO: _start needs to be relocated and actually initialize things
+        if(md.name.lexeme == "test" && isStatic) {
+          val allTypes = typeChecker.environment.qualifiedTypes.values.flatten.toList
           placeLabel(labelFactory.makeStartLabel()) ::
+            allTypes.flatMap(assembleAllStatic) :::
             call(label) ::
             debugExit() ::
             functionEntrance(label, totalLocalBytes) :::
             assemble(blockStmt) :::
             functionExit()
 
-        else
+        } else
           functionEntrance(label, totalLocalBytes) :::
             assemble(blockStmt) :::
             functionExit()
@@ -420,10 +442,14 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         var prev: Option[TypeDecl] = None
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          val ret = loadValue(prev, typeDecl, decl)
-          comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
-          prev = Some(typeDecl)
-          ret
+          if (typeDecl == decl) {
+            Nil
+          } else {
+            val ret = loadValue(prev, typeDecl, decl)
+            comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
+            prev = Some(typeDecl)
+            ret
+          }
         }
     }
   }
@@ -474,10 +500,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           val typeOf = typeChecker.environment.findType(typeID)
           typeOf.flatMap(typeChecker.findNonStaticField(field, _)) match {
             case Some(value) =>
-              typeChecker.findFieldType(value, cu.typeDecl, typeID)
+              loadValue(None, value._1, value._2)
             case None => throw Error.classNotFound(typeID)
           }
-          List("; put class stuff here later")
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
       }
       assemble(lhs) ::: getField
@@ -503,7 +528,19 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     be.operatorTok match {
       case Plus(_, _, _) =>
-        //TODO do type checking for (Str + Str)
+//        val leftType = typeChecker.typeCache.get(be.lhs)
+//        val rightType = typeChecker.typeCache.get(be.rhs)
+//        def concatString = {
+//          val stringDecl = typeChecker.environment.findType("java.lang.String").getOrElse(throw Error.langLibraryNotLoaded)
+//          val toStringDecl = typeChecker.findMethodIndex()
+//          val concatMethod = typeChecker.findMethodIndex()
+//        }
+//        (leftType, rightType) match {
+//          case (ClassType(iD), _) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+//          case (_, ClassType(iD)) if iD.name == "String" || iD.name == "java.lang.String" => ClassType(iD)
+//          case (t1: PrimitiveType, t2: PrimitiveType) if t1.isNumeric && t2.isNumeric =>
+//            add(eax, ebx)
+//        }
         evaluate() :::
         add(eax, ebx) :: Nil
 
