@@ -256,6 +256,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           case Some(objExpr) =>
             val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
             assemble(objExpr) :::
+            nullCheck() :::
             pushParams(ce.params) :::
             move(eax, Memory(eax, 0)) ::
             move(eax, Memory(eax, offset)) ::
@@ -286,6 +287,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         assemble(ve)
 
       case dre: DeclRefExpr =>
+        assert(assertion = false, "wtf is a DecRefExpr?")
         if (typeChecker.declCache.containsKey(dre)) {
           val (typeDecl, memberDecl) = typeChecker.declCache.get(dre)
           memberDecl match {
@@ -342,7 +344,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case ne: NamedExpr =>
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          loadValue(typeDecl, decl)
+          loadValue(typeDecl, decl) :::
+          nullCheck()
         }
     }
   }
@@ -357,13 +360,13 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     case md: MemberDecl => md match {
       case fd: FieldDecl =>
         if (fd.modifiers.exists(_.isInstanceOf[JavaStatic]))
-        // static variable to be found in data section
+          // static variable to be found in data section
           move(eax, Data(labelFactory.makeLabel(td, fd))) + comment(s"load static field ${fd.name}") :: Nil
 
         else
-        // member variable to be found in object layout
+          // member variable to be found in object layout
           comment(s"load ${fd.name} from ${td.name}") ::
-            loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
+          loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
 
       case _: MethodDecl | _: ConstructorDecl =>
         assert(assertion = false, "named expr should not point to function"); throw Error.undefinedMatch
@@ -519,7 +522,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         else {
           val prologue = decls.dropRight(1) flatMap { tdd =>
             val (typeDecl, decl) = tdd
-            loadValue(typeDecl, decl)
+            loadValue(typeDecl, decl) :::
+            nullCheck()
           }
           val (typeDecl, decl) = decls.last
           decl match {
