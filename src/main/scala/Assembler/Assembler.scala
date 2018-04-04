@@ -254,14 +254,22 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
           case Some(objExpr) =>
-            val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
-            assemble(objExpr) :::
-            nullCheck() :::
-            pushParams(ce.params) :::
-            move(eax, Memory(eax, 0)) ::
-            move(eax, Memory(eax, offset)) ::
-            call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-            discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+            val (declType, decl) = typeChecker.namedExprDeclCache.get(objExpr).last
+            val callInstr = decl match {
+              case t: TypeDecl =>
+                pushParams(ce.params) :::
+                call(labelFactory.makeLabel(t, methodDecl)) :: Nil
+              case f: FieldDecl =>
+                val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
+                assemble(objExpr) :::
+                  nullCheck() :::
+                  pushParams(ce.params) :::
+                  move(eax, Memory(eax, 0)) ::
+                  move(eax, Memory(eax, offset)) ::
+                  call(Memory(eax, 0)) :: Nil
+            }
+
+            callInstr ::: discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
 
           case None =>
             if (isStatic)
