@@ -321,14 +321,17 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             }
             val arrayOffset = 8
             val arrayBytes = add(eax, Immediate(arrayOffset))
+            val objectDecl = typeChecker.environment.findQualifiedTypeDecl("java.lang.Object").getOrElse(throw Error.langLibraryNotLoaded)
 
-            lengthExpr ::: comment("Finds the length of the array: default 1") ::
-            signedMultiply(eax, Immediate(4)) :: comment("Aligns with 4 bytes")::
-            arrayBytes :: comment("Determines how many bytes the array needs") ::
+            comment("Finds the length of the array: default 1") :: lengthExpr :::
+            comment("Aligns with 4 bytes"):: signedMultiply(eax, Immediate(4)) ::
+            comment("Determines how many bytes the array needs") :: arrayBytes ::
             push(eax) ::
-            call(mallocLabel) :: comment("Allocates memory to array") ::
+            comment("Allocates memory to array") :: call(mallocLabel) ::
             pop(ebx) ::
-            move(Memory(eax, 4), ebx) :: comment("Sets the length of array") :: Nil
+            comment("Load object vptr") :: loadEffectiveAddress(edx, labelFactory.makeVtableLabel(objectDecl)) ::
+            comment("Set the vptr of array to Object") :: move(Memory(eax, 0), edx) ::
+            comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
         }
       case ne: NamedExpr => ???
     }
@@ -342,13 +345,13 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(arrayAccessExpr: ArrayAccessExpr): List[String] = arrayAccessExpr match {
     case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
-      assemble(lhs) ::: comment("Loads address of array") ::
+      comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
-      assemble(index) ::: comment("Loads index into array") ::
-      pop(ebx) :: comment("Loads address of array pushed earlier") ::
-      add(eax, Immediate(2)) :: comment("Adds offset since first entry of array should be after vtable and length") ::
-      signedMultiply(eax, Immediate(4)) :: comment("Aligns index") ::
-      add(eax, ebx) :: comment("Adds the index offset to the address") :: Nil
+      comment("Loads index into array") ::assemble(index) :::
+      comment("Loads address of array pushed earlier") :: pop(ebx) ::
+      comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
+      comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::
+      comment("Adds the index offset to the address") :: add(eax, ebx) ::  Nil
 
   }
 
@@ -506,7 +509,6 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       move(eax, Immediate(value.toInt)) :: Nil
 
     case StringLiteral(_, _, _, value) =>
-      //TODO: handle strings in expressions
       val arrayOffset = 8
       val charArray = value.toCharArray.zipWithIndex.map {
         case (c, i) =>
