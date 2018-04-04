@@ -319,7 +319,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         }
         else move(eax, stackMemory(st.lookUpLocation(dre.reference))) :: Nil
 
-      case ioe: InstanceOfExpr => ???
+      case ioe: InstanceOfExpr =>
+        val instanceDecl = ioe.typ match {
+          case ClassType(iD) => typeChecker.environment.findType(iD).getOrElse(throw Error.classNotFound(iD))
+          case PrimitiveType(typeToken) => throw Error.undefinedMatch
+          case _ => throw Error.undefinedMatch
+        }
+        val instanceTypeId = typeChecker.findTypeIndex(instanceDecl)
+        val typeLabel = LabelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
+        assemble(ioe.lhs) :::
+        comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
+        comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
+        comment("Load label of super class") :: loadEffectiveAddress(ebx, typeLabel) ::
+        comment("Add label") :: add(eax, ebx) ::
+        comment("Get the result in eax") :: move(eax, Memory(eax, 0)) :: Nil
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
@@ -605,7 +618,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       val charType = ArrayType(PrimitiveType(JavaChar(row = 0, col = 0)), None)
       val stringCtor = typeChecker.findConstructor(List(charType), stringDecl).getOrElse(throw Error.langLibraryNotLoaded)
       allocate((value.length + 2) * 4) ::: comment("Allocate bytes for String literal") ::
-      charArray.toList ::: comment("Allocated characters: " + value.toCharArray) ::
+      charArray.toList ::: comment("Allocated characters: " + value.toCharArray.toString) ::
       push(eax) :: comment("Contstruct String") ::
       call(labelFactory.makeLabel(stringDecl, stringCtor)) :: Nil
 
