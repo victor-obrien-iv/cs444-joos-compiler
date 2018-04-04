@@ -273,7 +273,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case _: ThisExpr =>
         move(eax, stackMemory(st.lookUpThis())) :: Nil
       case ce: CastExpr => ???
-      case ae: AccessExpr => ???
+      case ae: AccessExpr =>
+        assemble(ae)
       case aae: ArrayAccessExpr =>
         assemble(aae)
       case ve: ValExpr =>
@@ -331,6 +332,12 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         }
       case ne: NamedExpr => ???
     }
+  }
+
+  //TODO fix named expression
+  def assemble(accessExpr: AccessExpr): List[String] = accessExpr match {
+    case AccessExpr(lhs, field) => //LHS should be a reference
+      assemble(lhs)
   }
 
   def assemble(arrayAccessExpr: ArrayAccessExpr): List[String] = arrayAccessExpr match {
