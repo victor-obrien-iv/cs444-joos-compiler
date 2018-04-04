@@ -363,7 +363,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           case _ => throw Error.undefinedMatch
         }
         val instanceTypeId = typeChecker.findTypeIndex(instanceDecl)
-        val typeLabel = LabelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
+        val typeLabel = labelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
         assemble(ioe.lhs) :::
         comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
         comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
