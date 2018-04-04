@@ -429,10 +429,14 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         var prev: Option[TypeDecl] = None
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          val ret = loadValue(prev, typeDecl, decl)
-          comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
-          prev = Some(typeDecl)
-          ret
+          if (typeDecl == decl) {
+            Nil
+          } else {
+            val ret = loadValue(prev, typeDecl, decl)
+            comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
+            prev = Some(typeDecl)
+            ret
+          }
         }
     }
   }
