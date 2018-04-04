@@ -122,6 +122,9 @@ object i386 {
   def nullCheck(): List[String] =
     comment("null check") ::
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
+  def castCheck(): List[String] =
+    comment("cast check") ::
+    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
   def debugExit(): String =
     call(LabelFactory.debugExitLabel) + comment("exit")
 
