@@ -98,7 +98,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           case Some(ctor: ConstructorDecl) =>
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
             functionEntrance(label, totalLocalBytes) :::
-            loadEffectiveAddress(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
+            move(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
             move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
             push(eax) + comment("provide this() as a parameter to the super ctor") ::
             call(superCtorLabel) + comment("call the super ctor") ::
@@ -360,7 +360,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         assemble(ioe.lhs) :::
         comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
         comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
-        comment("Load label of super class") :: loadEffectiveAddress(ebx, typeLabel) ::
+        comment("Load label of super class") :: move(ebx, typeLabel) ::
         comment("Add label") :: add(eax, ebx) ::
         comment("Get the result in eax") :: move(eax, Memory(eax, 0)) :: Nil
       case ne: NewExpr =>
@@ -390,7 +390,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(eax) ::
             comment("Allocates memory to array") :: call(mallocLabel) ::
             pop(ebx) ::
-            comment("Load object vptr") :: loadEffectiveAddress(edx, labelFactory.makeVtableLabel(objectDecl)) ::
+            comment("Load object vptr") :: move(edx, labelFactory.makeVtableLabel(objectDecl)) ::
             comment("Set the vptr of array to Object") :: move(Memory(eax, 0), edx) ::
             comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
         }

@@ -51,6 +51,7 @@ object i386 {
 
   // movement instrs
   def move(op1: Operand, op2: Operand): String = instr("mov", op1, op2)
+  def move(op1: Operand, label: Label): String = instr("mov", op1, label)
   def moveZeroExtended(op1: Operand, op2: Operand): String = instr("movzx", op1, op2)
   def loadEffectiveAddress(op1: Operand, label: Label): String = instr("lea", op1, label)
   def loadFromObject(objPtr: Memory, offset: Int): List[String] =
