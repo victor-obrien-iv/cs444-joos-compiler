@@ -42,6 +42,7 @@ object i386 {
   private def instr(instr: String, op1: Operand) = s"\t$instr\t${op1.op}"
   private def instr(instr: String, label: Label) = s"\t$instr\t${label.name}"
   private def instr(instr: String) = s"\t$instr"
+  def NoOperation(): String = instr("nop")
 
   // labels
   def placeLabel(label: Label): String = s"${label.name}:"
@@ -103,7 +104,7 @@ object i386 {
     compare(op1, Immediate(0)) ::
     jumpIfZero(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
-  def call(memory: Memory): String = instr("call", memory)
+  def call(reg: Register): String = instr("call", reg)
   def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
   def functionEntrance(enter: Label, totalLocalBytes: Int): List[String] =
     placeLabel(enter) ::
@@ -120,8 +121,9 @@ object i386 {
     move(eax, Immediate(numBytes)) ::
     call(LabelFactory.mallocLabel) :: Nil
   def nullCheck(): List[String] =
-    comment("null check") ::
-    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
+    NoOperation() :: Nil
+//    comment("null check") ::
+//    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
   def castCheck(): List[String] =
     comment("cast check") ::
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)

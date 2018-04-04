@@ -18,11 +18,12 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       push(eax) + comment(s"pushing parameter ${param}") :: Nil
     }
 
+  val (fields, methods, ctors) = typeChecker.partitionMembers(cu.typeDecl.members)
+
   def assemble(): List[String] = {
     val typeDecl = cu.typeDecl
     val classLabel = labelFactory.makeClassLabel(typeDecl)
 
-    val (fields, methods, ctors) = typeChecker.partitionMembers(typeDecl.members)
     val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
     val staticFieldAsm = staticFields.flatMap(assemble)
     val staticFieldInit = staticFields.flatMap(assembleInit)
@@ -101,6 +102,15 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     val label = labelFactory.makeLabel(cu.typeDecl, cd)
     val totalLocalBytes = new VarDeclCounter().getNumVarDecl(cd.body) * wordSize
     implicit val st: StackTracker = new StackTracker(cd.parameters, inObject = true)
+    val nonStaticInits: List[String] = {
+      val nonStaticFields = fields.filter(!_.modifiers.exists(_.isInstanceOf[JavaStatic]))
+      val withInits = nonStaticFields.filter(_.assignment.isDefined)
+      withInits flatMap { field =>
+        assemble(field.assignment.get) :::
+        move(ebx, stackMemory(st.lookUpThis())) ::
+        move(Memory(ebx, layout.objectLayout(field)), eax) :: Nil
+      }
+    }
 
     typeChecker.getSuperClass(cu.typeDecl) match {
       case Some(superClass) =>
@@ -115,6 +125,9 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(stackMemory(st.lookUpThis())) + comment("provide this() as a parameter to the super ctor") ::
             call(superCtorLabel) + comment("call the super ctor") ::
             add(esp, Immediate(4)) + comment("discard args for super ctor") ::
+            comment("<nonstatic init>") ::
+            nonStaticInits :::
+            comment("</nonstatic inti>") ::
             assemble(cd.body) :::
             move(eax, stackMemory(st.lookUpThis())) ::
             functionExit()
@@ -327,7 +340,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
                 comment("<dynamic dispatch>") ::
                 move(eax, Memory(eax, 0)) ::
                 move(eax, Memory(eax, offset)) ::
-                call(Memory(eax, 0)) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
+                call(eax) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
                 comment("</dynamic dispatch>") ::
                 discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
             }
