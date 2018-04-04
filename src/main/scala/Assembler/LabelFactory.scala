@@ -91,6 +91,12 @@ class LabelFactory(thisType: TypeDecl) {
     label
   }
 
+  def makeStaticFieldInitLabel(originType: TypeDecl, fieldDecl: FieldDecl): Label = {
+    val label = Label(s"${labelPrefix(originType)}_STATIC_INIT_${fieldDecl.name.lexeme}")
+    addLabel(label, originType)
+    label
+  }
+
   def makeClassLabel(originType: TypeDecl): Label = {
     val label = Label(s"${labelPrefix(originType)}")
     addLabel(label, originType)
