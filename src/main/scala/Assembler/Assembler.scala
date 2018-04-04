@@ -486,7 +486,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     def evaluateAndCompare(): List[String] =
       evaluate() :::
-      compare(eax, ebx) :: Nil
+      compare(ebx, eax) :: Nil
 
     be.operatorTok match {
       case Plus(_, _, _) =>
