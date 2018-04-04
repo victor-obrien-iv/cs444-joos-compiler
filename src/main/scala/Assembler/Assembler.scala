@@ -393,6 +393,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             val objectDecl = typeChecker.environment.findQualifiedTypeDecl("java.lang.Object").getOrElse(throw Error.langLibraryNotLoaded)
 
             comment("Finds the length of the array: default 1") :: lengthExpr :::
+            push(eax) ::
             comment("Aligns with 4 bytes"):: signedMultiply(eax, Immediate(4)) ::
             comment("Determines how many bytes the array needs") :: arrayBytes ::
             push(eax) ::
@@ -400,7 +401,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             pop(ebx) ::
             comment("Load object vptr") :: move(edx, labelFactory.makeVtableLabel(objectDecl)) ::
             comment("Set the vptr of array to Object") :: move(Memory(eax, 0), edx) ::
-            comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
+            comment("Sets the length of array") :: pop(Memory(eax, 4)) ::  Nil
         }
       case ne: NamedExpr =>
         var prev: Option[TypeDecl] = None
@@ -448,10 +449,25 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-  //AccessExpr is never called turns out
+
   def assemble(accessExpr: AccessExpr)(implicit st: StackTracker): List[String] = accessExpr match {
     case AccessExpr(lhs, field) => //LHS should be a reference
-      assemble(lhs)
+      val leftType = typeChecker.typeCache.get(lhs)
+      val getField = leftType match {
+        case ArrayType(arrayOf, size) =>
+          move(eax, Memory(eax, 4)) :: Nil
+        case NullType() => throw Error.nullPointerException
+        case ClassType(typeID) =>
+          val typeOf = typeChecker.environment.findType(typeID)
+          typeOf.flatMap(typeChecker.findNonStaticField(field, _)) match {
+            case Some(value) =>
+              typeChecker.findFieldType(value, cu.typeDecl, typeID)
+            case None => throw Error.classNotFound(typeID)
+          }
+          List("; put class stuff here later")
+        case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
+      }
+      assemble(lhs) ::: getField
   }
 
   def assemble(arrayAccessExpr: ArrayAccessExpr)(implicit st: StackTracker): List[String] = arrayAccessExpr match {
