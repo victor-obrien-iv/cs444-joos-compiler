@@ -317,18 +317,18 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             val arrayLength = arrayType.size.map(assemble)
             val lengthExpr = arrayLength match {
               case Some(value) => value
-              case None => List(move(eax, Immediate(4)))
+              case None => List(move(eax, Immediate(1)))
             }
             val arrayOffset = 8
             val arrayBytes = add(eax, Immediate(arrayOffset))
 
-            lengthExpr :::
-            arrayBytes ::
+            lengthExpr ::: comment("Finds the length of the array: default 1") ::
+            signedMultiply(eax, Immediate(4)) :: comment("Aligns with 4 bytes")::
+            arrayBytes :: comment("Determines how many bytes the array needs") ::
             push(eax) ::
-            call(mallocLabel) ::
-            move(eax, Memory(eax, 0)) ::
+            call(mallocLabel) :: comment("Allocates memory to array") ::
             pop(ebx) ::
-            move(Memory(eax, 4), ebx) :: Nil
+            move(Memory(eax, 4), ebx) :: comment("Sets the length of array") :: Nil
         }
       case ne: NamedExpr => ???
     }
@@ -507,7 +507,20 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
     case StringLiteral(_, _, _, value) =>
       //TODO: handle strings in expressions
-      ???
+      val arrayOffset = 8
+      val charArray = value.toCharArray.zipWithIndex.map {
+        case (c, i) =>
+          move(Memory(eax, i*4 + arrayOffset), Immediate(c))
+      }
+      val stringDecl = typeChecker.environment.findQualifiedTypeDecl("java.lang.String").getOrElse(throw Error.langLibraryNotLoaded)
+      val charType = ArrayType(PrimitiveType(JavaChar(row = 0, col = 0)), None)
+      val stringCtor = typeChecker.findConstructor(List(charType), stringDecl).getOrElse(throw Error.langLibraryNotLoaded)
+      allocate((value.length + 2) * 4) ::: comment("Allocate bytes for String literal") ::
+      charArray.toList ::: comment("Allocated characters: " + value.toCharArray) ::
+      push(eax) :: comment("Contstruct String") ::
+      call(labelFactory.makeLabel(stringDecl, stringCtor)) :: Nil
+
+
     case NullLiteral(_, _, _, _) =>
       move(eax, Immediate(0)) :: Nil
   }
