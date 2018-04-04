@@ -102,7 +102,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
             push(eax) + comment("provide this() as a parameter to the super ctor") ::
             call(superCtorLabel) + comment("call the super ctor") ::
-            add(esp, Immediate(4)) ::
+            add(esp, Immediate(4)) + comment("discard args for super ctor") ::
             assemble(cd.body) :::
             move(eax, stackMemory(st.lookUpThis())) ::
             functionExit()
@@ -379,7 +379,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             push(eax) + comment("push allocated memory as a parameter") ::
             pushParams(params) :::
             call(labelFactory.makeLabel(ctorClass, ctorDecl)) + comment(s"calling ctor ${ctorDecl.name}") ::
-            discardArgs(params.size) + comment(s"discard args for ${ctor.name}") :: Nil
+            discardArgs(params.size + 1) + comment(s"discard args for ${ctor.name}") :: Nil
 
           case ArrayNewExpr(arrayType) =>
             val arrayLength = arrayType.size.map(assemble)
