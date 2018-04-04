@@ -353,7 +353,6 @@ class TypeChecker(val environment: Environment) extends EnvironmentBuilder(envir
     case ne: NamedExpr =>
       val hackyList: ListBuffer[(TypeDecl, Decl)] = ListBuffer()
       def hackySolution(name: FullyQualifiedID): Type = {
-        println(name)
         findName(name, typeDecl, scope, parameters, isField, isStatic) match {
           case ExprName(_, typ, decls) =>
             if(name.qualifiers.nonEmpty) hackySolution(FullyQualifiedID(name.pack))

@@ -98,9 +98,10 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           case Some(ctor: ConstructorDecl) =>
             val superCtorLabel = labelFactory.makeLabel(superClass, ctor)
             functionEntrance(label, totalLocalBytes) :::
-            move(eax, labelFactory.makeVtableLabel(cu.typeDecl)) ::
-            move(stackMemory(st.lookUpThis()), eax) + comment("put the vtable ptr at this(0)") ::
-            push(eax) + comment("provide this() as a parameter to the super ctor") ::
+            move(ebx, labelFactory.makeVtableLabel(cu.typeDecl)) ::
+            move(eax, stackMemory(st.lookUpThis())) + comment("get this()") ::
+            move(Memory(eax, 0), ebx) + comment("put the vtable ptr at this(0)") ::
+            push(stackMemory(st.lookUpThis())) + comment("provide this() as a parameter to the super ctor") ::
             call(superCtorLabel) + comment("call the super ctor") ::
             add(esp, Immediate(4)) + comment("discard args for super ctor") ::
             assemble(cd.body) :::
@@ -402,14 +403,18 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             comment("Sets the length of array") :: move(Memory(eax, 4), ebx) ::  Nil
         }
       case ne: NamedExpr =>
+        var prev: Option[TypeDecl] = None
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          loadValue(typeDecl, decl)
+          val ret = loadValue(prev, typeDecl, decl)
+          comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
+          prev = Some(typeDecl)
+          ret
         }
     }
   }
 
-  def loadValue(td: TypeDecl, d: Decl)(implicit st: StackTracker): List[String] = d match {
+  def loadValue(prev: Option[TypeDecl], td: TypeDecl, d: Decl)(implicit st: StackTracker): List[String] = d match {
     case ParameterDecl(_, name) =>
       move(eax, stackMemory(st.lookUpLocation(name))) + comment(s"load parameter ${name.lexeme}") :: Nil
 
@@ -422,10 +427,15 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           // static variable to be found in data section
           move(eax, Data(labelFactory.makeLabel(td, fd))) + comment(s"load static field ${fd.name}") :: Nil
 
-        else
-          // member variable to be found in object layout
-          comment(s"load ${fd.name} from ${td.name}") ::
-          loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
+        else prev match {
+          case Some(typeDecl) =>
+            comment(s"load ${fd.name} from eax of type ${typeDecl.name}") ::
+            loadFromObject(eax, layout.objectLayout(typeDecl)(fd)) :: Nil
+          case None =>
+            // member variable to be found in object layout
+            comment(s"load ${fd.name} from ${td.name}") ::
+            loadFromObject(stackMemory(st.lookUpThis()), layout.objectLayout(fd))
+        }
 
       case _: MethodDecl | _: ConstructorDecl =>
         assert(assertion = false, "named expr should not point to function"); throw Error.undefinedMatch
@@ -577,10 +587,13 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             }
             else {
               // handles the qualifiers
+              var prev: Option[TypeDecl] = None
               val prologue = decls.dropRight(1) flatMap { tdd =>
                 val (typeDecl, decl) = tdd
-                loadValue(typeDecl, decl) :::
+                val ret = loadValue(prev, typeDecl, decl) :::
                 nullCheck()
+                prev = Some(typeDecl)
+                ret
               }
               val (typeDecl, decl) = decls.last
               decl match {

@@ -427,21 +427,27 @@ class EnvironmentBuilder(environment: Environment) {
           }
         case ExprName(exprId, typ, decls) =>
           val field = id.id
-          val exprType = typ match {
-            case ArrayType(arrayOf, size) =>
-              if (field.lexeme == "length") PrimitiveType(JavaInt(row = 0, col = 0))
+          val (hack, exprType): (Option[(TypeDecl, FieldDecl)], Type) = typ match {
+            case ArrayType(arrayOf: Type, size) =>
+              if (field.lexeme == "length") (None, PrimitiveType(JavaInt(row = 0, col = 0)))
               else throw Error.memberNotFound(s"$arrayOf[]", field)
             case NullType() => throw Error.nullPointerException
             case ClassType(typeID) =>
               val typeOf = environment.findType(typeID)
               typeOf.flatMap(findNonStaticField(field, _)) match {
-                case Some(value) =>
-                  findFieldType(value, typeDecl, typeID)
+                case Some(value: (TypeDecl, FieldDecl)) =>
+                  (Some(value), findFieldType(value, typeDecl, typeID))
                 case None => throw Error.classNotFound(typeID)
               }
             case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)
           }
-          ExprName(id, exprType, decls /*this may be incorrect*/)
+          hack match {
+            case Some(value) =>
+              ExprName(id, exprType, value)
+            case None =>
+              ExprName(id, exprType, decls)
+          }
+
         case TypeName(typeId, typeOf) =>
           findStaticField(id.id, typeOf) match {
             case Some(value) =>
