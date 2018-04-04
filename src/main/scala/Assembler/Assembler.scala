@@ -438,7 +438,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-  //TODO fix named expression
+  //AccessExpr is never called turns out
   def assemble(accessExpr: AccessExpr)(implicit st: StackTracker): List[String] = accessExpr match {
     case AccessExpr(lhs, field) => //LHS should be a reference
       assemble(lhs)
