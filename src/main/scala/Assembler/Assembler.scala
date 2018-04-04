@@ -130,11 +130,15 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-//  def assembleAllStatic(typeDecl: TypeDecl): List[String] = {
-//    val (fields, _, _) = typeChecker.partitionMembers(typeDecl.members)
-//    val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
-//
-//  }
+  def assembleAllStatic(typeDecl: TypeDecl): List[String] = {
+    val (fields, _, _) = typeChecker.partitionMembers(typeDecl.members)
+    val staticFields = fields.filter(_.modifiers.exists(_.isInstanceOf[JavaStatic]))
+    staticFields.map {
+      staticField =>
+        val label = labelFactory.makeStaticFieldInitLabel(typeDecl, staticField)
+        call(label)
+    }
+  }
 
   def assemble(md: MethodDecl): List[String] = {
     val label = labelFactory.makeLabel(cu.typeDecl, md)
@@ -143,17 +147,17 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val totalLocalBytes = new VarDeclCounter().getNumVarDecl(blockStmt) * wordSize
         val isStatic = md.modifiers.exists(_.isInstanceOf[JavaStatic])
         implicit val st: StackTracker = new StackTracker(md.parameters, inObject = !isStatic)
-        if(md.name.lexeme == "test" && isStatic)
-
-        //TODO: _start needs to be relocated and actually initialize things
+        if(md.name.lexeme == "test" && isStatic) {
+          val allTypes = typeChecker.environment.qualifiedTypes.values.flatten.toList
           placeLabel(labelFactory.makeStartLabel()) ::
+            allTypes.flatMap(assembleAllStatic) :::
             call(label) ::
             debugExit() ::
             functionEntrance(label, totalLocalBytes) :::
             assemble(blockStmt) :::
             functionExit()
 
-        else
+        } else
           functionEntrance(label, totalLocalBytes) :::
             assemble(blockStmt) :::
             functionExit()
