@@ -277,7 +277,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         }
       case _: ThisExpr =>
         move(eax, stackMemory(st.lookUpThis())) :: Nil
-      case ce: CastExpr => ???
+      case ce: CastExpr =>
+        assemble(ce.rhs)
       case ae: AccessExpr =>
         assemble(ae)
       case aae: ArrayAccessExpr =>
