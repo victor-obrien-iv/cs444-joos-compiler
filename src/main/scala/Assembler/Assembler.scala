@@ -4,7 +4,7 @@ import AST._
 import Disambiguator.TypeChecker
 import Error.Error
 import Token._
-import i386._
+import i386.{push, _}
 
 class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   import LabelFactory._
@@ -446,13 +446,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
 
   def assemble(arrayAccessExpr: ArrayAccessExpr)(implicit st: StackTracker): List[String] = arrayAccessExpr match {
     case ArrayAccessExpr(lhs, index) => //LHS should contain an array expression
-      comment("Loads address of array") :: assemble(lhs) :::
-      push(eax) ::
-      comment("Loads index into array") :: assemble(index) :::
-      comment("Loads address of array pushed earlier") :: pop(ebx) ::
-      comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
-      comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::
-      comment("Adds the index offset to the address") :: add(eax, ebx) ::  Nil
+      assembleArrayAddr(lhs, index) :::
+      comment("Move the value of the address into the return") :: move(eax, Memory(eax, 0)) ::  Nil
 
   }
 
@@ -611,21 +606,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
               }
             }
           case aae: ArrayAccessExpr =>
-            comment("get the array pointer") ::
-            assemble(aae.lhs) :::
-            push(eax) + comment("save the array pointer") ::
-            comment("calculate the index") ::
-            assemble(aae.index) :::
-            signedMultiply(eax, Immediate(wordSize)) + comment("multiply by word size") ::
-            push(eax) + comment("save the index") ::
-            comment("calculate the rhs") ::
-            assemble(be.rhs) :::
-            pop(ebx) + comment("get the index") ::
-            pop(ecx) + comment("get the array pointer") ::
-            move(ecx, Memory(ecx, 0)) + comment("dereference array pointer") ::
-            comment("move to the index + 8") ::
-            add(ecx, ebx) ::
-            storeIntoObject(ecx, 8, eax) :: Nil
+            assembleArrayAddr(aae.lhs, aae.index) :::
+              push(eax) ::
+              assemble(be.rhs) :::
+              pop(ebx) ::
+              move(Memory(ebx, 0), eax) :: Nil
 
           case ae: AccessExpr =>
             val decl = typeChecker.declCache.get(ae)
@@ -642,7 +627,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
     }
   }
 
-  case class IntMin() extends Exception
+  private def assembleArrayAddr(lhs: Expr, index: Expr)(implicit st: StackTracker): List[String] = {
+    comment("Loads address of array") :: assemble(lhs) :::
+      push(eax) ::
+      comment("Loads index into array") :: assemble(index) :::
+      comment("Loads address of array pushed earlier") :: pop(ebx) ::
+      comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
+      comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::
+      comment("Adds the index offset to the address") :: add(eax, ebx) :: Nil
+  }
+case class IntMin() extends Exception
   def assemble(ue: UnaryExpr)(implicit st: StackTracker): List[String] = ue.operatorTok match {
     case Minus(_, _ ,_) =>
       try
