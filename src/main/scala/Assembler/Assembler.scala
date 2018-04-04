@@ -490,6 +490,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             move(Data(labelFactory.makeLabel(td, fd)), eax) :: Nil
 
         val leftNamedExpr = be.lhs.asInstanceOf[NamedExpr]
+//        println(s"load from namedExprDeclCache $leftNamedExpr ${System.identityHashCode(leftNamedExpr)}")
         val decls = typeChecker.namedExprDeclCache.get(leftNamedExpr)
         assert(decls.nonEmpty, "namedExprDeclCache returned null")
         if (leftNamedExpr.name.qualifiers.isEmpty) {
