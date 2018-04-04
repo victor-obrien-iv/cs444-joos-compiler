@@ -66,12 +66,12 @@ object Main extends App {
           )
         }
 
-        val print = futures.map { ast =>
-          new PrettyPrinter(ast.fileName).run(ast)
-        }
+//        val print = futures.map { ast =>
+//          new PrettyPrinter(ast.fileName).run(ast)
+//        }
 
         //TODO: Fix hierarchy checker
-        Future.sequence(linkers /*++ hierarchy*/ ++ staticAnalysis ++ print)
+        Future.sequence(linkers /*++ hierarchy*/ ++ staticAnalysis /*++ print*/)
       }
   }
 
