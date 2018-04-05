@@ -93,7 +93,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   def assemble(fieldDecl: FieldDecl): List[String] ={
 
     val label = labelFactory.makeLabel(cu.typeDecl, fieldDecl)
-    val defaultValue = placeValue(0)
+    val defaultValue = placeValue(-1)
 
     placeLabel(label) :: defaultValue :: Nil
   }
@@ -201,7 +201,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
             comment(s"set local var ${decl.name} on the stack") :: Nil
         case None =>
           // no assignment defaults to zero/null
-          move(stackMemory(st.lookUpLocation(decl.name)), Immediate(0)) +
+          move(stackMemory(st.lookUpLocation(decl.name)), Immediate(-1)) +
             comment(s"push local var ${decl.name} onto the stack with default value zero") :: Nil
       }
 
@@ -510,7 +510,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           val typeOf = typeChecker.environment.findType(typeID)
           typeOf.flatMap(typeChecker.findNonStaticField(field, _)) match {
             case Some(value) =>
-              loadValue(None, value._1, value._2)
+              loadValue(Some(value._1), value._1, value._2)
             case None => throw Error.classNotFound(typeID)
           }
         case PrimitiveType(typeToken) => throw Error.primitiveDoesNotContainField(typeToken, field)

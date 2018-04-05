@@ -126,8 +126,12 @@ object i386 {
     move(eax, Immediate(numBytes)) ::
     call(LabelFactory.mallocLabel) :: Nil
   def nullCheck(): List[String] =
-    NoOperation() :: Nil
-//    comment("null check") ::
+    compare(eax, Immediate(-1)) ::
+    setOnEqual(al) ::
+    moveZeroExtended(eax, al) ::
+    jumpIfRegIsTrue(eax, LabelFactory.exceptionLabel)
+//    NoOperation() :: Nil
+//    comment("null check"call    __debexit) ::
 //    jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
   def castCheck(): List[String] =
     comment("cast check") ::

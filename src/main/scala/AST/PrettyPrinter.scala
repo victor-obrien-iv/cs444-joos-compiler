@@ -175,7 +175,7 @@ class PrettyPrinter(filename: String) extends Visitor {
   }
 
   override def visit(one: ObjNewExpr): Unit = {
-    write("Obj New Expr:")
+    write(s"Obj New Expr: ${one.ctor.name}")
     numIndents += 1
     super.visit(one)
     numIndents -= 1
