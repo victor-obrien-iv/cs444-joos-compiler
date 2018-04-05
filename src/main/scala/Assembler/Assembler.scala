@@ -454,6 +454,7 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val instanceTypeId = typeChecker.findTypeIndex(instanceDecl)
         val typeLabel = labelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
         comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
+          move(eax, Memory(eax, 0)) ::
           comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
           comment("Load label of super class") :: move(ebx, typeLabel) ::
           comment("Add label") :: add(eax, ebx) ::
