@@ -719,7 +719,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   private def assembleArrayAddr(lhs: Expr, index: Expr)(implicit st: StackTracker): List[String] = {
     comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
+      comment("Load length of array") :: move(eax, Memory(eax, 4)) ::
+      push(eax) ::
       comment("Loads index into array") :: assemble(index) :::
+      pop(ebx) ::
+      indexCheck() :::
       comment("Loads address of array pushed earlier") :: pop(ebx) ::
       comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
       comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::

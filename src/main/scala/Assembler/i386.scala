@@ -97,12 +97,17 @@ object i386 {
   def jump(destination: Label): String = instr("jmp", destination)
   private def jumpIfZero(destination: Label): String = instr("jz", destination)
   private def jumpIfNotZero(destination: Label): String = instr("jnz", destination)
+  private def jumpGreaterThanOrEqual(destination: Label): String = instr("jge", destination)
+  private def jumpLessThan(destination: Label): String = instr("jl", destination)
   def jumpIfRegIsTrue(op1: Operand, destination: Label): List[String] =
     compare(op1, Immediate(0)) ::
     jumpIfNotZero(destination) :: Nil
   def jumpIfRegIsFalse(op1: Operand, destination: Label): List[String] =
     compare(op1, Immediate(0)) ::
     jumpIfZero(destination) :: Nil
+  def jumpIfRegIsNeg(op1: Operand, destination: Label): List[String] =
+    compare(op1, Immediate(0)) ::
+    jumpLessThan(destination) :: Nil
   def call(destination: Label): String = instr("call", destination)
   def call(reg: Register): String = instr("call", reg)
   def discardArgs(numArgs: Int): String = add(esp, Immediate(4 * numArgs))
@@ -127,6 +132,11 @@ object i386 {
   def castCheck(): List[String] =
     comment("cast check") ::
     jumpIfRegIsFalse(eax, LabelFactory.exceptionLabel)
+  def indexCheck(): List[String] =
+    compare(eax, ebx) ::
+    comment("index check") ::
+    jumpGreaterThanOrEqual(LabelFactory.exceptionLabel) ::
+    jumpIfRegIsNeg(eax, LabelFactory.exceptionLabel)
   def debugExit(): String =
     call(LabelFactory.debugExitLabel) + comment("exit")
 
