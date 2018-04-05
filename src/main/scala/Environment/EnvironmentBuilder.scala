@@ -427,9 +427,9 @@ class EnvironmentBuilder(environment: Environment) {
           }
         case ExprName(exprId, typ, decls) =>
           val field = id.id
-          val (hack, exprType): (Option[(TypeDecl, FieldDecl)], Type) = typ match {
+          val (hack, exprType): (Option[(TypeDecl, Decl)], Type) = typ match {
             case ArrayType(arrayOf: Type, size) =>
-              if (field.lexeme == "length") (None, PrimitiveType(JavaInt(row = 0, col = 0)))
+              if (field.lexeme == "length") (Some(decls._1, ArrayDecl()), PrimitiveType(JavaInt(row = 0, col = 0)))
               else throw Error.memberNotFound(s"$arrayOf[]", field)
             case NullType() => throw Error.nullPointerException
             case ClassType(typeID) =>

@@ -146,3 +146,8 @@ case class ParameterDecl(typ: Type, name: Token.Identifier) extends Decl
   * @param name the identifier of the variable
   */
 case class VarDecl(typ: Type, name: Token.Identifier) extends Decl
+
+/**
+  * Sole purpose to wrap with length
+  */
+case class ArrayDecl() extends Decl
