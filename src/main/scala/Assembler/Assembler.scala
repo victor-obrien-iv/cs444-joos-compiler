@@ -324,25 +324,53 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         val (methodClass, methodDecl) = typeChecker.declCache.get(ce)
         val isStatic = methodDecl.modifiers.exists(_.isInstanceOf[JavaStatic])
         ce.obj match {
-          case Some(objExpr) =>
-            val (declType, decl) = typeChecker.namedExprDeclCache.get(objExpr).last
-            decl match {
-              case t: TypeDecl =>
-                pushParams(ce.params) :::
-                call(labelFactory.makeLabel(methodClass, methodDecl)) ::
-                discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
-              case _: FieldDecl | _: VarDecl =>
-                val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
-                assemble(objExpr) :::
-                nullCheck() :::
-                push(eax) + comment("push the obj being called on to be a parameter for the function") ::
-                pushParams(ce.params) :::
-                comment("<dynamic dispatch>") ::
-                move(eax, Memory(eax, 0)) ::
-                move(eax, Memory(eax, offset)) ::
-                call(eax) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
-                comment("</dynamic dispatch>") ::
-                discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+          case Some(objExpr: Expr) =>
+            if(typeChecker.namedExprDeclCache.containsKey(objExpr)) {
+              val (declType, decl) = typeChecker.namedExprDeclCache.get(objExpr).last
+              decl match {
+                case t: TypeDecl =>
+                  pushParams(ce.params) :::
+                    call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+                    discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+                case _: FieldDecl | _: VarDecl =>
+                  val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
+                  assemble(objExpr) :::
+                    nullCheck() :::
+                    push(eax) + comment("push the obj being called on to be a parameter for the function") ::
+                    pushParams(ce.params) :::
+                    comment("<dynamic dispatch>") ::
+                    move(eax, Memory(eax, 0)) ::
+                    move(eax, Memory(eax, offset)) ::
+                    call(eax) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
+                    comment("</dynamic dispatch>") ::
+                    discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+
+                case cd: ConstructorDecl => ???
+              }
+            } else if (typeChecker.declCache.containsKey(objExpr)) {
+              val (declType, decl) = typeChecker.declCache.get(objExpr)
+              decl match {
+                case t: TypeDecl =>
+                  pushParams(ce.params) :::
+                    call(labelFactory.makeLabel(methodClass, methodDecl)) ::
+                    discardArgs(ce.params.size) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+                case _ =>
+                  val offset = methodOffset(methodClass, methodDecl.asInstanceOf[MethodDecl])
+                  assemble(objExpr) :::
+                    nullCheck() :::
+                    push(eax) + comment("push the obj being called on to be a parameter for the function") ::
+                    pushParams(ce.params) :::
+                    comment("<dynamic dispatch>") ::
+                    move(eax, Memory(eax, 0)) ::
+                    move(eax, Memory(eax, offset)) ::
+                    call(eax) + comment(s"calling ${methodDecl.name} in ${methodClass.name}") ::
+                    comment("</dynamic dispatch>") ::
+                    discardArgs(ce.params.size + 1) + comment(s"discard args for ${ce.call.lexeme}") :: Nil
+
+              }
+            } else {
+              println(objExpr)
+              ???
             }
 
           case None =>
