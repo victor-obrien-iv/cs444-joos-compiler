@@ -463,13 +463,16 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         var prev: Option[TypeDecl] = None
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
-          if (typeDecl == decl) {
-            Nil
-          } else {
-            val ret = loadValue(prev, typeDecl, decl)
-            comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
-            prev = Some(typeDecl)
-            ret
+          decl match {
+            case ArrayDecl() =>
+              comment(s"load length") ::
+                move(eax, Memory(eax, 4)):: Nil
+            case td: TypeDecl => Nil
+            case _ =>
+              val ret = loadValue(prev, typeDecl, decl)
+              comment(s"load from ${ne.name.name} ${typeDecl.name} => $decl") :: ret
+              prev = Some(typeDecl)
+              ret
           }
         }
     }
@@ -804,6 +807,7 @@ case class IntMin() extends Exception
       val stringCtor = typeChecker.findConstructor(List(charType), stringDecl).getOrElse(throw Error.langLibraryNotLoaded)
       allocate((value.length + 2) * 4) ::: comment("Allocate bytes for String literal") ::
       charArray.toList ::: comment("Allocated characters: " + value.toCharArray.toString) ::
+      move(Memory(eax, 4), Immediate(value.length)) ::
       push(eax) :: comment("Contstruct String") ::
       call(labelFactory.makeLabel(stringDecl, stringCtor)) :: Nil
 
