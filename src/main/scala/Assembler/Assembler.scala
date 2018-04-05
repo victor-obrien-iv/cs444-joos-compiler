@@ -389,7 +389,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
       case _: ThisExpr =>
         move(eax, stackMemory(st.lookUpThis())) :: Nil
       case ce: CastExpr =>
-        assemble(ce.rhs)
+        assemble(ce.rhs) :::
+        push(eax) ::
+        assembleSubtype(ce.castType):::
+        castCheck():::
+        pop(eax) :: Nil
       case ae: AccessExpr =>
         assemble(ae)
       case aae: ArrayAccessExpr =>
@@ -421,19 +425,8 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         else move(eax, stackMemory(st.lookUpLocation(dre.reference))) :: Nil
 
       case ioe: InstanceOfExpr =>
-        val instanceDecl = ioe.typ match {
-          case ClassType(iD) => typeChecker.environment.findType(iD).getOrElse(throw Error.classNotFound(iD))
-          case PrimitiveType(typeToken) => throw Error.undefinedMatch
-          case _ => throw Error.undefinedMatch
-        }
-        val instanceTypeId = typeChecker.findTypeIndex(instanceDecl)
-        val typeLabel = labelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
         assemble(ioe.lhs) :::
-        comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
-        comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
-        comment("Load label of super class") :: move(ebx, typeLabel) ::
-        comment("Add label") :: add(eax, ebx) ::
-        comment("Get the result in eax") :: move(eax, Memory(eax, 0)) :: Nil
+        assembleSubtype(ioe.typ)
       case ne: NewExpr =>
         ne match {
           case ObjNewExpr(ctor, params) =>
@@ -480,6 +473,24 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
           }
         }
     }
+  }
+
+  private def assembleSubtype(typ: Type): List[String] = {
+    typ match {
+      case ClassType(iD) =>
+        val instanceDecl = typeChecker.environment.findType(iD).getOrElse(throw Error.classNotFound(iD))
+        val instanceTypeId = typeChecker.findTypeIndex(instanceDecl)
+        val typeLabel = labelFactory.makeSubTypeTableEntryLabel(instanceTypeId)
+        comment("Move subtype into eax") :: move(eax, Memory(eax, 0)) ::
+          move(eax, Memory(eax, 0)) ::
+          comment("Align with bytes") :: signedMultiply(eax, Immediate(4)) ::
+          comment("Load label of super class") :: move(ebx, typeLabel) ::
+          comment("Add label") :: add(eax, ebx) ::
+          comment("Get the result in eax") :: move(eax, Memory(eax, 0)) :: Nil
+      case PrimitiveType(typeToken) => move(eax, Immediate(1))::Nil
+      case _ => move(eax, Immediate(1))::Nil
+    }
+
   }
 
   def loadValue(prev: Option[TypeDecl], td: TypeDecl, d: Decl)(implicit st: StackTracker): List[String] = d match {
@@ -737,7 +748,11 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
   private def assembleArrayAddr(lhs: Expr, index: Expr)(implicit st: StackTracker): List[String] = {
     comment("Loads address of array") :: assemble(lhs) :::
       push(eax) ::
+      comment("Load length of array") :: move(eax, Memory(eax, 4)) ::
+      push(eax) ::
       comment("Loads index into array") :: assemble(index) :::
+      pop(ebx) ::
+      indexCheck() :::
       comment("Loads address of array pushed earlier") :: pop(ebx) ::
       comment("Adds offset since first entry of array should be after vtable and length") :: add(eax, Immediate(2)) ::
       comment("Aligns index") :: signedMultiply(eax, Immediate(4)) ::
