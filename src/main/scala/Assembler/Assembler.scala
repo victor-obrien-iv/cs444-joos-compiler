@@ -433,7 +433,6 @@ class Assembler(cu: CompilationUnit, typeChecker: TypeChecker) {
         }
       case ne: NamedExpr =>
         var prev: Option[TypeDecl] = None
-        val types = typeChecker.namedExprTypeCache.get(ne)
         typeChecker.namedExprDeclCache.get(ne) flatMap { tdd =>
           val (typeDecl, decl) = tdd
           decl match {
